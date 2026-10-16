@@ -117,6 +117,14 @@ def lan_ip():
             return None
 
 
+def refused(url, **kw):
+    """Another device must get a 403 from the app, or no answer at all (e.g. the macOS firewall blocks it)."""
+    try:
+        return httpx.get(url, timeout=3, **kw).status_code == 403
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return True
+
+
 def test_other_devices_are_refused(world):
     """The real service listens on all interfaces for port 80, so the app itself must refuse non-local clients."""
     ip = lan_ip()
@@ -135,7 +143,7 @@ def test_other_devices_are_refused(world):
             except httpx.HTTPError:
                 time.sleep(0.1)
         assert local.status_code == 200
-        assert httpx.get(f"http://{ip}:{port}/api/status", timeout=3).status_code == 403
+        assert refused(f"http://{ip}:{port}/api/status")
     finally:
         proc.terminate()
         proc.wait()
