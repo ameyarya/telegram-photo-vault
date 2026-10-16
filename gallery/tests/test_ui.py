@@ -1,0 +1,296 @@
+"""Drives the real UI in headless Chromium. Screenshots land in tests/screenshots/ for a visual check."""
+import pytest
+from playwright.sync_api import expect
+
+from conftest import shot
+
+MOBILE = {"viewport": {"width": 390, "height": 844}}
+
+
+def go(page, hash_=""):
+    page.goto(page.base + "/" + hash_)
+    page.wait_for_selector(".side a.active")
+
+
+def active_nav(page):
+    return page.locator(".side a.active").all_inner_texts()
+
+
+def wait_thumbs(page):
+    page.wait_for_function("""() => [...document.querySelectorAll('.tile img')].every(i => i.complete)
+                              && document.querySelectorAll('.tile img.ok').length > 0""")
+
+
+# ---------- navigation ----------
+@pytest.mark.parametrize("hash_, expected", [
+    ("", ["Photos"]),
+    ("#/photos", ["Photos"]),
+    ("#/albums", ["Albums"]),
+    ("#/album/vacation", ["Vacation"]),
+    ("#/album/family%2Fwedding%2Fday%201", ["Family"]),   # inside a folder: that folder stays highlighted
+    ("#/all/family", ["Family"]),
+])
+def test_exactly_one_nav_item_is_highlighted(page, hash_, expected):
+    go(page, hash_)
+    assert [t.strip() for t in active_nav(page)] == expected
+
+
+def test_highlight_follows_clicks(page):
+    go(page)
+    page.click(".side a[data-route=albums]")
+    expect(page.locator(".side a.active")).to_have_text("Albums")
+    page.click(".side a[data-route=photos]")
+    expect(page.locator(".side a.active")).to_have_text("Photos")
+    assert len(active_nav(page)) == 1
+
+
+# ---------- timeline ----------
+def test_photos_timeline(page):
+    go(page)
+    expect(page.locator(".tile")).to_have_count(10)
+    days = page.locator(".day h3").all_inner_texts()
+    assert len(days) == len(set(days)) == 6          # one heading per day, no duplicates
+    assert "2023" in days[0]                          # oldest first: the screenshot from 2023
+    expect(page.locator("#pgSub")).to_contain_text("10 items")
+    wait_thumbs(page)
+    broken = page.evaluate("[...document.querySelectorAll('.tile img')].filter(i => !i.naturalWidth).length")
+    assert broken == 0
+    shot(page, "photos-dark")
+
+
+def test_rows_fill_the_width_and_keep_shapes(page):
+    go(page, "#/album/vacation")
+    wait_thumbs(page)
+    box = page.locator("#days").bounding_box()
+    for row in page.locator(".row").all():
+        tiles = row.locator(".tile").all()
+        last = tiles[-1].bounding_box()
+        assert last["x"] + last["width"] <= box["x"] + box["width"] + 1   # never overflows
+    go(page, "#/album/family%2Fwedding%2Fday%201")
+    t = page.locator(".tile").first.bounding_box()
+    assert t["height"] > t["width"]                   # the sideways-stored photo shows as portrait
+
+
+def test_video_tile_shows_duration(page):
+    go(page, "#/album/family%2Fwedding%2Fday%201")
+    expect(page.locator(".tile .dur")).to_contain_text("0:02")
+
+
+# ---------- albums ----------
+def test_albums_page_and_open_album(page):
+    go(page, "#/albums")
+    expect(page.locator(".card")).to_have_count(6)
+    expect(page.locator(".group h2")).to_have_text(["Family", "iPhone", "Vacation"])
+    expect(page.locator(".card", has_text="iPhone")).to_contain_text("1 item")
+    expect(page.locator(".card", has_text="iPhone")).not_to_contain_text("1 items")
+    page.wait_for_function("[...document.querySelectorAll('.card img')].every(i => i.complete && i.naturalWidth)")
+    shot(page, "albums-dark")
+    page.locator(".card", has_text="Day 1").click()
+    expect(page.locator(".page-head h1")).to_have_text("Day 1")
+    expect(page.locator(".tile")).to_have_count(2)
+    page.click("#pgBack")                                   # back goes up one folder
+    expect(page).to_have_url(page.base + "/#/album/family%2Fwedding")
+
+
+def test_search_clear_button_only_when_typing(page):
+    go(page)
+    expect(page.locator("#qClear")).to_be_hidden()
+    page.fill("#q", "x")
+    expect(page.locator("#qClear")).to_be_visible()
+
+
+def test_search_filters_albums(page):
+    go(page)
+    page.fill("#q", "day 2")
+    expect(page.locator(".card")).to_have_count(1)
+    expect(page.locator(".side a.active")).to_have_text("Albums")
+    page.click("#qClear")
+    expect(page.locator(".card")).to_have_count(6)
+    page.fill("#q", "zzz")
+    expect(page.locator(".empty")).to_contain_text("No albums")
+
+
+# ---------- viewer ----------
+def open_first_photo(page, album="vacation"):
+    go(page, f"#/album/{album}")
+    page.locator(".tile").first.click()
+    expect(page.locator("#viewer")).to_be_visible()
+    page.wait_for_function("document.querySelector('#vMain img.v-media')?.naturalWidth > 0")
+
+
+def test_viewer_opens_and_back_arrow_closes(page):
+    open_first_photo(page)
+    expect(page.locator("#vBack")).to_be_visible()
+    expect(page.locator("#vDl")).to_be_visible()
+    expect(page.locator("#vInfoBtn")).to_be_visible()
+    shot(page, "viewer")
+    page.click("#vBack")
+    expect(page.locator("#viewer")).to_be_hidden()
+    expect(page).to_have_url(page.base + "/#/album/vacation")
+
+
+def test_back_arrow_visible_on_huge_photo(page):
+    """Regression: the old viewer pushed its close button off-screen for big photos."""
+    page.set_viewport_size({"width": 1000, "height": 500})
+    open_first_photo(page)
+    b = page.locator("#vBack").bounding_box()
+    assert b and 0 <= b["y"] and b["y"] + b["height"] <= 500
+    img = page.locator("img.v-media").bounding_box()
+    assert img["height"] <= 500 + 1
+
+
+def test_escape_and_browser_back_close_viewer(page):
+    open_first_photo(page)
+    page.keyboard.press("Escape")
+    expect(page.locator("#viewer")).to_be_hidden()
+    page.locator(".tile").first.click()
+    expect(page.locator("#viewer")).to_be_visible()
+    page.go_back()
+    expect(page.locator("#viewer")).to_be_hidden()
+    expect(page).to_have_url(page.base + "/#/album/vacation")   # stayed on the album
+    expect(page.locator(".tile")).to_have_count(3)
+
+
+def test_next_previous_and_keyboard(page):
+    open_first_photo(page)
+    page.click("#vInfoBtn")
+    expect(page.locator("#vInfo")).to_contain_text("beach.jpg")
+    expect(page.locator("#vPrev")).to_be_hidden()
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("#vInfo")).to_contain_text("sunset.jpg")
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("#vInfo")).to_contain_text("pier.jpg")
+    expect(page.locator("#vNext")).to_be_hidden()
+    page.keyboard.press("ArrowRight")                 # past the end: stays put
+    expect(page.locator("#vInfo")).to_contain_text("pier.jpg")
+    page.keyboard.press("ArrowLeft")
+    expect(page.locator("#vInfo")).to_contain_text("sunset.jpg")
+
+
+def test_info_panel(page):
+    open_first_photo(page)
+    page.keyboard.press("i")
+    info = page.locator("#vInfo")
+    expect(info).to_be_visible()
+    expect(info).to_contain_text("Feb 7, 2024")
+    expect(info).to_contain_text("1200 × 800")
+    expect(info).to_contain_text("Not backed up yet")
+    shot(page, "viewer-info")
+    page.click("#vInfoClose")
+    expect(info).to_be_hidden()
+
+
+def test_info_album_link_navigates(page):
+    open_first_photo(page, "family%2Fwedding%2Fday%202")
+    page.click("#vInfoBtn")
+    page.click("#vInfo a[data-album]")
+    expect(page.locator("#viewer")).to_be_hidden()
+    expect(page.locator(".page-head h1")).to_have_text("Day 2")
+
+
+def test_heic_photo_displays(page):
+    open_first_photo(page, "family%2Fwedding%2Fday%202")
+    w = page.evaluate("document.querySelector('img.v-media').naturalWidth")
+    assert w > 0
+
+
+def test_video_plays(page):
+    go(page, "#/album/family%2Fwedding%2Fday%201")
+    page.locator(".tile", has=page.locator(".dur")).click()
+    page.wait_for_function("document.querySelector('video.v-media')?.readyState >= 1")
+    assert page.evaluate("Math.round(document.querySelector('video.v-media').duration)") == 2
+
+
+def test_download_link(page):
+    open_first_photo(page)
+    with page.expect_download() as d:
+        page.click("#vDl")
+    assert d.value.suggested_filename == "beach.jpg"
+
+
+# ---------- mobile + light mode ----------
+@pytest.mark.parametrize("page", [MOBILE], indirect=True)
+def test_mobile_drawer(page):
+    go(page)
+    expect(page.locator("#side")).not_to_be_in_viewport()
+    page.click("#menuBtn")
+    page.wait_for_function("document.querySelector('#side').getBoundingClientRect().left === 0")
+    expect(page.locator(".side a[data-route=photos]")).to_be_visible()
+    shot(page, "mobile-drawer")
+    page.click(".side a[data-route=albums]")
+    expect(page.locator("#side")).not_to_be_in_viewport()
+    expect(page.locator(".card")).to_have_count(6)
+    a, b = page.locator(".card").nth(2).bounding_box(), page.locator(".card").nth(3).bounding_box()
+    assert a["y"] == b["y"] and b["x"] > a["x"]   # two cards side by side on a phone
+    shot(page, "mobile-albums")
+
+
+@pytest.mark.parametrize("page", [MOBILE], indirect=True)
+def test_mobile_viewer(page):
+    open_first_photo(page)
+    b = page.locator("#vBack").bounding_box()
+    assert b["y"] >= 0 and b["x"] >= 0
+    shot(page, "mobile-viewer")
+    page.click("#vBack")
+    expect(page.locator("#viewer")).to_be_hidden()
+
+
+@pytest.mark.parametrize("page", [{"scheme": "light"}], indirect=True)
+def test_light_mode(page):
+    go(page)
+    wait_thumbs(page)
+    bg = page.evaluate("getComputedStyle(document.body).backgroundColor")
+    assert bg == "rgb(255, 255, 255)"
+    shot(page, "photos-light")
+
+
+# ---------- folders ----------
+def test_top_folder_shows_subfolders_not_a_dump(page):
+    go(page, "#/album/family")
+    expect(page.locator(".card b")).to_have_text(["Videos", "Wedding"])
+    expect(page.locator(".card", has_text="Wedding")).to_contain_text("4 items · 2 folders")
+    expect(page.locator(".tile")).to_have_count(0)          # no giant timeline
+    expect(page.locator("#pgSub")).to_have_text("6 items in 2 folders")
+    expect(page.locator(".all-link")).to_contain_text("View all 6 items")
+    shot(page, "folder-family")
+
+
+def test_folder_with_photos_and_subfolders(page):
+    go(page, "#/album/family%2Fwedding")
+    expect(page.locator(".card b")).to_have_text(["Day 1", "Day 2"])
+    expect(page.locator(".sec")).to_have_text("Photos in this folder")
+    expect(page.locator(".tile")).to_have_count(1)          # only group.jpg lives directly here
+    expect(page.locator("#pgSub")).to_contain_text("1 item here · 4 items including sub-folders")
+    expect(page.locator("#crumbs a")).to_have_text(["Family"])
+    expect(page.locator("#pgSub")).to_contain_text("Fri, Jan 19, 2024")
+    expect(page.locator("#pgSub")).not_to_contain_text("–")   # single day: no "X – X" range
+
+
+def test_drill_down_breadcrumbs_and_back(page):
+    go(page, "#/album/family")
+    page.locator(".card", has_text="Wedding").click()
+    page.locator(".card", has_text="Day 2").click()
+    expect(page.locator(".page-head h1")).to_have_text("Day 2")
+    expect(page.locator("#crumbs a")).to_have_text(["Family", "Wedding"])
+    page.locator("#crumbs a", has_text="Family").click()
+    expect(page.locator(".page-head h1")).to_have_text("Family")
+    page.click("#pgBack")                                    # top-level folder: back to Albums
+    expect(page).to_have_url(page.base + "/#/albums")
+
+
+def test_view_all_as_one_timeline(page):
+    go(page, "#/album/family")
+    page.click(".all-link")
+    expect(page.locator(".tile")).to_have_count(6)
+    expect(page.locator(".page-head h1")).to_contain_text("everything")
+    page.click("#pgBack")
+    expect(page).to_have_url(page.base + "/#/album/family")
+    expect(page.locator(".card")).to_have_count(2)
+
+
+def test_viewer_inside_folder_steps_only_through_that_folder(page):
+    go(page, "#/album/family%2Fwedding")
+    page.locator(".tile").first.click()
+    page.click("#vInfoBtn")
+    expect(page.locator("#vInfo")).to_contain_text("group.jpg")
+    expect(page.locator("#vNext")).to_be_hidden()            # sub-folder photos aren't mixed in

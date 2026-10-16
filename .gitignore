@@ -1,0 +1,11 @@
+config.env
+state/
+.venv/
+gallery/certs/
+*.session
+*.session-journal
+__pycache__/
+.pytest_cache/
+gallery/tests/screenshots/
+*.log
+.DS_Store
