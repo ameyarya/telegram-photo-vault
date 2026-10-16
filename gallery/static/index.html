@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photo Vault</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='2' y='3' width='20' height='18' rx='4' fill='%230b57d0'/><path d='M6 17l3.5-4.5 2.5 3 3.5-4.5 4.5 6z' fill='white'/></svg>">
+<style>
+:root{
+  --bg:#ffffff; --surface:#f8fafd; --ink:#1f1f1f; --ink2:#444746; --line:#e1e3e1;
+  --pill:#d3e3fd; --pill-ink:#041e49; --search:#e9eef6; --accent:#0b57d0; --tile:#eceff1; --hover:rgb(31 31 31/.06);
+  --font:"Google Sans Text","Google Sans",Roboto,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#131314; --surface:#1b1b1d; --ink:#e3e3e3; --ink2:#c4c7c5; --line:#2f3133;
+  --pill:#004a77; --pill-ink:#c2e7ff; --search:#282a2c; --accent:#a8c7fa; --tile:#232427; --hover:rgb(227 227 227/.08);
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+svg{width:24px;height:24px;fill:currentColor;flex:none}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--ink2)}
+.icon-btn:hover{background:var(--hover)}
+
+/* ---------- shell ---------- */
+.topbar{position:fixed;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:8px;padding:0 16px 0 8px;background:var(--bg);z-index:20}
+.topbar.scrolled{box-shadow:0 1px 3px rgb(0 0 0/.12)}
+.logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);padding-right:24px;white-space:nowrap}
+.logo svg{width:30px;height:30px;color:var(--accent)}
+.search{flex:1;max-width:720px;height:48px;border-radius:24px;background:var(--search);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px}
+.search input{flex:1;border:0;background:none;outline:0;font:inherit;font-size:16px;color:var(--ink);min-width:0}
+.search input::placeholder{color:var(--ink2)}
+.spacer{flex:1}
+.status-dot{width:10px;height:10px;border-radius:50%;background:#9aa0a6}
+.status-dot.on{background:#1e8e3e}
+.side{position:fixed;top:64px;bottom:0;left:0;width:256px;padding:8px 12px 16px 0;overflow:auto;background:var(--bg);z-index:15;display:flex;flex-direction:column}
+.side a{display:flex;align-items:center;gap:18px;height:48px;padding:0 24px;border-radius:0 24px 24px 0;color:var(--ink);text-decoration:none;font-weight:500}
+.side a svg{color:var(--ink2)}
+.side a:hover{background:var(--hover)}
+.side a.active{background:var(--pill);color:var(--pill-ink)}
+.side a.active svg{color:var(--pill-ink)}
+.side .side-brand{display:none;height:64px;align-items:center;padding-left:20px;margin-bottom:8px}
+.side h4{margin:18px 24px 6px;font-size:12px;font-weight:500;color:var(--ink2);letter-spacing:.02em}
+.side .sub-link{height:40px;font-weight:400;font-size:14px}
+.side .stat{margin:auto 24px 0;padding-top:16px;color:var(--ink2);font-size:12px;display:grid;gap:8px}
+.side .stat div{display:flex;align-items:center;gap:8px}
+.bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflow-x:hidden}
+.page{padding:8px 32px 80px 16px}
+.page-head{display:flex;align-items:center;gap:8px;margin:8px 0 4px}
+.page-head h1{margin:0;font-size:28px;font-weight:400;line-height:1.25}
+.page-sub{color:var(--ink2);margin:0 0 8px 48px;font-size:14px}
+.page-head.no-back + .page-sub{margin-left:0}
+.crumbs{margin:0 0 2px 48px;font-size:14px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:4px}
+.crumbs a{color:var(--ink2);text-decoration:none;border-radius:4px}
+.crumbs a:hover{color:var(--accent);text-decoration:underline}
+.sec{font-size:16px;font-weight:500;margin:24px 0 12px}
+.all-link{display:inline-flex;align-items:center;gap:6px;margin:16px 0 0;color:var(--accent);text-decoration:none;font-weight:500}
+.all-link:hover{text-decoration:underline}
+.empty{padding:80px 16px;text-align:center;color:var(--ink2)}
+
+/* ---------- timeline ---------- */
+.day{padding-top:20px}
+.day h3{margin:0 0 10px;font-size:14px;font-weight:500;color:var(--ink)}
+.row{display:flex;gap:4px;margin-bottom:4px}
+.tile{position:relative;background:var(--tile);overflow:hidden;cursor:pointer;flex:none}
+.tile img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s}
+.tile img.ok{opacity:1}
+.tile::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgb(0 0 0/.25),transparent 30%);opacity:0;transition:opacity .15s}
+.tile:hover::after{opacity:1}
+.tile .dur{position:absolute;top:6px;right:6px;color:#fff;font-size:12px;font-weight:500;display:flex;align-items:center;gap:3px;
+  z-index:1;background:rgb(0 0 0/.5);padding:2px 4px 2px 8px;border-radius:12px}
+.tile .dur svg{width:16px;height:16px}
+.tile .off{position:absolute;bottom:6px;right:6px;color:#fff;z-index:1;background:rgb(0 0 0/.5);border-radius:50%;
+  width:24px;height:24px;display:grid;place-items:center}
+.tile .off svg{width:15px;height:15px}
+.tile .fname{position:absolute;inset:0;display:grid;place-items:center;padding:6px;font-size:11px;color:var(--ink2);text-align:center;word-break:break-all}
+.sentinel{height:1px}
+
+/* ---------- albums ---------- */
+.group h2{font-size:16px;font-weight:500;margin:28px 0 12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:24px 16px}
+.card{cursor:pointer;min-width:0}
+.card .cover{aspect-ratio:1;border-radius:12px;background:var(--tile);overflow:hidden}
+.card .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.card:hover .cover img{transform:scale(1.03)}
+.card b{display:block;margin-top:10px;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card span{display:block;color:var(--ink2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- viewer ---------- */
+.viewer{position:fixed;inset:0;z-index:100;background:#000;display:none;color:#e3e3e3}
+.viewer.open{display:flex}
+.v-main{position:relative;flex:1;min-width:0;display:grid;place-items:center;overflow:hidden}
+/* absolutely centred inside the viewer so large photos can never push the controls off screen */
+.v-media,.v-ph{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.v-ph{filter:blur(20px);opacity:.6}
+.v-top{position:absolute;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:4px;padding:0 8px;
+  background:linear-gradient(to bottom,rgb(0 0 0/.55),transparent);z-index:3;transition:opacity .2s}
+.v-top .icon-btn,.v-nav{color:#fff}
+.v-top .icon-btn:hover{background:rgb(255 255 255/.12)}
+.v-nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
+  background:rgb(32 33 36/.6);z-index:3;opacity:0;transition:opacity .2s}
+.v-main:hover .v-nav{opacity:1}
+.v-nav:hover{background:rgb(60 64 67/.85)}
+.v-nav[hidden]{display:none}
+.v-prev{left:16px}.v-next{right:16px}
+.v-msg{max-width:420px;padding:24px;text-align:center;color:#c4c7c5}
+.spinner{position:absolute;width:40px;height:40px;border:3px solid rgb(255 255 255/.18);border-top-color:#a8c7fa;border-radius:50%;animation:spin .9s linear infinite;z-index:2}
+@keyframes spin{to{transform:rotate(360deg)}}
+.v-info{width:360px;flex:none;background:#1f1f1f;border-left:1px solid #333;overflow:auto;display:none}
+.viewer.info .v-info{display:block}
+.v-info header{display:flex;align-items:center;gap:12px;height:64px;padding:0 8px 0 16px;font-size:20px}
+.v-info header .icon-btn{color:#e3e3e3}
+.v-info header .icon-btn:hover{background:rgb(255 255 255/.1)}
+.info-row{display:flex;gap:20px;padding:14px 24px;align-items:flex-start}
+.info-row svg{color:#c4c7c5;margin-top:2px}
+.info-row b{display:block;font-weight:400;font-size:15px;color:#e3e3e3;word-break:break-word}
+.info-row span{display:block;color:#c4c7c5;font-size:13px;word-break:break-word}
+.info-row a{color:#a8c7fa;cursor:pointer;text-decoration:none}
+.info-h{padding:18px 24px 4px;font-size:12px;color:#c4c7c5;letter-spacing:.04em;text-transform:uppercase}
+
+.scrim{display:none}
+
+@media (max-width:900px){
+  .side{transform:translateX(-100%);transition:transform .2s;width:280px;box-shadow:0 0 24px rgb(0 0 0/.25);top:0;padding-top:0;z-index:31;
+    border-radius:0 16px 16px 0}
+  .side.open{transform:none}
+  .side .side-brand{display:flex}
+  .scrim.open{display:block;position:fixed;inset:0;background:rgb(0 0 0/.32);z-index:30}
+  main{left:0}
+  .logo span{display:none}.logo{padding-right:4px}
+  .page{padding:4px 8px 80px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px 8px}
+  .v-info{position:absolute;inset:auto 0 0 0;width:auto;max-height:60%;border:0;border-top:1px solid #333;z-index:4}
+  .v-nav{display:none}
+}
+</style>
+</head>
+<body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></symbol>
+  <symbol id="i-albums" viewBox="0 0 24 24"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M10 16.5l6-4.5-6-4.5v9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-2 .9-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
+  <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46A5.497 5.497 0 0 1 17.5 11.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.15 0 10.77 0 14c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z"/></symbol>
+  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></symbol>
+</svg>
+
+<header class="topbar" id="topbar">
+  <button class="icon-btn" id="menuBtn" aria-label="Main menu"><svg><use href="#i-menu"/></svg></button>
+  <div class="logo"><svg><use href="#i-photo"/></svg><span>Photo Vault</span></div>
+  <label class="search">
+    <span class="icon-btn"><svg><use href="#i-search"/></svg></span>
+    <input id="q" placeholder="Search your albums" autocomplete="off">
+    <button class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
+  </label>
+  <div class="spacer"></div>
+</header>
+
+<div class="scrim" id="scrim"></div>
+<nav class="side" id="side">
+  <div class="logo side-brand"><svg><use href="#i-photo"/></svg><span style="display:inline">Photo Vault</span></div>
+  <a href="#/photos" data-route="photos"><svg><use href="#i-photo"/></svg>Photos</a>
+  <a href="#/albums" data-route="albums"><svg><use href="#i-albums"/></svg>Albums</a>
+  <h4>FOLDERS</h4>
+  <div id="topFolders"></div>
+  <div class="stat" id="stat"></div>
+</nav>
+
+<main id="main"><div class="page" id="page"></div><div class="sentinel" id="sentinel"></div></main>
+
+<div class="viewer" id="viewer">
+  <div class="v-main" id="vMain">
+    <div class="v-top">
+      <button class="icon-btn" id="vBack" aria-label="Back" title="Back (Esc)"><svg><use href="#i-back"/></svg></button>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
+      <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
+    </div>
+    <button class="v-nav v-prev" id="vPrev" aria-label="Previous"><svg><use href="#i-left"/></svg></button>
+    <button class="v-nav v-next" id="vNext" aria-label="Next"><svg><use href="#i-right"/></svg></button>
+  </div>
+  <aside class="v-info" id="vInfo"></aside>
+</div>
+
+
+<script>
+const $ = s => document.querySelector(s);
+const ico = (id, cls = "") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const PAGE = 400, GAP = 4;
+let albums = [], status = null;
+let feed = null;          // current timeline: {album, items, total, loading, sections}
+let viewerIdx = -1, infoOpen = false;
+
+async function api(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+// ---------- formatting ----------
+const nf = n => (n ?? 0).toLocaleString();
+const size = b => b >= 1e9 ? (b/1e9).toFixed(1)+" GB" : b >= 1e6 ? (b/1e6).toFixed(1)+" MB" : Math.max(1, Math.round(b/1e3))+" KB";
+const dur = s => { s = Math.round(s || 0); const h = s/3600|0, m = (s%3600)/60|0, x = String(s%60).padStart(2,"0");
+  return h ? `${h}:${String(m).padStart(2,"0")}:${x}` : `${m}:${x}`; };
+const asDate = iso => new Date(iso.slice(0,19));
+const dayLabel = iso => {
+  const d = asDate(iso), now = new Date();
+  const opts = {weekday:"short", month:"short", day:"numeric"};
+  if (d.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString(undefined, opts);
+};
+const longDate = iso => asDate(iso).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric", year:"numeric"});
+const timeLabel = iso => asDate(iso).toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"});
+const BRANDS = {iphone: "iPhone", icloud: "iCloud", ipad: "iPad"};
+const pretty = seg => seg.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim()
+  .replace(/\b\p{Ll}/gu, c => c.toUpperCase()).replace(/\b(iphone|icloud|ipad)\b/gi, w => BRANDS[w.toLowerCase()]);
+const plural = (n, word) => `${nf(n)} ${word}${n === 1 ? "" : "s"}`;
+const albumTitle = path => pretty(path.split("/").pop());
+const albumTrail = path => path.split("/").slice(0, -1).map(pretty).join(" › ");
+const mp = (w, h) => w && h ? `${Math.round(w*h/1e6)}MP · ${w} × ${h}` : "";
+
+// ---------- routing ----------
+function route() {
+  const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
+  closeSide();
+  // exactly one nav item is active: a top-level folder if we're in it, else Albums for album pages, else Photos
+  const inPath = h.replace(/^\/(album|all)\//, "");
+  const folder = /^\/(album|all)\//.test(h) &&
+    [...document.querySelectorAll(".side a[data-folder]")].find(a => inPath === a.dataset.folder || inPath.startsWith(a.dataset.folder + "/"));
+  const section = folder ? null : (h === "/albums" || /^\/(album|all)\//.test(h)) ? "albums" : "photos";
+  document.querySelectorAll(".side a").forEach(a =>
+    a.classList.toggle("active", a === folder || (!a.dataset.folder && a.dataset.route === section)));
+  $("#main").scrollTop = 0;
+  if (h === "/albums") return renderAlbums();
+  if (h.startsWith("/album/")) return openTimeline(h.slice(7));
+  if (h.startsWith("/all/")) return openTimeline(h.slice(5), true);
+  return openTimeline("");
+}
+window.addEventListener("hashchange", () => { if (viewerIdx < 0) route(); });
+
+// ---------- albums page ----------
+function renderAlbums() {
+  feed = null;
+  const q = $("#q").value.trim().toLowerCase();
+  const list = albums.filter(a => !q || a.album.toLowerCase().includes(q));
+  const groups = {};
+  for (const a of list) (groups[a.album.split("/")[0]] ??= []).push(a);
+  let html = `<div class="page-head no-back"><h1>Albums</h1></div>
+    <div class="page-sub">${plural(list.length, "album")}${q ? ` matching “${esc(q)}”` : ""}</div>`;
+  if (!list.length) html += `<div class="empty">No albums match.</div>`;
+  for (const [top, items] of Object.entries(groups)) {
+    html += `<section class="group"><h2>${esc(pretty(top))}</h2><div class="cards">`;
+    for (const a of items) {
+      const trail = a.album.split("/").slice(1, -1).map(pretty).join(" › ");
+      html += cardHtml(a.album, albumTitle(a.album), plural(a.n, "item") + (trail ? " · " + trail : ""), a.cover);
+    }
+    html += `</div></section>`;
+  }
+  $("#page").innerHTML = html;
+  bindCards();
+}
+
+function cardHtml(path, title, sub, cover) {
+  return `<div class="card" data-album="${esc(path)}">
+    <div class="cover">${cover ? `<img loading="lazy" src="/thumb/${cover}" alt="" onerror="this.remove()">` : ""}</div>
+    <b>${esc(title)}</b><span>${esc(sub)}</span></div>`;
+}
+function bindCards() {
+  $("#page").querySelectorAll(".card").forEach(c => c.onclick = () => location.hash = "#/album/" + encodeURIComponent(c.dataset.album));
+}
+
+// immediate sub-folders of a folder, built from the album list
+function childFolders(path) {
+  const kids = new Map(), pre = path + "/";
+  for (const a of albums) {
+    if (!a.album.startsWith(pre)) continue;
+    const name = a.album.slice(pre.length).split("/")[0], child = pre + name;
+    const k = kids.get(child) ?? {path: child, name, n: 0, folders: new Set(), cover: null};
+    k.n += a.n;
+    if (a.album !== child) k.folders.add(a.album.slice(child.length + 1).split("/")[0]);
+    if (!k.cover || a.album === child) k.cover = a.cover ?? k.cover;
+    kids.set(child, k);
+  }
+  return [...kids.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+}
+const folderTotal = path => albums.reduce((s, a) => s + (a.album === path || a.album.startsWith(path + "/") ? a.n : 0), 0);
+
+// ---------- timeline (Photos + single album) ----------
+function openTimeline(album, all = false) {
+  // Photos page and "view all" pages show everything below; a folder page shows its sub-folders + its own photos
+  const kids = album && !all ? childFolders(album) : [];
+  const direct = album ? (albums.find(a => a.album === album)?.n || 0) : null;
+  feed = {album, sub: !album || all, items: [], total: null, loading: false, sections: [], kids};
+  if (!album) {
+    $("#page").innerHTML = `<div class="page-head no-back"><h1>Photos</h1></div><div class="page-sub" id="pgSub"></div><div id="days"></div>`;
+    return loadMore();
+  }
+  const parts = album.split("/");
+  const crumbs = parts.map((seg, i) => {
+    const path = parts.slice(0, i + 1).join("/");
+    return i === parts.length - 1 && !all ? "" : `<a href="#/album/${encodeURIComponent(path)}">${esc(pretty(seg))}</a>`;
+  }).filter(Boolean).join(" <span>›</span> ");
+  let html = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <h1>${esc(albumTitle(album))}${all ? " · everything" : ""}</h1></div>
+    ${crumbs ? `<div class="crumbs" id="crumbs">${crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>`;
+  if (kids.length) {
+    html += `<div class="cards">` + kids.map(k => cardHtml(k.path, pretty(k.name),
+      plural(k.n, "item") + (k.folders.size ? ` · ${plural(k.folders.size, "folder")}` : ""), k.cover)).join("") + `</div>`;
+    html += `<a class="all-link" href="#/all/${encodeURIComponent(album)}">${ico("photo")}View all ${plural(folderTotal(album), "item")} as one timeline</a>`;
+    if (direct) html += `<h2 class="sec">Photos in this folder</h2>`;
+  }
+  $("#page").innerHTML = html + `<div id="days"></div>`;
+  bindCards();
+  const parent = parts.slice(0, -1).join("/");
+  $("#pgBack").onclick = () => location.hash = all ? "#/album/" + encodeURIComponent(album)
+                                             : parent ? "#/album/" + encodeURIComponent(parent) : "#/albums";
+  if (kids.length && !direct) {   // only sub-folders here: nothing to load
+    feed.total = 0;
+    $("#pgSub").textContent = `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}`;
+    return;
+  }
+  loadMore();
+}
+
+async function loadMore() {
+  const f = feed;
+  if (!f || f.loading || (f.total !== null && f.items.length >= f.total)) return;
+  f.loading = true;
+  try {
+    const r = await api(`/api/items?album=${encodeURIComponent(f.album)}&sub=${f.sub}&offset=${f.items.length}&limit=${PAGE}`);
+    if (f !== feed) return;
+    f.total = r.total;
+    for (const it of r.items) {
+      it.idx = f.items.length; f.items.push(it);
+      const day = it.taken_at.slice(0, 10);
+      let s = f.sections[f.sections.length - 1];
+      if (!s || s.day !== day) { s = {day, items: [], el: null}; f.sections.push(s); }
+      s.items.push(it); s.dirty = true;
+    }
+    renderSections();
+    const first = f.items[0], last = f.items[f.items.length - 1];
+    const range = !first ? "" : first.taken_at.slice(0, 10) === last.taken_at.slice(0, 10)
+      ? longDate(first.taken_at) : `${longDate(first.taken_at)} – ${longDate(last.taken_at)}`;
+    const extra = f.kids.length ? ` here · ${plural(folderTotal(f.album), "item")} including sub-folders` : "";
+    $("#pgSub").textContent = f.total ? plural(f.total, "item") + extra + (range ? " · " + range : "") : "";
+    if (!f.total && !f.kids.length) $("#days").innerHTML = `<div class="empty">Nothing here yet — it will appear once indexed.</div>`;
+    if (viewerIdx >= 0) updateNav();
+  } catch (e) {
+    $("#days").insertAdjacentHTML("beforeend", `<div class="empty">Couldn't load: ${esc(e.message)}</div>`);
+  } finally { f.loading = false; }
+  // keep filling until the screen is covered
+  const m = $("#main"); if (m.scrollHeight <= m.clientHeight + 600) requestAnimationFrame(loadMore);
+}
+
+function rowHeight() { return innerWidth < 600 ? 112 : innerWidth < 1200 ? 180 : 220; }
+
+function renderSections(all = false) {
+  const days = $("#days"); if (!days || !feed) return;
+  const W = days.clientWidth, H = rowHeight();
+  for (const s of feed.sections) {
+    if (!all && !s.dirty) continue;
+    s.dirty = false;
+    if (!s.el) { s.el = document.createElement("section"); s.el.className = "day"; days.append(s.el); }
+    let html = `<h3>${dayLabel(s.items[0].taken_at)}</h3>`;
+    let row = [], sumA = 0;
+    const flush = (fill) => {
+      if (!row.length) return;
+      const h = fill ? (W - GAP * (row.length - 1)) / sumA : H;
+      html += `<div class="row">` + row.map(([it, a]) => tileHtml(it, Math.floor(a * h), Math.round(h))).join("") + `</div>`;
+      row = []; sumA = 0;
+    };
+    for (const it of s.items) {
+      const a = it.width && it.height ? Math.min(3, Math.max(.4, it.width / it.height)) : 1;
+      row.push([it, a]); sumA += a;
+      if (sumA * H + GAP * (row.length - 1) >= W) flush(true);
+    }
+    flush(false);
+    s.el.innerHTML = html;
+  }
+}
+
+function tileHtml(it, w, h) {
+  // thumbnails are made on demand by the server; fall back to the file name if that fails
+  let inner = it.thumb !== -1
+    ? `<img loading="lazy" decoding="async" src="/thumb/${it.id}" alt="" onload="this.classList.add('ok')" onerror="thumbFailed(this)">`
+    : `<span class="fname">${esc(it.name)}</span>`;
+  if (it.kind === "video") inner += `<span class="dur">${dur(it.duration)}${ico("play")}</span>`;
+  if (!it.cloud) inner += `<span class="off" title="Not backed up to Telegram yet">${ico("cloud-off")}</span>`;
+  return `<div class="tile" data-i="${it.idx}" style="width:${w}px;height:${h}px">${inner}</div>`;
+}
+
+function thumbFailed(img) {
+  const tile = img.closest(".tile"), it = feed?.items[+tile.dataset.i];
+  if (it) it.thumb = -1;
+  img.outerHTML = `<span class="fname">${esc(it ? it.name : "")}</span>`;
+}
+
+$("#page").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) openViewer(+t.dataset.i); });
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => renderSections(true), 120); });
+$("#main").addEventListener("scroll", () => $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0), {passive: true});
+new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#main"), rootMargin: "2000px"}).observe($("#sentinel"));
+
+// ---------- viewer ----------
+function openViewer(i) {
+  if (viewerIdx < 0) history.pushState({viewer: true}, "");
+  viewerIdx = i; $("#viewer").classList.add("open"); document.body.style.overflow = "hidden";
+  showItem();
+}
+function closeViewer(fromPop = false) {
+  if (viewerIdx < 0) return;
+  viewerIdx = -1; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
+  $("#vMain").querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
+  if (!fromPop && history.state?.viewer) history.back();
+}
+addEventListener("popstate", () => closeViewer(true));
+
+function updateNav() {
+  $("#vPrev").hidden = viewerIdx <= 0;
+  $("#vNext").hidden = !feed || viewerIdx >= feed.items.length - 1;
+}
+
+function showItem() {
+  const it = feed?.items[viewerIdx]; if (!it) return;
+  if (viewerIdx >= feed.items.length - 8) loadMore();
+  updateNav();
+  const box = $("#vMain");
+  box.querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
+  $("#vDl").href = `/original/${it.id}?download=1`;
+  renderInfo(it);
+
+  if (it.kind === "video") {
+    const v = document.createElement("video");
+    Object.assign(v, {controls: true, autoplay: true, playsInline: true, preload: "metadata", className: "v-media"});
+    if (it.thumb !== -1) v.poster = `/thumb/${it.id}`;
+    v.src = `/original/${it.id}`;
+    v.onerror = () => fail(v, "This video can't be played in the browser. Use the download button to get the original.");
+    box.prepend(v);
+    return;
+  }
+  if (it.thumb !== -1) { const ph = new Image(); ph.className = "v-ph"; ph.onerror = () => ph.remove(); ph.src = `/thumb/${it.id}`; box.prepend(ph); }
+  const sp = document.createElement("div"); sp.className = "spinner"; box.append(sp);
+  const img = new Image(); img.className = "v-media"; img.alt = it.name;
+  img.onload = () => { sp.remove(); box.querySelector(".v-ph")?.remove(); };
+  img.onerror = async () => {
+    const r = await fetch(`/view/${it.id}`).catch(() => null);
+    fail(img, (r && (await r.json().catch(() => ({}))).detail) || "Couldn't load this photo.");
+  };
+  img.src = `/view/${it.id}`;
+  box.prepend(img);
+  const nx = feed.items[viewerIdx + 1]; if (nx?.kind === "image") new Image().src = `/view/${nx.id}`;
+}
+function fail(el, text) {
+  el.remove(); $("#vMain").querySelector(".spinner")?.remove();
+  const m = document.createElement("div"); m.className = "v-msg"; m.textContent = text; $("#vMain").append(m);
+}
+function step(d) { const n = viewerIdx + d; if (feed && n >= 0 && n < feed.items.length) { viewerIdx = n; showItem(); } }
+
+function renderInfo(it) {
+  $("#vInfo").innerHTML = `
+    <header><button class="icon-btn" id="vInfoClose" aria-label="Close info">${ico("close")}</button>Info</header>
+    <div class="info-h">Details</div>
+    <div class="info-row">${ico("cal")}<div><b>${longDate(it.taken_at)}</b><span>${timeLabel(it.taken_at)}${it.date_src === "file" ? " · from file date (no camera date)" : ""}</span></div></div>
+    <div class="info-row">${ico(it.kind === "video" ? "play" : "photo")}<div><b>${esc(it.name)}</b>
+      <span>${[mp(it.width, it.height), size(it.size), it.kind === "video" ? dur(it.duration) : ""].filter(Boolean).join(" · ")}</span></div></div>
+    <div class="info-row">${ico("folder")}<div><b><a data-album="${esc(it.album)}">${esc(albumTitle(it.album))}</a></b><span>${esc(it.album)}</span></div></div>
+    <div class="info-row">${ico(it.cloud ? "cloud" : "cloud-off")}<div><b>${it.cloud ? "Backed up to Telegram" : "Not backed up yet"}</b>
+      <span>${it.cloud ? "Viewable even with the drive unplugged" : "Only on the drive for now"}</span></div></div>`;
+  $("#vInfoClose").onclick = () => toggleInfo(false);
+  $("#vInfo a[data-album]").onclick = e => { const a = e.target.dataset.album; closeViewer(); setTimeout(() => location.hash = "#/album/" + encodeURIComponent(a), 0); };
+}
+function toggleInfo(on = !infoOpen) { infoOpen = on; $("#viewer").classList.toggle("info", on); }
+
+$("#vBack").onclick = () => closeViewer();
+$("#vInfoBtn").onclick = () => toggleInfo();
+$("#vPrev").onclick = () => step(-1);
+$("#vNext").onclick = () => step(1);
+document.addEventListener("keydown", e => {
+  if (viewerIdx < 0 || e.target.tagName === "INPUT") return;
+  if (e.key === "Escape") infoOpen && innerWidth < 900 ? toggleInfo(false) : closeViewer();
+  else if (e.key === "ArrowLeft") step(-1);
+  else if (e.key === "ArrowRight") step(1);
+  else if (e.key === "i") toggleInfo();
+});
+let tx = null, ty = null;
+$("#vMain").addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive: true});
+$("#vMain").addEventListener("touchend", e => {
+  if (tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
+  else if (dy > 90) closeViewer();   // swipe down to close, like the phone apps
+  tx = null;
+});
+
+// ---------- side nav / search ----------
+function closeSide() { $("#side").classList.remove("open"); $("#scrim").classList.remove("open"); }
+$("#menuBtn").onclick = () => {
+  if (innerWidth >= 900) return;
+  $("#side").classList.toggle("open"); $("#scrim").classList.toggle("open");
+};
+$("#scrim").onclick = closeSide;
+$("#q").addEventListener("input", () => {
+  $("#qClear").hidden = !$("#q").value;
+  if (location.hash !== "#/albums") location.hash = "#/albums"; else renderAlbums();
+});
+$("#qClear").onclick = e => { e.preventDefault(); $("#q").value = ""; $("#qClear").hidden = true; renderAlbums(); };
+
+function renderSide() {
+  const tops = {};
+  for (const a of albums) { const t = a.album.split("/")[0]; tops[t] = (tops[t] || 0) + a.n; }
+  $("#topFolders").innerHTML = Object.keys(tops).sort().map(t =>
+    `<a class="sub-link" href="#/album/${encodeURIComponent(t)}" data-route="folder" data-folder="${esc(t)}">${ico("folder")}${esc(pretty(t))}</a>`).join("");
+  if (!status) return;
+  const pct = status.total ? Math.round(100 * status.uploaded / status.total) : 0;
+  $("#stat").innerHTML = `
+    <div>${ico("cloud")} Backed up: ${nf(status.uploaded)} of ${nf(status.total)}</div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div><span class="status-dot ${status.telegram ? "on" : ""}"></span>Telegram ${status.telegram ? "connected" : "offline"}</div>
+    <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
+    <div>${nf(status.total)} photos & videos indexed</div>`;
+}
+
+
+async function boot() {
+  [status, albums] = await Promise.all([api("/api/status"), api("/api/albums")]);
+  renderSide();
+  route();
+  setInterval(async () => { try { status = await api("/api/status"); renderSide(); } catch {} }, 60000);
+}
+boot().catch(() => {});
+</script>
+</body>
+</html>
