@@ -51,7 +51,8 @@ flush() {
   # the experimental bot uploader works from the other end of the list; drop anything it already did
   batch=("${(@f)$(printf '%s\n' "${batch[@]}" | grep -vxFf "$DONE")}")
   [[ -z "${batch[1]}" ]] && { batch=(); return; }
-  args=(); for f in "${batch[@]}"; do args+=(-p "$DRIVE/$f"); done
+  # tdl splits -p values on commas unless they are CSV-quoted, so quote every path ("day 1, 2 & 3" folders)
+  args=(); for f in "${batch[@]}"; do args+=(-p "\"$DRIVE/${f//\"/\"\"}\""); done
   if "$TDL" up -c "$CHANNEL" "${args[@]}" -l 4 \
        --caption "replace(FilePath, \"$DRIVE/\", \"\")" --disable-progress-ps >/dev/null 2>"$STATE/last_error.txt"; then
     printf '%s\n' "${batch[@]}" >> "$DONE"
