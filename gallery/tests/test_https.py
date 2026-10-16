@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from conftest import ROOT, free_port
-from test_api import lan_ip
+from test_api import lan_ip, refused
 
 pytestmark = pytest.mark.skipif(not shutil.which("mkcert") and not Path("/opt/homebrew/bin/mkcert").exists(),
                                 reason="mkcert not installed")
@@ -65,5 +65,5 @@ def test_both_ports_refuse_other_devices(tls):
     ip = lan_ip()
     if not ip or ip.startswith("127."):
         pytest.skip("no network interface")
-    assert httpx.get(f"http://{ip}:{tls['http']}/", timeout=3).status_code == 403
-    assert httpx.get(f"https://{ip}:{tls['https']}/api/status", verify=False, timeout=3).status_code == 403
+    assert refused(f"http://{ip}:{tls['http']}/")
+    assert refused(f"https://{ip}:{tls['https']}/api/status", verify=False)
