@@ -17,7 +17,10 @@ if [[ -n "$HANG_ONCE" && -f "$HANG_ONCE" ]]; then rm "$HANG_ONCE"; sleep 60; fi 
 caption=""; files=()
 while (( $# )); do
   case "$1" in
-    -p) files+=("$2"); shift 2 ;;
+    -p) v="$2"; shift 2
+        # like the real tdl (a CSV string-slice flag): "quoted" is one path, otherwise commas split it
+        if [[ "$v" == \"*\" ]]; then v="${v:1:-1}"; files+=("${v//\"\"/\"}")
+        else files+=("${(@s:,:)v}"); fi ;;
     --caption) caption="$2"; shift 2 ;;
     -c) echo "$2" > "$TDL_LOG.chat"; shift 2 ;;
     *) shift ;;
@@ -36,6 +39,7 @@ def write(p: Path, data=b"x" * 1000):
 @pytest.fixture
 def vault(tmp_path):
     drive, state = tmp_path / "My Drive", tmp_path / "state"
+    write(drive / "Wedding/day 1, 2 & 3/b.jpg", b"Q" * 5000)        # comma in the path (tdl splits on commas)
     write(drive / "Wedding/day 1/a.jpg", b"A" * 5000)
     write(drive / "Wedding/day 1/clip.mp4", b"V" * 9000)
     write(drive / "Wedding/day 1/a.AAE")                             # sidecar: skipped
@@ -77,7 +81,7 @@ def vault(tmp_path):
     return {"drive": drive, "state": state, "env": env, "run": run, "uploaded": uploaded, "tmp": tmp_path}
 
 
-EXPECTED = ["Wedding/day 1/a.jpg", "Wedding/day 1/clip.mp4",
+EXPECTED = ["Wedding/day 1, 2 & 3/b.jpg", "Wedding/day 1/a.jpg", "Wedding/day 1/clip.mp4",
             "Trips/beach.heic", "Trips/copy of beach/beach.heic", "Trips/other/beach.heic",
             "Phone/Photos Library.photoslibrary/originals/1/IMG_1.heic",
             "_split/Trips/huge_part00.mov", "_split/Trips/huge_part01.mov"]
@@ -165,7 +169,7 @@ def test_timestamps_manifest(vault):
     assert len(rows) == 1 + len(EXPECTED)
     path, size, created, modified = rows[1].split("\t")
     assert path == EXPECTED[0] and size == "5000" and len(created) == len(modified) == 19
-    assert "Saved 8 files" in out
+    assert f"Saved {len(EXPECTED)} files" in out
 
 
 def test_empty_folders_setting_means_every_top_folder(vault):
