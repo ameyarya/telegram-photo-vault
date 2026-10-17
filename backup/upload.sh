@@ -40,7 +40,7 @@ total=$(wc -l < "$STATE/all.txt")
 echo "$(date '+%F %T')  $total files in the list"
 [[ "$1" == "--list-only" ]] && exit 0
 
-# The watchdog kills a tdl batch that sends almost nothing for 10 minutes (it happens); the batch is retried later.
+# The watchdog kills a tdl batch that sends almost nothing for 5 minutes (it happens); the batch is retried later.
 zsh "$ROOT/backup/watchdog.sh" $$ "$STATE/upload.log" >/dev/null 2>&1 &
 WATCHDOG=$!
 trap 'kill $WATCHDOG 2>/dev/null' EXIT
