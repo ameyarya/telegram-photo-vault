@@ -33,7 +33,11 @@ FACE_FILES = {
     "yunet.onnx": "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
     "sface.onnx": "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
 }
-FACE_SAME_PERSON = 0.42   # SFace cosine similarity above which two faces are treated as the same person
+FACE_NEIGHBOURS = 20      # each face links only to faces that are among each other's 20 most similar ...
+FACE_LINK = 0.45          # ... and at least this similar (SFace cosine)
+PEOPLE_MERGE = 0.70       # tight groups whose average faces are this similar are the same person
+MIN_FACE_FRACTION = 0.06  # faces narrower than this share of the photo are too small to identify reliably
+MIN_FACE_SCORE = 0.85     # detector confidence needed to use a face for grouping
 MIN_FACES_PER_PERSON = 3  # smaller groups aren't shown as people
 SIMILAR_COS = 0.93        # CLIP similarity for "near-identical shot"
 SIMILAR_WINDOW_S = 120    # ... taken within two minutes of each other
@@ -239,37 +243,96 @@ class _Union:
             self.p[max(a, b)] = min(a, b)
 
 
-def group_people(con):
-    """Cluster all faces into people; keep the names (and ids) of people found before."""
-    rows = con.execute("SELECT id, emb, person, score FROM faces ORDER BY id").fetchall()
-    if not rows:
-        return
-    ids = [r["id"] for r in rows]
-    embs = _norm(np.stack([np.frombuffer(r["emb"], dtype=np.float32) for r in rows]))
-    u = _Union(len(rows))
-    for i in range(0, len(rows), 2048):
-        sims = embs[i:i + 2048] @ embs.T
-        for a, b in zip(*np.nonzero(sims >= FACE_SAME_PERSON)):
+def cluster_faces(embs, k=FACE_NEIGHBOURS, link=FACE_LINK, merge=PEOPLE_MERGE, iters=25, seed=0):
+    """Group face vectors into people. Returns a label per face (-1 = not grouped).
+
+    1. Link each face only to *mutual* close matches (each among the other's k most similar, and similar enough).
+       "Generic" faces resemble everyone but are nobody's closest match, so they can't bridge different people.
+    2. Chinese whispers on that graph (the method dlib uses): tight, reliable groups.
+    3. Merge groups whose average faces match strongly; averages are far less noisy than single faces.
+    Linking faces directly (A~B, B~C, ...) chained almost everyone into one person on a real library.
+    """
+    n = len(embs)
+    if n == 0:
+        return np.zeros(0, dtype=np.int64)
+    k = min(k, n - 1) if n > 1 else 0
+    nbr = np.zeros((n, max(k, 1)), dtype=np.int64)
+    sim = np.full((n, max(k, 1)), -1.0, dtype=np.float32)
+    if k:
+        for i in range(0, n, 2048):
+            s = embs[i:i + 2048] @ embs.T
+            s[np.arange(s.shape[0]), np.arange(i, i + s.shape[0])] = -1  # not yourself
+            idx = np.argpartition(-s, k - 1, axis=1)[:, :k]
+            nbr[i:i + 2048] = idx
+            sim[i:i + 2048] = np.take_along_axis(s, idx, axis=1)
+    close = [set(nbr[i][sim[i] >= link].tolist()) for i in range(n)]
+    adj = [[(int(j), float(sim[i][m])) for m, j in enumerate(nbr[i]) if sim[i][m] >= link and i in close[j]]
+           for i in range(n)]
+    labels = np.arange(n)
+    rng = np.random.default_rng(seed)
+    for _ in range(iters):
+        changed = 0
+        for i in rng.permutation(n):
+            if adj[i]:
+                votes = {}
+                for j, w in adj[i]:
+                    votes[labels[j]] = votes.get(labels[j], 0.0) + w
+                best = max(votes, key=votes.get)
+                if best != labels[i]:
+                    labels[i] = best
+                    changed += 1
+        if not changed:
+            break
+    groups = {}
+    for i in range(n):
+        if adj[i]:
+            groups.setdefault(int(labels[i]), []).append(i)
+    tight = [g for g in groups.values() if len(g) >= 2]
+    out = np.full(n, -1, dtype=np.int64)
+    if not tight:
+        return out
+    cents = _norm(np.stack([embs[g].mean(axis=0) for g in tight]))
+    u = _Union(len(tight))
+    for i in range(0, len(tight), 2048):
+        s = cents[i:i + 2048] @ cents.T
+        for a, b in zip(*np.nonzero(s >= merge)):
             if a + i < b:
                 u.join(a + i, int(b))
-    clusters = {}
-    for k in range(len(rows)):
-        clusters.setdefault(u.find(k), []).append(k)
-    old = {r["id"]: r["person"] for r in rows}
+    for g, members in enumerate(tight):
+        out[members] = u.find(g)
+    return out
+
+
+def group_people(con):
+    """Cluster faces into people; keep the names (and ids) of people found before."""
+    rows = con.execute(f"""SELECT id, media_id, emb, person, score FROM faces
+                           WHERE score >= ? AND w >= ? ORDER BY score DESC, id""",
+                       (MIN_FACE_SCORE, MIN_FACE_FRACTION)).fetchall()
+    old = {r["id"]: r["person"] for r in con.execute("SELECT id, person FROM faces")}
     named = {r["id"]: r["name"] for r in con.execute("SELECT id, name FROM people")}
     con.execute("UPDATE faces SET person = NULL")
-    used = set()
-    keep = []
+    if not rows:
+        con.execute("DELETE FROM people")
+        con.commit()
+        return
+    ids = [r["id"] for r in rows]
+    labels = cluster_faces(_norm(np.stack([np.frombuffer(r["emb"], dtype=np.float32) for r in rows])))
+    clusters = {}
+    for k, lab in enumerate(labels):
+        if lab >= 0:
+            clusters.setdefault(int(lab), []).append(k)
+    used, keep = set(), []
     for members in sorted(clusters.values(), key=len, reverse=True):
-        if len(members) < MIN_FACES_PER_PERSON:
+        if len({rows[k]["media_id"] for k in members}) < MIN_FACES_PER_PERSON:
             continue
         # reuse the previous person id this cluster overlaps most, so names survive regrouping
         votes = {}
         for k in members:
-            if old[ids[k]] is not None and old[ids[k]] not in used:
-                votes[old[ids[k]]] = votes.get(old[ids[k]], 0) + 1
+            p = old.get(ids[k])
+            if p is not None and p not in used:
+                votes[p] = votes.get(p, 0) + 1
         pid = max(votes, key=votes.get) if votes else None
-        if pid is None:
+        if pid is None or pid not in named:
             pid = con.execute("INSERT INTO people(name) VALUES (NULL)").lastrowid
         used.add(pid)
         best = max(members, key=lambda k: rows[k]["score"])
@@ -402,8 +465,9 @@ def face_crop(face_id: int):
         f = connect().execute("SELECT * FROM faces WHERE id = ?", (face_id,)).fetchone()
         if not f or not thumb_path(f["media_id"]).exists():
             raise HTTPException(404, "no face")
-        from PIL import Image
-        im = Image.open(thumb_path(f["media_id"])).convert("RGB")
+        from PIL import Image, ImageOps
+        # upright first: faces were found on the rotated image (OpenCV applies EXIF orientation)
+        im = ImageOps.exif_transpose(Image.open(thumb_path(f["media_id"]))).convert("RGB")
         W, H = im.size
         cx, cy, side = (f["x"] + f["w"] / 2) * W, (f["y"] + f["h"] / 2) * H, max(f["w"] * W, f["h"] * H) * 1.6
         box = (int(max(cx - side / 2, 0)), int(max(cy - side / 2, 0)), int(min(cx + side / 2, W)), int(min(cy + side / 2, H)))

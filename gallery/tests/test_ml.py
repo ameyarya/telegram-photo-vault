@@ -123,3 +123,50 @@ print("ok")
 """
     r = subprocess.run([PY, "-c", code, str(tmp_path / "blank.jpg")], cwd=ROOT, env=env, capture_output=True, text=True)
     assert r.returncode == 0 and r.stdout.strip().endswith("ok"), r.stderr[-2000:]
+
+
+# ---------- face clustering itself (synthetic face vectors) ----------
+def _people(rng, n_people, faces_each, noise=0.06, dim=128):
+    import ml, numpy as np
+    centres = [ml._norm(rng.normal(size=dim)) for _ in range(n_people)]
+    return centres, [ml._norm(c + rng.normal(scale=noise, size=dim)) for c in centres for _ in range(faces_each)]
+
+
+def test_clustering_separates_people_and_keeps_each_together():
+    import ml, numpy as np
+    rng = np.random.default_rng(1)
+    _, faces = _people(rng, 6, 40)
+    lab = ml.cluster_faces(np.stack(faces).astype(np.float32))
+    per_person = [set(lab[i * 40:(i + 1) * 40]) for i in range(6)]
+    assert all(len(s) == 1 for s in per_person)              # nobody is split
+    assert len({next(iter(s)) for s in per_person}) == 6      # nobody is merged
+
+
+def test_clustering_resists_generic_faces_and_chains():
+    """Regression: linking faces directly chained almost the whole real library into one person."""
+    import ml, numpy as np
+    rng = np.random.default_rng(2)
+    centres, faces = _people(rng, 3, 30)
+    hub = ml._norm(sum(centres))                              # looks a bit like everyone
+    a, b = ml._norm(rng.normal(size=128)), ml._norm(rng.normal(size=128))
+    b = ml._norm(b - (b @ a) * a)
+    chain = [ml._norm(np.cos(t) * a + np.sin(t) * b) for t in np.linspace(0, np.pi, 60)]  # drifts to its opposite
+    lab = ml.cluster_faces(np.stack(faces + [hub] * 8 + chain).astype(np.float32))
+    assert len({lab[0], lab[30], lab[60]}) == 3               # the generic faces didn't bridge the people
+    assert lab[98] == -1 or lab[98] != lab[-1]                # the two ends of the chain aren't one person
+
+
+def test_clustering_big_person_isnt_split_into_fragments():
+    """The other failure: mutual neighbours alone split one person with many photos into dozens of groups."""
+    import ml, numpy as np
+    rng = np.random.default_rng(3)
+    _, faces = _people(rng, 2, 400, noise=0.08)
+    lab = ml.cluster_faces(np.stack(faces).astype(np.float32))
+    assert len(set(lab[:400]) - {-1}) == 1 and len(set(lab[400:]) - {-1}) == 1
+    assert (lab >= 0).mean() > 0.95
+
+
+def test_clustering_edge_cases():
+    import ml, numpy as np
+    assert len(ml.cluster_faces(np.zeros((0, 128), np.float32))) == 0
+    assert list(ml.cluster_faces(ml._norm(np.ones((1, 128))).astype(np.float32))) == [-1]
