@@ -16,6 +16,9 @@ from db import connect, link_uploads
 
 def client_from_env():
     cfg = load_env()
+    if os.environ.get("GALLERY_FAKE_TG"):  # tests: a folder pretending to be the channel
+        from fake_tg import FakeTelegram
+        return FakeTelegram(os.environ["GALLERY_FAKE_TG"]), cfg
     if not cfg["api_id"] or not cfg["api_hash"]:
         return None, cfg
     return TelegramClient(SESSION, cfg["api_id"], cfg["api_hash"]), cfg

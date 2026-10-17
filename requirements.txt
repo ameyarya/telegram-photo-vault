@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 telethon
 httpx
+numpy
+pillow
