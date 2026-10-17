@@ -22,7 +22,7 @@ import tg
 from build_index import make_thumb, thumb_path
 from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, TELEGRAM, load_env
 from db import connect
-from search import parse_query, selection
+from search import VISIBLE, parse_query, selection
 
 mimetypes.add_type("image/heic", ".heic")
 mimetypes.add_type("image/heif", ".heif")
@@ -46,6 +46,10 @@ async def sync_loop():
 async def lifespan(app):
     client, cfg = tg.client_from_env() if TELEGRAM else (None, state["cfg"])
     task = None
+    try:  # files trashed while the drive was unplugged go to its trash folder now
+        await asyncio.to_thread(trash.apply_pending)
+    except Exception:
+        pass
     if client:
         await client.connect()
         if await client.is_user_authorized():
@@ -66,8 +70,8 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-import backup, library, ml, restore  # noqa: E402  (they import helpers defined in this module)
-for _mod in (library, ml, restore, backup):
+import backup, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
+for _mod in (library, ml, restore, backup, trash):
     app.include_router(_mod.router)
 
 
@@ -97,19 +101,19 @@ def status():
 @app.get("/api/albums")
 def albums():
     con = connect()
-    rows = con.execute("""
+    rows = con.execute(f"""
         SELECT album, count(*) n, sum(kind='video') videos, sum(msg_id IS NOT NULL) uploaded,
                min(taken_at) first, max(taken_at) last,
-               (SELECT id FROM media c WHERE c.album = m.album AND c.thumb != -1
+               (SELECT id FROM media c WHERE c.album = m.album AND c.thumb != -1 AND c.live_of IS NULL
                 ORDER BY c.kind = 'video', c.taken_at LIMIT 1) cover
-        FROM media m GROUP BY album ORDER BY album""").fetchall()
+        FROM media m WHERE {VISIBLE} GROUP BY album ORDER BY album""").fetchall()
     return [dict(r) for r in rows]
 
 
 ITEM_COLS = """id, name, album, kind, ext, taken_at, date_src, size, duration,
                CASE WHEN orient = 1 THEN height ELSE width END AS width,
                CASE WHEN orient = 1 THEN width ELSE height END AS height,
-               thumb, msg_id IS NOT NULL AS cloud, id IN (SELECT media_id FROM favorites) AS fav"""
+               thumb, msg_id IS NOT NULL AS cloud, id IN (SELECT media_id FROM favorites) AS fav, live_id"""
 
 
 @app.get("/api/items")
@@ -191,8 +195,10 @@ async def thumb(media_id: int):
 
 # --- originals: drive first, Telegram otherwise ---
 def local_file(row):
-    p = DRIVE / row["path"]
-    return p if p.is_file() else None
+    for p in (DRIVE / row["path"], DRIVE / ".photo-vault-trash" / row["path"]):  # trashed files can still be viewed
+        if p.is_file():
+            return p
+    return None
 
 
 async def tg_message(row, refresh=False):

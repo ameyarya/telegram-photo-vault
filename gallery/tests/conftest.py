@@ -5,6 +5,8 @@ Worlds (each has its own drive, index, state folder and server):
   cloud      the same library plus a fake Telegram channel holding every file but the screenshot (restore, streaming)
   mlworld    coloured photos, named "faces" and a burst of near-identical shots, analysed with fake ML models
   bigworld   240 photos over two years, for the date scrubber and windowed loading
+  liveworld  Live Photos, a burst with one sharp shot, three people; analysed, fake Telegram holding every file
+             (Live Photos, trash, cleaning up similar shots, telling the face grouping who's who)
 Nothing here touches the real drive, index, thumbnails or Telegram.
 """
 import json
@@ -90,6 +92,23 @@ def build_ml_drive(d: Path):
     for i, sec in enumerate([0, 20, 45]):  # a burst: near-identical, within a minute
         photo(d / f"burst/shot_{i}.jpg", 400, 300, f"2022:07:01 15:00:{sec:02d}", color="c=orange")
     photo(d / "burst/later.jpg", 400, 300, "2022:07:01 17:00:00", color="c=orange")  # same look, hours later
+
+
+def build_live_drive(d: Path):
+    photo(d / "phone/IMG_0100.JPG", 400, 300, "2023:03:01 10:00:00", color="c=red")      # a Live Photo ...
+    video(d / "phone/IMG_0100.MOV", 2, "2023-03-01T10:00:00Z", 320, 240)                 # ... and its motion
+    photo(d / "phone/IMG_0200.JPG", 400, 300, "2023:03:02 10:00:00", color="c=green")    # same name, but a real
+    video(d / "phone/IMG_0200.MOV", 8, "2023-03-02T10:00:00Z", 320, 240)                 # 8 s video: not a Live Photo
+    photo(d / "phone/plain.jpg", 400, 300, "2023:03:03 10:00:00", color="c=blue")
+    photo(d / "burst/b_0.jpg", 400, 300, "2023:04:01 12:00:00", color="testsrc")         # sharp
+    for i, sec in ((1, 10), (2, 20)):                                                     # same scene, blurred
+        photo(d / f"burst/b_{i}.jpg", 400, 300, f"2023:04:01 12:00:{sec:02d}", color="testsrc")
+        run("ffmpeg", "-nostdin", "-y", "-i", str(d / f"burst/b_{i}.jpg"), "-vf", "gblur=sigma=6", "-q:v", "2",
+            str(d / f"burst/b_{i}.tmp.jpg"))
+        (d / f"burst/b_{i}.tmp.jpg").replace(d / f"burst/b_{i}.jpg")
+        run("exiftool", "-overwrite_original", f"-DateTimeOriginal=2023:04:01 12:00:{sec:02d}", str(d / f"burst/b_{i}.jpg"))
+    for i, who in enumerate(["alice"] * 3 + ["bob"] * 3 + ["dave"] * 3):
+        photo(d / f"people/face_{who}_{i}.jpg", 400, 300, f"2023:06:{i + 1:02d} 12:00:00", color="c=gray")
 
 
 def build_big_drive(d: Path):
@@ -204,6 +223,30 @@ def mlworld(tmp_path_factory):
     w = make_world(tmp_path_factory.mktemp("ml"), build_ml_drive)
     run(PY, "ml.py", "run", cwd=ROOT, env=w["env"])
     serve(w)
+    yield w
+    stop(w)
+
+
+@pytest.fixture(scope="session")
+def liveworld(tmp_path_factory):
+    base = tmp_path_factory.mktemp("live")
+    drive = base / "drive"
+    build_live_drive(drive)
+    store = base / "channel"
+    store.mkdir()
+    msgs = []
+    for i, p in enumerate(sorted(p for p in drive.rglob("*") if p.is_file()), start=100):
+        shutil.copyfile(p, store / f"{i}.bin")
+        msgs.append({"id": i, "caption": str(p.relative_to(drive)), "file": f"{i}.bin"})
+    (store / "messages.json").write_text(json.dumps(msgs))
+    w = make_world(base, None, drive=drive, GALLERY_TELEGRAM="1", GALLERY_FAKE_TG=str(store))
+    run(PY, "ml.py", "run", cwd=ROOT, env=w["env"])
+    serve(w)
+    with httpx.Client(base_url=w["url"], timeout=30) as c:
+        for _ in range(100):
+            if c.get("/api/status").json()["uploaded"]:
+                break
+            time.sleep(0.1)
     yield w
     stop(w)
 

@@ -135,6 +135,12 @@ async def start_restore(req: RestoreRequest):
     where, args = selection(req.album, req.sub, req.filter, req.q, req.user_album, req.person, req.ids)
     con = connect()
     rows = [dict(r) for r in con.execute(f"SELECT * FROM media WHERE {where} AND msg_id IS NOT NULL", args)]
+    # a Live Photo comes back with its motion clip
+    stills = [r["live_id"] for r in rows if r.get("live_id")]
+    for i in range(0, len(stills), 500):
+        chunk = stills[i:i + 500]
+        rows += [dict(r) for r in con.execute(
+            f"SELECT * FROM media WHERE id IN ({','.join('?' * len(chunk))}) AND msg_id IS NOT NULL", chunk)]
     missing = con.execute(f"SELECT count(*) FROM media WHERE {where} AND msg_id IS NULL", args).fetchone()[0]
     if not rows:
         raise HTTPException(400, "None of these are backed up to Telegram yet")
