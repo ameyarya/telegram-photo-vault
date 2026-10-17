@@ -1,0 +1,4 @@
+# optional: smart search, people, similar shots (~650 MB of models via gallery/ml.py download)
+torch
+open_clip_torch
+opencv-python-headless

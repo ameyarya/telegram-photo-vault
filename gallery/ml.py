@@ -1,0 +1,474 @@
+"""Smart search, people and similar photos — all computed on this Mac from the local thumbnails.
+
+    ../.venv/bin/python ml.py download  # fetch the models once (~650 MB: OpenCLIP ViT-B/32 + OpenCV YuNet/SFace)
+    ../.venv/bin/python ml.py run       # embed photos, find faces, group people and similar shots (resumable)
+
+Models:
+  * OpenCLIP ViT-B/32 (LAION-2B) turns photos and search text into comparable vectors: "beach", "cake", "red dress".
+  * OpenCV YuNet finds faces; OpenCV SFace describes each face so the same person's faces can be grouped.
+GALLERY_ML_FAKE=1 swaps both for tiny deterministic stand-ins (used by the tests).
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+import numpy as np
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from build_index import make_thumb, thumb_path
+from config import BASE, CACHE, DRIVE, MODELS
+from db import connect
+from search import selection
+
+router = APIRouter()
+FAKE = os.environ.get("GALLERY_ML_FAKE") == "1"
+CLIP_ARCH, CLIP_WEIGHTS = "ViT-B-32", "laion2b_s34b_b79k"
+FACE_FILES = {
+    "yunet.onnx": "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+    "sface.onnx": "https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+}
+FACE_SAME_PERSON = 0.42   # SFace cosine similarity above which two faces are treated as the same person
+MIN_FACES_PER_PERSON = 3  # smaller groups aren't shown as people
+SIMILAR_COS = 0.93        # CLIP similarity for "near-identical shot"
+SIMILAR_WINDOW_S = 120    # ... taken within two minutes of each other
+
+
+# ---------------------------------------------------------------- models
+def _norm(v):
+    v = np.asarray(v, dtype=np.float32)
+    n = np.linalg.norm(v, axis=-1, keepdims=True)
+    return v / np.maximum(n, 1e-8)
+
+
+class Clip:
+    """Image and text embeddings in the same space."""
+
+    def __init__(self):
+        if FAKE:
+            self.dim = 4
+            return
+        import open_clip
+        import torch
+        self.torch = torch
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+            CLIP_ARCH, pretrained=CLIP_WEIGHTS, cache_dir=str(MODELS / "clip"), device=self.device)
+        self.model.eval()
+        self.tokenizer = open_clip.get_tokenizer(CLIP_ARCH)
+        self.dim = 512
+
+    def images(self, pil_images):
+        if FAKE:  # colour stand-in: the photo's average red, green and blue
+            out = []
+            for im in pil_images:
+                a = np.asarray(im.convert("RGB").resize((32, 32)), dtype=np.float32) / 255
+                out.append([a[..., 0].mean(), a[..., 1].mean(), a[..., 2].mean(), 0.02])
+            return _norm(out)
+        from PIL import ImageOps
+        with self.torch.no_grad():  # upright first (sideways-stored photos), like the gallery shows them
+            batch = self.torch.stack([self.preprocess(ImageOps.exif_transpose(im).convert("RGB"))
+                                      for im in pil_images]).to(self.device)
+            return _norm(self.model.encode_image(batch).float().cpu().numpy())
+
+    def text(self, q):
+        if FAKE:
+            words = q.lower()
+            return _norm([("red" in words) * 1.0, ("green" in words) * 1.0, ("blue" in words) * 1.0, 0.02])
+        with self.torch.no_grad():
+            tokens = self.tokenizer([f"a photo of {q}"]).to(self.device)
+            return _norm(self.model.encode_text(tokens).float().cpu().numpy())[0]
+
+
+class Faces:
+    """Find faces (box as fractions of the image) and a vector per face."""
+
+    def __init__(self):
+        if FAKE:
+            return
+        import cv2
+        self.cv2 = cv2
+        self.detector = cv2.FaceDetectorYN.create(str(MODELS / "yunet.onnx"), "", (320, 320), 0.8, 0.3, 500)
+        self.recognizer = cv2.FaceRecognizerSF.create(str(MODELS / "sface.onnx"), "")
+
+    def find(self, image_path, name=""):
+        if FAKE:  # files named ..._face_<who>_... have one face of <who>
+            import hashlib
+            parts = name.lower().split("face_")
+            if len(parts) < 2:
+                return []
+            who = parts[1].split("_")[0].split(".")[0]
+            v = np.zeros(64, dtype=np.float32)  # one direction per person: different people never look alike
+            v[int(hashlib.md5(who.encode()).hexdigest()[:8], 16) % 64] = 1
+            return [((0.3, 0.2, 0.4, 0.5), 0.99, v)]
+        img = self.cv2.imread(str(image_path))  # OpenCV applies the EXIF rotation itself
+        if img is None:
+            return []
+        h, w = img.shape[:2]
+        scale = 640 / max(h, w) if max(h, w) < 640 else 1.0  # small faces in 400px thumbnails: upscale first
+        if scale != 1.0:
+            img = self.cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=self.cv2.INTER_CUBIC)
+            h, w = img.shape[:2]
+        self.detector.setInputSize((w, h))
+        _, found = self.detector.detect(img)
+        out = []
+        for f in (found if found is not None else []):
+            x, y, fw, fh, score = float(f[0]), float(f[1]), float(f[2]), float(f[3]), float(f[-1])
+            if fw < 24 or fh < 24:
+                continue  # too small to tell people apart
+            aligned = self.recognizer.alignCrop(img, f)
+            feat = self.recognizer.feature(aligned).flatten()
+            out.append(((max(x, 0) / w, max(y, 0) / h, fw / w, fh / h), score, _norm(feat)))
+        return out
+
+
+def download_models():
+    MODELS.mkdir(parents=True, exist_ok=True)
+    for name, url in FACE_FILES.items():
+        target = MODELS / name
+        if not target.exists():
+            print(f"downloading {name} ...", flush=True)
+            urllib.request.urlretrieve(url, target.with_suffix(".part"))
+            target.with_suffix(".part").rename(target)
+    print("downloading OpenCLIP weights (first time only) ...", flush=True)
+    Clip()
+    print("models ready", flush=True)
+
+
+def models_ready():
+    if FAKE:
+        return True
+    return all((MODELS / n).exists() for n in FACE_FILES) and (MODELS / "clip").exists()
+
+
+# ---------------------------------------------------------------- the background job
+def _job(con, **fields):
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    con.execute(f"UPDATE jobs SET {sets} WHERE id = ?", list(fields.values()) + [JOB_ID])
+    con.commit()
+
+
+JOB_ID = None
+
+
+def _image_for(row):
+    """The local thumbnail (made from the drive if missing)."""
+    p = thumb_path(row["id"])
+    if not p.exists() and (DRIVE / row["path"]).is_file():
+        make_thumb({"id": row["id"], "path": row["path"], "kind": row["kind"]})
+    return p if p.exists() else None
+
+
+def run(steps=("clip", "faces", "people", "similar")):
+    global JOB_ID
+    from PIL import Image
+    con = connect(timeout=600)
+    cur = con.execute("INSERT INTO jobs(kind, status, detail) VALUES ('ml', 'running', ?)",
+                      (json.dumps({"steps": list(steps), "pid": os.getpid()}),))
+    con.commit()
+    JOB_ID = cur.lastrowid
+    try:
+        if "clip" in steps:
+            todo = [dict(r) for r in con.execute(
+                "SELECT id, path, kind FROM media WHERE id NOT IN (SELECT media_id FROM ml_done WHERE task = 'clip')")]
+            _job(con, total=len(todo), done=0, detail=json.dumps({"step": "Understanding photos", "pid": os.getpid()}))
+            clip = Clip() if todo else None
+            for i in range(0, len(todo), 64):
+                batch, imgs = [], []
+                for r in todo[i:i + 64]:
+                    p = _image_for(r)
+                    if p:
+                        try:
+                            imgs.append(Image.open(p)); batch.append(r["id"])
+                        except OSError:
+                            pass
+                if imgs:
+                    embs = clip.images(imgs)
+                    con.executemany("INSERT OR REPLACE INTO clip(media_id, emb) VALUES (?, ?)",
+                                    [(m, e.astype(np.float16).tobytes()) for m, e in zip(batch, embs)])
+                con.executemany("INSERT OR IGNORE INTO ml_done VALUES (?, 'clip')", [(r["id"],) for r in todo[i:i + 64]])
+                _job(con, done=min(i + 64, len(todo)))
+        if "faces" in steps:
+            todo = [dict(r) for r in con.execute(
+                """SELECT id, path, kind, name FROM media WHERE kind = 'image'
+                   AND id NOT IN (SELECT media_id FROM ml_done WHERE task = 'faces')""")]
+            _job(con, total=len(todo), done=0, detail=json.dumps({"step": "Finding faces", "pid": os.getpid()}))
+            faces = Faces() if todo else None
+            rows = []
+            for n, r in enumerate(todo, 1):
+                p = _image_for(r)
+                if p:
+                    for (x, y, w, h), score, emb in faces.find(p, r["name"]):
+                        rows.append((r["id"], x, y, w, h, score, emb.astype(np.float32).tobytes()))
+                if n % 200 == 0 or n == len(todo):
+                    con.executemany("INSERT INTO faces(media_id, x, y, w, h, score, emb) VALUES (?,?,?,?,?,?,?)", rows)
+                    con.executemany("INSERT OR IGNORE INTO ml_done VALUES (?, 'faces')",
+                                    [(t["id"],) for t in todo[max(0, n - 200):n]])
+                    rows = []
+                    _job(con, done=n)
+        if "people" in steps:
+            _job(con, detail=json.dumps({"step": "Grouping people", "pid": os.getpid()}))
+            group_people(con)
+        if "similar" in steps:
+            _job(con, detail=json.dumps({"step": "Finding similar shots", "pid": os.getpid()}))
+            group_similar(con)
+        _job(con, status="done", finished=time.strftime("%Y-%m-%dT%H:%M:%S"), detail=json.dumps({"step": "Done"}))
+    except Exception as e:
+        _job(con, status="failed", finished=time.strftime("%Y-%m-%dT%H:%M:%S"), detail=json.dumps({"error": str(e)}))
+        raise
+
+
+class _Union:
+    def __init__(self, n):
+        self.p = list(range(n))
+
+    def find(self, a):
+        while self.p[a] != a:
+            self.p[a] = self.p[self.p[a]]
+            a = self.p[a]
+        return a
+
+    def join(self, a, b):
+        a, b = self.find(a), self.find(b)
+        if a != b:
+            self.p[max(a, b)] = min(a, b)
+
+
+def group_people(con):
+    """Cluster all faces into people; keep the names (and ids) of people found before."""
+    rows = con.execute("SELECT id, emb, person, score FROM faces ORDER BY id").fetchall()
+    if not rows:
+        return
+    ids = [r["id"] for r in rows]
+    embs = _norm(np.stack([np.frombuffer(r["emb"], dtype=np.float32) for r in rows]))
+    u = _Union(len(rows))
+    for i in range(0, len(rows), 2048):
+        sims = embs[i:i + 2048] @ embs.T
+        for a, b in zip(*np.nonzero(sims >= FACE_SAME_PERSON)):
+            if a + i < b:
+                u.join(a + i, int(b))
+    clusters = {}
+    for k in range(len(rows)):
+        clusters.setdefault(u.find(k), []).append(k)
+    old = {r["id"]: r["person"] for r in rows}
+    named = {r["id"]: r["name"] for r in con.execute("SELECT id, name FROM people")}
+    con.execute("UPDATE faces SET person = NULL")
+    used = set()
+    keep = []
+    for members in sorted(clusters.values(), key=len, reverse=True):
+        if len(members) < MIN_FACES_PER_PERSON:
+            continue
+        # reuse the previous person id this cluster overlaps most, so names survive regrouping
+        votes = {}
+        for k in members:
+            if old[ids[k]] is not None and old[ids[k]] not in used:
+                votes[old[ids[k]]] = votes.get(old[ids[k]], 0) + 1
+        pid = max(votes, key=votes.get) if votes else None
+        if pid is None:
+            pid = con.execute("INSERT INTO people(name) VALUES (NULL)").lastrowid
+        used.add(pid)
+        best = max(members, key=lambda k: rows[k]["score"])
+        con.executemany("UPDATE faces SET person = ? WHERE id = ?", [(pid, ids[k]) for k in members])
+        photos = con.execute("SELECT count(DISTINCT media_id) FROM faces WHERE person = ?", (pid,)).fetchone()[0]
+        con.execute("UPDATE people SET n = ?, cover_face = ?, name = ? WHERE id = ?",
+                    (photos, ids[best], named.get(pid), pid))
+        keep.append(pid)
+    con.execute(f"DELETE FROM people WHERE id NOT IN ({','.join('?' * len(keep)) or 'NULL'})", keep)
+    con.commit()
+
+
+def group_similar(con):
+    """Near-identical shots: very similar CLIP vectors, taken within a couple of minutes of each other."""
+    rows = con.execute("""SELECT m.id, m.taken_at, c.emb FROM media m JOIN clip c ON c.media_id = m.id
+                          WHERE m.kind = 'image' ORDER BY m.taken_at, m.id""").fetchall()
+    con.execute("DELETE FROM similar")
+    if len(rows) < 2:
+        con.commit()
+        return
+    from datetime import datetime
+    t = np.array([datetime.fromisoformat(r["taken_at"]).timestamp() for r in rows])
+    embs = _norm(np.stack([np.frombuffer(r["emb"], dtype=np.float16).astype(np.float32) for r in rows]))
+    u = _Union(len(rows))
+    for i in range(len(rows)):
+        j = i + 1
+        while j < len(rows) and j - i <= 40 and t[j] - t[i] <= SIMILAR_WINDOW_S:
+            if float(embs[i] @ embs[j]) >= SIMILAR_COS:
+                u.join(i, j)
+            j += 1
+    groups = {}
+    for k in range(len(rows)):
+        groups.setdefault(u.find(k), []).append(rows[k]["id"])
+    gid = 0
+    for members in groups.values():
+        if len(members) > 1:
+            gid += 1
+            con.executemany("INSERT INTO similar(group_id, media_id) VALUES (?, ?)", [(gid, m) for m in members])
+    con.commit()
+
+
+# ---------------------------------------------------------------- API
+_text_model = {"clip": None, "matrix": None, "ids": None, "count": -1}
+
+
+def _search_matrix():
+    con = connect()
+    n = con.execute("SELECT count(*) FROM clip").fetchone()[0]
+    if n != _text_model["count"]:
+        rows = con.execute("SELECT media_id, emb FROM clip").fetchall()
+        _text_model["ids"] = np.array([r["media_id"] for r in rows], dtype=np.int64)
+        _text_model["matrix"] = (_norm(np.stack([np.frombuffer(r["emb"], dtype=np.float16).astype(np.float32)
+                                                 for r in rows])) if rows else np.zeros((0, 1), np.float32))
+        _text_model["count"] = n
+    return _text_model["ids"], _text_model["matrix"]
+
+
+def smart_rank(q, limit=200):
+    """[(media_id, score)] best first, only clearly relevant ones."""
+    if _text_model["clip"] is None:
+        _text_model["clip"] = Clip()
+    ids, matrix = _search_matrix()
+    if len(ids) == 0:
+        return []
+    scores = matrix @ _text_model["clip"].text(q)
+    order = np.argsort(-scores)[:limit]
+    top = float(scores[order[0]])
+    cutoff = top - (0.15 if FAKE else 0.06)  # CLIP scores are relative: keep what's close to the best match
+    return [(int(ids[k]), float(scores[k])) for k in order if scores[k] >= cutoff]
+
+
+@router.get("/api/smart-search")
+def smart_search(q: str, limit: int = 200, album: str = "", filter: str = ""):
+    import server
+    if not q.strip():
+        return {"items": [], "ready": True}
+    if not models_ready() or connect().execute("SELECT count(*) FROM clip").fetchone()[0] == 0:
+        return {"items": [], "ready": False}
+    ranked = smart_rank(q.strip(), limit)
+    if not ranked:
+        return {"items": [], "ready": True}
+    where, args = selection(album, True, filter, ids=[m for m, _ in ranked])
+    rows = {r["id"]: dict(r) for r in connect().execute(f"SELECT {server.ITEM_COLS} FROM media WHERE {where}", args)}
+    return {"ready": True, "items": [{**rows[m], "score": round(s, 4)} for m, s in ranked if m in rows]}
+
+
+@router.get("/api/people")
+def people():
+    rows = connect().execute("""SELECT id, name, n, cover_face FROM people WHERE n >= 1
+                                ORDER BY name IS NULL, n DESC, id""").fetchall()
+    return [dict(r) for r in rows]
+
+
+class PersonName(BaseModel):
+    name: str
+
+
+@router.post("/api/people/{person_id}/name")
+def name_person(person_id: int, body: PersonName):
+    con = connect()
+    if not con.execute("SELECT 1 FROM people WHERE id = ?", (person_id,)).fetchone():
+        raise HTTPException(404, "no such person")
+    con.execute("UPDATE people SET name = ? WHERE id = ?", (body.name.strip()[:100] or None, person_id))
+    con.commit()
+    return {"ok": True}
+
+
+class Merge(BaseModel):
+    into: int
+
+
+@router.post("/api/people/{person_id}/merge")
+def merge_person(person_id: int, body: Merge):
+    """'These two are the same person.'"""
+    con = connect()
+    if person_id == body.into or not con.execute("SELECT 1 FROM people WHERE id = ?", (body.into,)).fetchone():
+        raise HTTPException(400, "pick another person to merge into")
+    con.execute("UPDATE faces SET person = ? WHERE person = ?", (body.into, person_id))
+    con.execute("DELETE FROM people WHERE id = ?", (person_id,))
+    n = con.execute("SELECT count(DISTINCT media_id) FROM faces WHERE person = ?", (body.into,)).fetchone()[0]
+    con.execute("UPDATE people SET n = ? WHERE id = ?", (n, body.into))
+    con.commit()
+    return {"ok": True}
+
+
+@router.get("/face/{face_id}")
+def face_crop(face_id: int):
+    out = CACHE / "faces" / f"{face_id}.jpg"
+    if not out.exists():
+        f = connect().execute("SELECT * FROM faces WHERE id = ?", (face_id,)).fetchone()
+        if not f or not thumb_path(f["media_id"]).exists():
+            raise HTTPException(404, "no face")
+        from PIL import Image
+        im = Image.open(thumb_path(f["media_id"])).convert("RGB")
+        W, H = im.size
+        cx, cy, side = (f["x"] + f["w"] / 2) * W, (f["y"] + f["h"] / 2) * H, max(f["w"] * W, f["h"] * H) * 1.6
+        box = (int(max(cx - side / 2, 0)), int(max(cy - side / 2, 0)), int(min(cx + side / 2, W)), int(min(cy + side / 2, H)))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        im.crop(box).resize((160, 160)).save(out, quality=85)
+    return FileResponse(out, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/api/similar")
+def similar(offset: int = 0, limit: int = 30):
+    import server
+    con = connect()
+    total = con.execute("SELECT count(DISTINCT group_id) FROM similar").fetchone()[0]
+    groups = con.execute("""SELECT group_id, count(*) n FROM similar GROUP BY group_id
+                            ORDER BY n DESC, group_id LIMIT ? OFFSET ?""", (limit, offset)).fetchall()
+    out = []
+    for g in groups:
+        items = con.execute(f"""SELECT {server.ITEM_COLS} FROM media WHERE id IN
+                                (SELECT media_id FROM similar WHERE group_id = ?) ORDER BY taken_at, id""",
+                            (g["group_id"],)).fetchall()
+        out.append({"group": g["group_id"], "items": [dict(i) for i in items]})
+    return {"total": total, "groups": out}
+
+
+def _ml_running():
+    r = connect().execute("SELECT * FROM jobs WHERE kind = 'ml' ORDER BY id DESC LIMIT 1").fetchone()
+    if not r:
+        return None
+    job = {**dict(r), "detail": json.loads(r["detail"] or "{}")}
+    pid = job["detail"].get("pid")
+    if job["status"] == "running" and pid:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            job["status"] = "stopped"
+    return job
+
+
+@router.get("/api/ml/status")
+def ml_status():
+    con = connect()
+    c = lambda sql: con.execute(sql).fetchone()[0]  # noqa: E731
+    return {"models": models_ready(), "images": c("SELECT count(*) FROM media"),
+            "understood": c("SELECT count(*) FROM clip"), "faces": c("SELECT count(*) FROM faces"),
+            "people": c("SELECT count(*) FROM people"), "similar_groups": c("SELECT count(DISTINCT group_id) FROM similar"),
+            "job": _ml_running()}
+
+
+@router.post("/api/ml/run")
+def ml_run():
+    job = _ml_running()
+    if job and job["status"] == "running":
+        return {"started": False, "job": job}
+    if not models_ready():
+        raise HTTPException(400, "Models aren't downloaded yet: run  ../.venv/bin/python ml.py download  (in the gallery folder)")
+    log = open(BASE / "ml.log", "a")
+    subprocess.Popen([sys.executable, str(BASE / "ml.py"), "run"], cwd=BASE, stdout=log, stderr=log,
+                     start_new_session=True)
+    return {"started": True}
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["download"]:
+        download_models()
+    elif sys.argv[1:2] == ["run"]:
+        run(tuple(sys.argv[2:]) or ("clip", "faces", "people", "similar"))
+    else:
+        print(__doc__)

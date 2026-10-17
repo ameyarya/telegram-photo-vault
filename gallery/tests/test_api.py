@@ -185,3 +185,13 @@ def test_skipped_duplicate_shares_its_twins_upload(world, items, tmp_path):
     con.execute("UPDATE media SET msg_id=NULL")  # leave the shared index as other tests expect
     con.execute("DELETE FROM tg_msgs")
     con.commit()
+
+
+def test_items_newest_first(api):
+    asc = api.get("/api/items").json()
+    desc = api.get("/api/items", params={"order": "desc"}).json()
+    assert [i["id"] for i in desc["items"]] == [i["id"] for i in asc["items"]][::-1]
+    assert desc["first"] == asc["first"] == min(i["taken_at"] for i in asc["items"])   # range is order-independent
+    assert desc["last"] == asc["last"] == max(i["taken_at"] for i in asc["items"])
+    page2 = api.get("/api/items", params={"order": "desc", "limit": 3, "offset": 3}).json()
+    assert [i["id"] for i in page2["items"]] == [i["id"] for i in desc["items"]][3:6]  # paging follows the order

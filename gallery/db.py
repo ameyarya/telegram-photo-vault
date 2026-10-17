@@ -23,7 +23,26 @@ CREATE INDEX IF NOT EXISTS media_album ON media(album, taken_at);
 CREATE INDEX IF NOT EXISTS media_taken ON media(taken_at);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS tg_msgs (path TEXT PRIMARY KEY, msg_id INTEGER NOT NULL);  -- every upload seen in the channel
+-- everything below lives only on this Mac; nothing here changes the drive or Telegram
+CREATE TABLE IF NOT EXISTS favorites (media_id INTEGER PRIMARY KEY, added TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS user_albums (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS user_album_items (album_id INTEGER NOT NULL, media_id INTEGER NOT NULL,
+  added TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (album_id, media_id));
+CREATE TABLE IF NOT EXISTS clip (media_id INTEGER PRIMARY KEY, emb BLOB NOT NULL);       -- image embeddings (smart search)
+CREATE TABLE IF NOT EXISTS faces (id INTEGER PRIMARY KEY, media_id INTEGER NOT NULL, x REAL, y REAL, w REAL, h REAL,
+  score REAL, emb BLOB NOT NULL, person INTEGER);                                         -- box as fractions of the image
+CREATE INDEX IF NOT EXISTS faces_media ON faces(media_id);
+CREATE INDEX IF NOT EXISTS faces_person ON faces(person);
+CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY, name TEXT, cover_face INTEGER, n INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS similar (group_id INTEGER NOT NULL, media_id INTEGER NOT NULL, PRIMARY KEY (group_id, media_id));
+CREATE TABLE IF NOT EXISTS ml_done (media_id INTEGER NOT NULL, task TEXT NOT NULL, PRIMARY KEY (media_id, task));
+CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT, done INTEGER DEFAULT 0, total INTEGER DEFAULT 0,
+  detail TEXT, started TEXT DEFAULT CURRENT_TIMESTAMP, finished TEXT);
 """
+
+# photo details read from EXIF (camera, settings, location); exif2 = 1 once read
+EXTRA_COLUMNS = {"orient": "INTEGER", "make": "TEXT", "model": "TEXT", "lens": "TEXT", "iso": "INTEGER",
+                 "fnumber": "REAL", "exposure": "REAL", "focal": "REAL", "lat": "REAL", "lon": "REAL", "exif2": "INTEGER"}
 
 
 _ready = set()
@@ -38,8 +57,11 @@ def connect(timeout=30):
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
         cols = {r["name"] for r in con.execute("PRAGMA table_info(media)")}
-        if "orient" not in cols:  # 1 = stored sideways (EXIF orientation 5-8 / video rotation 90/270): swap w/h for display
-            con.execute("ALTER TABLE media ADD COLUMN orient INTEGER")
+        # orient: 1 = stored sideways (EXIF orientation 5-8 / video rotation 90/270): swap w/h for display
+        for col, typ in EXTRA_COLUMNS.items():
+            if col not in cols:
+                con.execute(f"ALTER TABLE media ADD COLUMN {col} {typ}")
+        con.commit()
         _ready.add(str(DB_PATH))
     return con
 

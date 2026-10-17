@@ -69,7 +69,8 @@ def exif_batch(paths):
         out = subprocess.run(
             ["exiftool", "-j", "-fast", "-api", "QuickTimeUTC", "-d", "%Y-%m-%dT%H:%M:%S",
              "-DateTimeOriginal", "-CreationDate", "-CreateDate", "-MediaCreateDate", "-ImageWidth#", "-ImageHeight#",
-             "-Duration#", "-Orientation#", "-Rotation#", "-@", argfile],
+             "-Duration#", "-Orientation#", "-Rotation#", "-Make", "-Model", "-LensModel", "-ISO#", "-FNumber#",
+             "-ExposureTime#", "-FocalLength#", "-GPSLatitude#", "-GPSLongitude#", "-@", argfile],
             capture_output=True, text=True).stdout
         rows = json.loads(out or "[]")
     finally:
@@ -80,6 +81,27 @@ def exif_batch(paths):
 
 def sideways(e):
     return 1 if e.get("Orientation") in (5, 6, 7, 8) or e.get("Rotation") in (90, 270) else 0
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def details(e):
+    """Camera, settings and location from EXIF, in the order of DETAIL_COLS."""
+    lat, lon = _num(e.get("GPSLatitude")), _num(e.get("GPSLongitude"))
+    if lat is not None and lon is not None and lat == 0 and lon == 0:
+        lat = lon = None  # "0,0" is a missing fix, not the Gulf of Guinea
+    iso = _num(e.get("ISO"))
+    return (str(e["Make"]).strip() if e.get("Make") else None, str(e["Model"]).strip() if e.get("Model") else None,
+            str(e["LensModel"]).strip() if e.get("LensModel") else None, int(iso) if iso else None,
+            _num(e.get("FNumber")), _num(e.get("ExposureTime")), _num(e.get("FocalLength")), lat, lon)
+
+
+DETAIL_COLS = ("make", "model", "lens", "iso", "fnumber", "exposure", "focal", "lat", "lon")
 
 
 def valid_date(v):
@@ -130,23 +152,29 @@ def main():
                 date = datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%S")
             album, name = album_and_name(rel)
             con.execute(
-                """INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime, width, height, duration, orient, thumb)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0)
+                f"""INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime, width, height, duration,
+                                      orient, thumb, exif2, {", ".join(DETAIL_COLS)})
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,{",".join("?" * len(DETAIL_COLS))})
                    ON CONFLICT(path) DO UPDATE SET album=excluded.album, name=excluded.name, taken_at=excluded.taken_at,
                      date_src=excluded.date_src, size=excluded.size, mtime=excluded.mtime, width=excluded.width,
-                     height=excluded.height, duration=excluded.duration, orient=excluded.orient, thumb=0""",
+                     height=excluded.height, duration=excluded.duration, orient=excluded.orient, thumb=0, exif2=1,
+                     {", ".join(f"{c}=excluded.{c}" for c in DETAIL_COLS)}""",
                 (rel, album, name, kind, ext, date[:19], src, st.st_size, st.st_mtime,
-                 e.get("ImageWidth"), e.get("ImageHeight"), e.get("Duration"), sideways(e)))
+                 e.get("ImageWidth"), e.get("ImageHeight"), e.get("Duration"), sideways(e)) + details(e))
         con.commit()
         print(f"indexed {min(i + 500, len(todo))}/{len(todo)}", flush=True)
 
-    # rows indexed before orientation was tracked
-    old = [r["path"] for r in con.execute("SELECT path FROM media WHERE orient IS NULL")]
+    # rows indexed before orientation / camera details were tracked
+    con.execute("DELETE FROM media WHERE size = 0")  # empty files: nothing to show or back up
+    con.commit()
+    old = [r["path"] for r in con.execute("SELECT path FROM media WHERE exif2 IS NULL")]
+    sets = ", ".join(f"{c}=?" for c in DETAIL_COLS)
     for i in range(0, len(old), 500):
         exif = exif_batch(old[i:i + 500])
-        con.executemany("UPDATE media SET orient=? WHERE path=?", [(sideways(exif.get(p, {})), p) for p in old[i:i + 500]])
+        con.executemany(f"UPDATE media SET orient=?, exif2=1, {sets} WHERE path=?",
+                        [(sideways(exif.get(p, {})),) + details(exif.get(p, {})) + (p,) for p in old[i:i + 500]])
         con.commit()
-        print(f"orientation backfill {min(i + 500, len(old))}/{len(old)}", flush=True)
+        print(f"details backfill {min(i + 500, len(old))}/{len(old)}", flush=True)
 
     if "--no-thumbs" in sys.argv:
         return

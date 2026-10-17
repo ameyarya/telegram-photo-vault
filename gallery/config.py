@@ -33,6 +33,9 @@ DATA = Path(os.environ.get("GALLERY_DATA") or STATE / "gallery")  # tests point 
 DB_PATH = DATA / "index.db"
 THUMBS = DATA / "thumbs"
 CACHE = DATA / "cache"          # originals downloaded from Telegram + converted previews
+TIMESTAMPS = Path(os.environ.get("GALLERY_TIMESTAMPS") or STATE / "timestamps.tsv")   # from backup/save_timestamps.sh
+RESTORE_DIR = Path(os.environ.get("GALLERY_RESTORE_DIR") or Path.home() / "Downloads" / "Photo Vault Restore")
+MODELS = Path(os.environ.get("GALLERY_MODELS") or STATE / "models")                    # ml.py download puts them here
 CACHE_MAX_BYTES = 10 * 1024**3  # trimmed oldest-first when exceeded
 SESSION = str(STATE / "gallery")  # Telethon session file (gallery.session)
 TELEGRAM = os.environ.get("GALLERY_TELEGRAM", "1") != "0"

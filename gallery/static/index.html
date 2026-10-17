@@ -53,6 +53,10 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .page-head h1{margin:0;font-size:28px;font-weight:400;line-height:1.25}
 .page-sub{color:var(--ink2);margin:0 0 8px 48px;font-size:14px}
 .page-head.no-back + .page-sub{margin-left:0}
+.sort-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px 0 10px;border:1px solid var(--line);
+  border-radius:18px;color:var(--ink2);font-weight:500;white-space:nowrap}
+.sort-btn:hover{background:var(--hover)}
+.sort-btn svg{width:20px;height:20px}
 .crumbs{margin:0 0 2px 48px;font-size:14px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:4px}
 .crumbs a{color:var(--ink2);text-decoration:none;border-radius:4px}
 .crumbs a:hover{color:var(--accent);text-decoration:underline}
@@ -123,6 +127,88 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 
 .scrim{display:none}
 
+/* ---------- chips, selection, dialogs, toast ---------- */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.chip{height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);color:var(--ink2);font-weight:500;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.chip:hover{background:var(--hover)}
+.chip.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
+.head-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.sort-btn{margin-left:0}
+.tile .sel{position:absolute;top:6px;left:6px;width:24px;height:24px;border-radius:50%;z-index:2;color:#fff;opacity:0;transition:opacity .15s;display:grid;place-items:center}
+.tile .sel svg{width:24px;height:24px;filter:drop-shadow(0 0 2px rgb(0 0 0/.6))}
+.tile:hover .sel,.selecting .tile .sel{opacity:.85}
+.tile.picked .sel{opacity:1;color:var(--accent)}
+.tile.picked .sel svg{filter:none;background:#fff;border-radius:50%}
+.tile.picked img{transform:scale(.88);border-radius:6px}
+.tile.picked{background:var(--pill)}
+.tile .fav{position:absolute;bottom:6px;left:6px;color:#fff;z-index:1;filter:drop-shadow(0 0 2px rgb(0 0 0/.7))}
+.tile .fav svg{width:18px;height:18px}
+.selbar{position:fixed;top:0;left:0;right:0;height:64px;background:var(--pill);color:var(--pill-ink);z-index:40;display:flex;align-items:center;gap:8px;padding:0 16px 0 8px}
+.selbar b{font-size:18px;font-weight:500;margin-right:auto}
+.selbar .icon-btn{color:var(--pill-ink)}
+.txt-btn{height:36px;padding:0 14px;border-radius:18px;font-weight:500;display:inline-flex;align-items:center;gap:6px;color:var(--accent)}
+.txt-btn:hover{background:var(--hover)}
+.txt-btn svg{width:20px;height:20px}
+.fill-btn{height:36px;padding:0 18px;border-radius:18px;font-weight:500;background:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.fill-btn{color:#062e6f}}
+.dialog-bg{position:fixed;inset:0;background:rgb(0 0 0/.4);z-index:150;display:grid;place-items:center}
+.dialog{background:var(--bg);color:var(--ink);border-radius:20px;padding:24px;width:min(440px,92vw);max-height:80vh;overflow:auto;box-shadow:0 8px 32px rgb(0 0 0/.3)}
+.dialog h2{margin:0 0 12px;font-size:20px;font-weight:500}
+.dialog p{color:var(--ink2);margin:0 0 12px}
+.dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.dialog input{width:100%;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 12px;font:inherit;font-size:15px}
+.pick-list{display:grid;gap:4px;margin:8px 0}
+.pick-list button{display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;text-align:left}
+.pick-list button:hover{background:var(--hover)}
+.pick-list img,.pick-list .ph{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--tile)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#323232;color:#fff;padding:12px 18px;border-radius:8px;z-index:200;box-shadow:0 4px 16px rgb(0 0 0/.3);display:flex;gap:16px;align-items:center;max-width:92vw}
+.toast a{color:#a8c7fa;cursor:pointer;font-weight:500}
+
+/* ---------- date scrubber ---------- */
+.scrubber{position:fixed;top:64px;bottom:0;right:0;width:64px;z-index:10;cursor:pointer;user-select:none}
+.scrubber::before{content:"";position:absolute;top:10px;bottom:10px;right:6px;width:2px;border-radius:1px;background:var(--line)}
+.scrubber .yr{position:absolute;right:16px;font-size:11px;color:var(--ink2);transform:translateY(-50%);pointer-events:none}
+.scrubber .pos{position:absolute;right:3px;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--accent);pointer-events:none}
+.scrubber .tip{position:absolute;right:30px;transform:translateY(-50%);background:var(--accent);color:#fff;font-size:12px;font-weight:500;padding:3px 8px;border-radius:12px;white-space:nowrap;pointer-events:none;display:none}
+@media (prefers-color-scheme: dark){.scrubber .tip{color:#062e6f}}
+.scrubber:hover .tip{display:block}
+.with-scrubber .page{padding-right:72px}
+
+/* ---------- people / similar / dashboard ---------- */
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:20px 12px}
+.person{cursor:pointer;text-align:center;min-width:0}
+.person img,.person .ph{width:120px;height:120px;border-radius:50%;object-fit:cover;background:var(--tile);display:block;margin:0 auto 8px}
+.person b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person span{color:var(--ink2);font-size:12px}
+.person .unnamed{color:var(--accent);font-weight:400}
+.sim-group{margin:18px 0 26px}
+.sim-group h3{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--ink2)}
+.sim-row{display:flex;gap:4px;flex-wrap:wrap}
+.sim-row .tile{width:150px;height:150px}
+.dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
+.big{font-size:32px;font-weight:400;line-height:1.1}
+.muted{color:var(--ink2);font-size:13px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
+.kv span:nth-child(odd){color:var(--ink2)}
+.hbar{display:grid;grid-template-columns:110px 1fr 70px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.hbar .track{height:10px;border-radius:5px;background:var(--line);overflow:hidden;position:relative}
+.hbar .track i{position:absolute;inset:0 auto 0 0;background:var(--accent);opacity:.35}
+.hbar .track b{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+.hbar .n{text-align:right;color:var(--ink2)}
+.logbox{font:12px/1.5 ui-monospace,Menlo,monospace;color:var(--ink2);white-space:pre-wrap;word-break:break-all;max-height:160px;overflow:auto}
+.ok-dot,.bad-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#1e8e3e}
+.bad-dot{background:#d93025}
+.job{display:grid;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
+.job:first-of-type{border-top:0}
+.job .bar{height:6px}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink2);margin:8px 0}
+.v-zoom{cursor:zoom-in}
+.zoomed{cursor:grab;max-width:none!important;max-height:none!important}
+.v-top .icon-btn.on{color:#fdd663}
+.info-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.info-chips a{background:rgb(255 255 255/.08);border-radius:12px;padding:2px 10px;font-size:12px}
 @media (max-width:900px){
   .side{transform:translateX(-100%);transition:transform .2s;width:280px;box-shadow:0 0 24px rgb(0 0 0/.25);top:0;padding-top:0;z-index:31;
     border-radius:0 16px 16px 0}
@@ -135,6 +221,11 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   .cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px 8px}
   .v-info{position:absolute;inset:auto 0 0 0;width:auto;max-height:60%;border:0;border-top:1px solid #333;z-index:4}
   .v-nav{display:none}
+  .scrubber{width:40px}
+  .with-scrubber .page{padding-right:44px}
+  .people{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+  .person img,.person .ph{width:88px;height:88px}
+  .sim-row .tile{width:31vw;height:31vw}
 }
 </style>
 </head>
@@ -155,37 +246,69 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <symbol id="i-cal" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-2 .9-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></symbol>
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></symbol>
   <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4c-1.48 0-2.85.43-4.01 1.17l1.46 1.46A5.497 5.497 0 0 1 17.5 11.5v.5H19c1.66 0 3 1.34 3 3 0 1.13-.64 2.11-1.56 2.62l1.45 1.45C23.16 18.16 24 16.68 24 15c0-2.64-2.05-4.78-4.65-4.96zM3 5.27l2.75 2.74C2.56 8.15 0 10.77 0 14c0 3.31 2.69 6 6 6h11.73l2 2L21 20.73 4.27 4 3 5.27zM7.73 10l8 8H6c-2.21 0-4-1.79-4-4s1.79-4 4-4h1.73z"/></symbol>
-  <symbol id="i-drive" viewBox="0 0 24 24"><path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1zM7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></symbol>
+  <symbol id="i-cloud-done" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM10 17l-3.5-3.5 1.41-1.41L10 14.17 15.18 9l1.41 1.41L10 17z"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
+  <symbol id="i-star-o" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></symbol>
+  <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+  <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+  <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
+  <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
+  <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-remove" viewBox="0 0 24 24"><path d="M7 11v2h10v-2H7zm5-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></symbol>
+  <symbol id="i-place" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></symbol>
+  <symbol id="i-smart" viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></symbol>
+  <symbol id="i-zoom" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2z"/></symbol>
 </svg>
 
 <header class="topbar" id="topbar">
   <button class="icon-btn" id="menuBtn" aria-label="Main menu"><svg><use href="#i-menu"/></svg></button>
   <div class="logo"><svg><use href="#i-photo"/></svg><span>Photo Vault</span></div>
-  <label class="search">
+  <form class="search" id="searchForm" role="search">
     <span class="icon-btn"><svg><use href="#i-search"/></svg></span>
-    <input id="q" placeholder="Search your albums" autocomplete="off">
-    <button class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
-  </label>
+    <input id="q" placeholder="Search: beach, wedding cake, Feb 2024, Sony…" autocomplete="off" enterkeyhint="search">
+    <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
+  </form>
   <div class="spacer"></div>
 </header>
+<div class="selbar" id="selbar" hidden>
+  <button class="icon-btn" id="selClose" aria-label="Clear selection"><svg><use href="#i-close"/></svg></button>
+  <b id="selCount"></b>
+  <button class="icon-btn" id="selFav" title="Add to favorites" aria-label="Add to favorites"><svg><use href="#i-star-o"/></svg></button>
+  <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
+  <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
+  <button class="icon-btn" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
+</div>
 
 <div class="scrim" id="scrim"></div>
 <nav class="side" id="side">
   <div class="logo side-brand"><svg><use href="#i-photo"/></svg><span style="display:inline">Photo Vault</span></div>
   <a href="#/photos" data-route="photos"><svg><use href="#i-photo"/></svg>Photos</a>
   <a href="#/albums" data-route="albums"><svg><use href="#i-albums"/></svg>Albums</a>
+  <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
+  <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
+  <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
+  <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <h4>FOLDERS</h4>
   <div id="topFolders"></div>
   <div class="stat" id="stat"></div>
 </nav>
 
 <main id="main"><div class="page" id="page"></div><div class="sentinel" id="sentinel"></div></main>
+<div class="scrubber" id="scrubber" hidden></div>
 
 <div class="viewer" id="viewer">
   <div class="v-main" id="vMain">
     <div class="v-top">
       <button class="icon-btn" id="vBack" aria-label="Back" title="Back (Esc)"><svg><use href="#i-back"/></svg></button>
       <div class="spacer"></div>
+      <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (+ / − / 0, or double-click)"><svg><use href="#i-zoom"/></svg></button>
+      <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
+      <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
       <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
     </div>
@@ -195,25 +318,29 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <aside class="v-info" id="vInfo"></aside>
 </div>
 
-
 <script>
 const $ = s => document.querySelector(s);
 const ico = (id, cls = "") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
-const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const PAGE = 400, GAP = 4;
-let albums = [], status = null;
-let feed = null;          // current timeline: {album, items, total, loading, sections}
+let albums = [], userAlbums = [], status = null;
+let feed = null;          // current timeline (see openFeed)
 let viewerIdx = -1, infoOpen = false;
+let newestFirst = false;  // timeline order; remembered in this browser
+let filterChip = "";      // active filter chip on the current page
+const picked = new Set(); // selected item ids
+try { newestFirst = localStorage.getItem("pv-order") === "desc"; } catch {}
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 }
+const post = (url, body) => api(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body ?? {})});
 
 // ---------- formatting ----------
 const nf = n => (n ?? 0).toLocaleString();
-const size = b => b >= 1e9 ? (b/1e9).toFixed(1)+" GB" : b >= 1e6 ? (b/1e6).toFixed(1)+" MB" : Math.max(1, Math.round(b/1e3))+" KB";
+const size = b => b >= 1e12 ? (b/1e12).toFixed(2)+" TB" : b >= 1e9 ? (b/1e9).toFixed(1)+" GB" : b >= 1e6 ? (b/1e6).toFixed(1)+" MB" : !b ? "0 KB" : Math.max(1, Math.round(b/1e3))+" KB";
 const dur = s => { s = Math.round(s || 0); const h = s/3600|0, m = (s%3600)/60|0, x = String(s%60).padStart(2,"0");
   return h ? `${h}:${String(m).padStart(2,"0")}:${x}` : `${m}:${x}`; };
 const asDate = iso => new Date(iso.slice(0,19));
@@ -224,66 +351,93 @@ const dayLabel = iso => {
   return d.toLocaleDateString(undefined, opts);
 };
 const longDate = iso => asDate(iso).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric", year:"numeric"});
+const monthLabel = ym => new Date(ym + "-15T12:00:00").toLocaleDateString(undefined, {month:"short", year:"numeric"});
 const timeLabel = iso => asDate(iso).toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"});
 const BRANDS = {iphone: "iPhone", icloud: "iCloud", ipad: "iPad"};
 const pretty = seg => seg.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim()
   .replace(/\b\p{Ll}/gu, c => c.toUpperCase()).replace(/\b(iphone|icloud|ipad)\b/gi, w => BRANDS[w.toLowerCase()]);
 const plural = (n, word) => `${nf(n)} ${word}${n === 1 ? "" : "s"}`;
 const albumTitle = path => pretty(path.split("/").pop());
-const albumTrail = path => path.split("/").slice(0, -1).map(pretty).join(" › ");
 const mp = (w, h) => w && h ? `${Math.round(w*h/1e6)}MP · ${w} × ${h}` : "";
+const ago = t => { const s = Date.now()/1000 - t; return s < 90 ? "just now" : s < 5400 ? `${Math.round(s/60)} min ago` : `${Math.round(s/3600)} h ago`; };
+function toast(html, ms = 5000) {
+  document.querySelectorAll(".toast").forEach(t => t.remove());
+  const t = document.createElement("div"); t.className = "toast"; t.innerHTML = html; document.body.append(t);
+  setTimeout(() => t.remove(), ms); return t;
+}
 
 // ---------- routing ----------
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/similar": "similar", "/backup": "backup"};
+let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
   closeSide();
-  // exactly one nav item is active: a top-level folder if we're in it, else Albums for album pages, else Photos
+  clearPicked();
+  if (h !== lastPath) filterChip = "";   // chips belong to a page
+  lastPath = h;
   const inPath = h.replace(/^\/(album|all)\//, "");
   const folder = /^\/(album|all)\//.test(h) &&
     [...document.querySelectorAll(".side a[data-folder]")].find(a => inPath === a.dataset.folder || inPath.startsWith(a.dataset.folder + "/"));
-  const section = folder ? null : (h === "/albums" || /^\/(album|all)\//.test(h)) ? "albums" : "photos";
+  const section = folder ? null
+    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") ? "people" : h.startsWith("/search/") ? null : "photos");
   document.querySelectorAll(".side a").forEach(a =>
     a.classList.toggle("active", a === folder || (!a.dataset.folder && a.dataset.route === section)));
   $("#main").scrollTop = 0;
+  hideScrubber();
+  if (!h.startsWith("/search/") && document.activeElement !== $("#q")) { $("#q").value = ""; $("#qClear").hidden = true; }
   if (h === "/albums") return renderAlbums();
-  if (h.startsWith("/album/")) return openTimeline(h.slice(7));
-  if (h.startsWith("/all/")) return openTimeline(h.slice(5), true);
-  return openTimeline("");
+  if (h === "/people") return renderPeople();
+  if (h === "/similar") return renderSimilar();
+  if (h === "/backup") return renderBackup();
+  if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites"});
+  if (h.startsWith("/album/")) return openFolder(h.slice(7));
+  if (h.startsWith("/all/")) return openFolder(h.slice(5), true);
+  if (h.startsWith("/ualbum/")) return openUserAlbum(+h.slice(8));
+  if (h.startsWith("/person/")) return openPerson(+h.slice(8));
+  if (h.startsWith("/search/")) return openSearch(h.slice(8));
+  return openFeed({title: "Photos", params: {}, noBack: true});
 }
 window.addEventListener("hashchange", () => { if (viewerIdx < 0) route(); });
 
-// ---------- albums page ----------
+// ---------- albums page: your albums + folders ----------
 function renderAlbums() {
   feed = null;
-  const q = $("#q").value.trim().toLowerCase();
-  const list = albums.filter(a => !q || a.album.toLowerCase().includes(q));
+  let html = `<div class="page-head no-back"><h1>Albums</h1>
+      <div class="head-actions"><button class="txt-btn" id="newAlbum">${ico("add")}New album</button></div></div>`;
+  html += `<h2 class="sec">Your albums</h2>`;
+  html += userAlbums.length
+    ? `<div class="cards">` + userAlbums.map(a => cardHtml("#/ualbum/" + a.id, a.name, plural(a.n, "item"), a.cover, "ua")).join("") + `</div>`
+    : `<div class="note">Make your own albums: select photos (tick the circle on any photo) and choose “Add to album”, or press “New album”. They live only on this Mac.</div>`;
   const groups = {};
-  for (const a of list) (groups[a.album.split("/")[0]] ??= []).push(a);
-  let html = `<div class="page-head no-back"><h1>Albums</h1></div>
-    <div class="page-sub">${plural(list.length, "album")}${q ? ` matching “${esc(q)}”` : ""}</div>`;
-  if (!list.length) html += `<div class="empty">No albums match.</div>`;
+  for (const a of albums) (groups[a.album.split("/")[0]] ??= []).push(a);
   for (const [top, items] of Object.entries(groups)) {
     html += `<section class="group"><h2>${esc(pretty(top))}</h2><div class="cards">`;
     for (const a of items) {
       const trail = a.album.split("/").slice(1, -1).map(pretty).join(" › ");
-      html += cardHtml(a.album, albumTitle(a.album), plural(a.n, "item") + (trail ? " · " + trail : ""), a.cover);
+      html += cardHtml("#/album/" + encodeURIComponent(a.album), albumTitle(a.album), plural(a.n, "item") + (trail ? " · " + trail : ""), a.cover);
     }
     html += `</div></section>`;
   }
   $("#page").innerHTML = html;
   bindCards();
+  $("#newAlbum").onclick = async () => {
+    const name = await promptDialog("New album", "Album name");
+    if (!name) return;
+    const a = await post("/api/user-albums", {name});
+    await loadUserAlbums();
+    location.hash = "#/ualbum/" + a.id;
+  };
 }
 
-function cardHtml(path, title, sub, cover) {
-  return `<div class="card" data-album="${esc(path)}">
+function cardHtml(href, title, sub, cover, kind = "") {
+  return `<div class="card ${kind}" data-href="${esc(href)}">
     <div class="cover">${cover ? `<img loading="lazy" src="/thumb/${cover}" alt="" onerror="this.remove()">` : ""}</div>
     <b>${esc(title)}</b><span>${esc(sub)}</span></div>`;
 }
-function bindCards() {
-  $("#page").querySelectorAll(".card").forEach(c => c.onclick = () => location.hash = "#/album/" + encodeURIComponent(c.dataset.album));
+function bindCards(root = $("#page")) {
+  root.querySelectorAll(".card").forEach(c => c.onclick = () => location.hash = c.dataset.href);
 }
 
-// immediate sub-folders of a folder, built from the album list
 function childFolders(path) {
   const kids = new Map(), pre = path + "/";
   for (const a of albums) {
@@ -299,149 +453,538 @@ function childFolders(path) {
 }
 const folderTotal = path => albums.reduce((s, a) => s + (a.album === path || a.album.startsWith(path + "/") ? a.n : 0), 0);
 
-// ---------- timeline (Photos + single album) ----------
-function openTimeline(album, all = false) {
-  // Photos page and "view all" pages show everything below; a folder page shows its sub-folders + its own photos
-  const kids = album && !all ? childFolders(album) : [];
-  const direct = album ? (albums.find(a => a.album === album)?.n || 0) : null;
-  feed = {album, sub: !album || all, items: [], total: null, loading: false, sections: [], kids};
-  if (!album) {
-    $("#page").innerHTML = `<div class="page-head no-back"><h1>Photos</h1></div><div class="page-sub" id="pgSub"></div><div id="days"></div>`;
-    return loadMore();
-  }
+// ---------- pages built on the timeline ----------
+function openFolder(album, all = false) {
+  const kids = all ? [] : childFolders(album);
+  const direct = albums.find(a => a.album === album)?.n || 0;
   const parts = album.split("/");
-  const crumbs = parts.map((seg, i) => {
-    const path = parts.slice(0, i + 1).join("/");
-    return i === parts.length - 1 && !all ? "" : `<a href="#/album/${encodeURIComponent(path)}">${esc(pretty(seg))}</a>`;
-  }).filter(Boolean).join(" <span>›</span> ");
-  let html = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back"><svg><use href="#i-back"/></svg></button>
-      <h1>${esc(albumTitle(album))}${all ? " · everything" : ""}</h1></div>
-    ${crumbs ? `<div class="crumbs" id="crumbs">${crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>`;
+  const crumbs = parts.map((seg, i) => i === parts.length - 1 && !all ? ""
+    : `<a href="#/album/${encodeURIComponent(parts.slice(0, i + 1).join("/"))}">${esc(pretty(seg))}</a>`).filter(Boolean).join(" <span>›</span> ");
+  let pre = "";
   if (kids.length) {
-    html += `<div class="cards">` + kids.map(k => cardHtml(k.path, pretty(k.name),
+    pre += `<div class="cards">` + kids.map(k => cardHtml("#/album/" + encodeURIComponent(k.path), pretty(k.name),
       plural(k.n, "item") + (k.folders.size ? ` · ${plural(k.folders.size, "folder")}` : ""), k.cover)).join("") + `</div>`;
-    html += `<a class="all-link" href="#/all/${encodeURIComponent(album)}">${ico("photo")}View all ${plural(folderTotal(album), "item")} as one timeline</a>`;
-    if (direct) html += `<h2 class="sec">Photos in this folder</h2>`;
+    pre += `<a class="all-link" href="#/all/${encodeURIComponent(album)}">${ico("photo")}View all ${plural(folderTotal(album), "item")} as one timeline</a>`;
+    if (direct) pre += `<h2 class="sec">Photos in this folder</h2>`;
   }
-  $("#page").innerHTML = html + `<div id="days"></div>`;
-  bindCards();
   const parent = parts.slice(0, -1).join("/");
-  $("#pgBack").onclick = () => location.hash = all ? "#/album/" + encodeURIComponent(album)
-                                             : parent ? "#/album/" + encodeURIComponent(parent) : "#/albums";
-  if (kids.length && !direct) {   // only sub-folders here: nothing to load
-    feed.total = 0;
-    $("#pgSub").textContent = `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}`;
-    return;
+  openFeed({
+    title: albumTitle(album) + (all ? " · everything" : ""), crumbs, pre,
+    params: {album, sub: all ? "true" : "false"}, restoreLabel: albumTitle(album),
+    back: all ? "#/album/" + encodeURIComponent(album) : parent ? "#/album/" + encodeURIComponent(parent) : "#/albums",
+    empty: kids.length && !direct ? `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}` : null,
+    extraSub: kids.length ? ` here · ${plural(folderTotal(album), "item")} including sub-folders` : "",
+  });
+}
+
+function openUserAlbum(id) {
+  const a = userAlbums.find(x => x.id === id);
+  if (!a) { $("#page").innerHTML = `<div class="empty">That album doesn't exist any more.</div>`; return; }
+  openFeed({
+    title: a.name, params: {user_album: id}, back: "#/albums", userAlbum: a, restoreLabel: a.name,
+    actions: `<button class="icon-btn" id="uaRename" title="Rename album" aria-label="Rename album">${ico("edit")}</button>
+              <button class="icon-btn" id="uaDelete" title="Delete album (photos are kept)" aria-label="Delete album">${ico("delete")}</button>`,
+    emptyText: "This album is empty. Select photos anywhere and choose “Add to album”.",
+  });
+  $("#uaRename").onclick = async () => {
+    const name = await promptDialog("Rename album", "Album name", a.name);
+    if (!name) return;
+    await post(`/api/user-albums/${id}/rename`, {name}); await loadUserAlbums(); route();
+  };
+  $("#uaDelete").onclick = async () => {
+    if (!await confirmDialog("Delete this album?", `“${esc(a.name)}” will be removed. The photos stay on your drive, in Telegram and in the gallery.`, "Delete album")) return;
+    await post(`/api/user-albums/${id}/delete`); await loadUserAlbums(); location.hash = "#/albums";
+  };
+}
+
+async function openPerson(id) {
+  const people = await api("/api/people");
+  const p = people.find(x => x.id === id);
+  if (!p) { $("#page").innerHTML = `<div class="empty">This person isn't in the list any more (people are regrouped as photos are analysed).</div>`; return; }
+  openFeed({
+    title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person",
+    actions: `<button class="txt-btn" id="pName">${ico("edit")}${p.name ? "Rename" : "Add a name"}</button>
+              <button class="txt-btn" id="pMerge">Same person as…</button>`,
+  });
+  $("#pName").onclick = async () => {
+    const name = await promptDialog(p.name ? "Rename" : "Who is this?", "Name", p.name || "");
+    if (name === null) return;
+    await post(`/api/people/${id}/name`, {name}); route();
+  };
+  $("#pMerge").onclick = async () => {
+    const others = people.filter(x => x.id !== id);
+    const into = await pickDialog("Same person as…", others.map(o => ({id: o.id, label: o.name || "Unnamed", sub: plural(o.n, "photo"), img: o.cover_face ? `/face/${o.cover_face}` : null})));
+    if (!into) return;
+    await post(`/api/people/${id}/merge`, {into}); location.hash = "#/person/" + into;
+  };
+}
+
+async function openSearch(q) {
+  $("#q").value = q; $("#qClear").hidden = !q;
+  const ql = q.toLowerCase();
+  const fa = albums.filter(a => a.album.toLowerCase().includes(ql));
+  const ua = userAlbums.filter(a => a.name.toLowerCase().includes(ql));
+  let pre = "";
+  if (fa.length || ua.length) {
+    pre += `<h2 class="sec">Albums</h2><div class="cards">` +
+      ua.map(a => cardHtml("#/ualbum/" + a.id, a.name, plural(a.n, "item"), a.cover, "ua")).join("") +
+      fa.slice(0, 24).map(a => cardHtml("#/album/" + encodeURIComponent(a.album), albumTitle(a.album), plural(a.n, "item"), a.cover)).join("") + `</div>`;
   }
-  loadMore();
+  pre += `<div id="smart"></div><h2 class="sec" id="metaHead">Matching names, dates & cameras</h2>`;
+  openFeed({title: `Results for “${q}”`, params: {q}, back: "#/photos", pre, restoreLabel: q, emptyText: "No names, dates or cameras match."});
+  const box = $("#smart");
+  try {
+    const r = await api(`/api/smart-search?q=${encodeURIComponent(q)}&limit=120`);
+    if (feed?.params.q !== q) return;
+    if (!r.ready) {
+      box.innerHTML = `<div class="note">${ico("smart")} Smart search (things like “beach” or “cake”) appears once photo analysis has run — see Backup.</div>`;
+    } else if (r.items.length) {
+      box.innerHTML = `<h2 class="sec">${ico("smart")} Best matches</h2><div class="sim-row" id="smartRow"></div>`;
+
+      $("#smartRow").innerHTML = r.items.map((it, i) => tileHtml(it, 150, 150, "s" + i)).join("");
+      $("#smartRow").onclick = e => { const t = e.target.closest(".tile"); if (t && !e.target.closest(".sel")) openViewerOn(r.items, +t.dataset.i.slice(1)); };
+    }
+  } catch {}
+}
+
+// ---------- the timeline engine ----------
+// A window into an ordered list (base = position of items[0]) that can grow at both ends,
+// so the date scrubber can jump to any month of a 70,000-photo library.
+function openFeed(o) {
+  const params = {...o.params};
+  feed = {o, params, base: 0, items: [], total: null, loading: false, loadingPrev: false, months: null};
+  const chips = o.chips === false ? "" : `<div class="chips" id="chips">${[["", "All"], ["photos", "Photos"], ["videos", "Videos"],
+    ["favorites", "Favorites"], ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
+    .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k)
+    .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
+  const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
+  $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
+      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="restoreBtn" title="Download these from Telegram into a folder">${ico("restore")}Restore</button>` + sortBtn()}</div></div>
+    ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
+    <div class="sentinel" id="topSentinel"></div><div id="days"></div>`;
+  if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
+  bindCards();
+  $("#sortBtn") && ($("#sortBtn").onclick = () => {
+    newestFirst = !newestFirst;
+    try { localStorage.setItem("pv-order", newestFirst ? "desc" : "asc"); } catch {}
+    route();
+  });
+  $("#chips")?.addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route(); });
+  $("#restoreBtn") && ($("#restoreBtn").onclick = () => startRestore(feedQuery(), o.restoreLabel || o.title));
+  if (o.empty) { feed.total = 0; $("#pgSub").textContent = o.empty; return; }
+  topObserver.observe($("#topSentinel"));
+  loadMore().then(loadMonths);
+}
+const sortBtn = () => `<button class="sort-btn" id="sortBtn" title="Change the order">${ico("sort")}<span>${newestFirst ? "Newest first" : "Oldest first"}</span></button>`;
+
+function feedQuery(f = feed) {
+  const p = {...f.params};
+  if (filterChip) p.filter = [p.filter, filterChip].filter(Boolean).join(",");
+  return p;
+}
+function feedUrl(path, extra) {
+  const p = {...feedQuery(), order: newestFirst ? "desc" : "asc", ...extra};
+  return path + "?" + new URLSearchParams(Object.entries(p).filter(([, v]) => v !== undefined && v !== "")).toString();
+}
+
+async function fetchPage(offset, limit) {
+  return api(feedUrl("/api/items", {offset, limit}));
 }
 
 async function loadMore() {
   const f = feed;
-  if (!f || f.loading || (f.total !== null && f.items.length >= f.total)) return;
+  if (!f || f.loading || (f.total !== null && f.base + f.items.length >= f.total)) return;
   f.loading = true;
   try {
-    const r = await api(`/api/items?album=${encodeURIComponent(f.album)}&sub=${f.sub}&offset=${f.items.length}&limit=${PAGE}`);
+    const r = await fetchPage(f.base + f.items.length, PAGE);
     if (f !== feed) return;
     f.total = r.total;
-    for (const it of r.items) {
-      it.idx = f.items.length; f.items.push(it);
-      const day = it.taken_at.slice(0, 10);
-      let s = f.sections[f.sections.length - 1];
-      if (!s || s.day !== day) { s = {day, items: [], el: null}; f.sections.push(s); }
-      s.items.push(it); s.dirty = true;
-    }
+    f.items.push(...r.items);
     renderSections();
-    const first = f.items[0], last = f.items[f.items.length - 1];
-    const range = !first ? "" : first.taken_at.slice(0, 10) === last.taken_at.slice(0, 10)
-      ? longDate(first.taken_at) : `${longDate(first.taken_at)} – ${longDate(last.taken_at)}`;
-    const extra = f.kids.length ? ` here · ${plural(folderTotal(f.album), "item")} including sub-folders` : "";
-    $("#pgSub").textContent = f.total ? plural(f.total, "item") + extra + (range ? " · " + range : "") : "";
-    if (!f.total && !f.kids.length) $("#days").innerHTML = `<div class="empty">Nothing here yet — it will appear once indexed.</div>`;
+    const range = !r.first ? "" : r.first.slice(0, 10) === r.last.slice(0, 10) ? longDate(r.first) : `${longDate(r.first)} – ${longDate(r.last)}`;
+    $("#pgSub").textContent = f.total ? plural(f.total, "item") + (f.o.extraSub || "") + (range ? " · " + range : "")
+      : f.o.extraSub ? "" : "";
+    if (!f.total) $("#days").innerHTML = `<div class="empty">${esc(f.o.emptyText || (filterChip ? "Nothing matches this filter." : "Nothing here yet — it will appear once indexed."))}</div>`;
     if (viewerIdx >= 0) updateNav();
   } catch (e) {
-    $("#days").insertAdjacentHTML("beforeend", `<div class="empty">Couldn't load: ${esc(e.message)}</div>`);
+    $("#days")?.insertAdjacentHTML("beforeend", `<div class="empty">Couldn't load: ${esc(e.message)}</div>`);
   } finally { f.loading = false; }
-  // keep filling until the screen is covered
-  const m = $("#main"); if (m.scrollHeight <= m.clientHeight + 600) requestAnimationFrame(loadMore);
+  const m = $("#main"); if (feed === f && m.scrollHeight <= m.clientHeight + 600) requestAnimationFrame(loadMore);
+}
+
+async function loadPrev() {
+  const f = feed;
+  if (!f || f.loadingPrev || f.base === 0) return;
+  f.loadingPrev = true;
+  try {
+    const start = Math.max(0, f.base - PAGE);
+    const r = await fetchPage(start, f.base - start);
+    if (f !== feed) return;
+    // keep what's on screen where it is while new rows appear above it
+    const anchor = [...document.querySelectorAll("#days .tile")].find(t => t.getBoundingClientRect().bottom > 64);
+    const anchorTop = anchor?.getBoundingClientRect().top;
+    f.items.unshift(...r.items); f.base = start;
+    renderSections(true);
+    if (anchor) { const again = document.querySelector(`#days .tile[data-id="${anchor.dataset.id}"]`);
+      if (again) $("#main").scrollTop += again.getBoundingClientRect().top - anchorTop; }
+  } finally { f.loadingPrev = false; }
+  // the top marker only signals once while it stays in view: keep going while it's still near the screen
+  const top = $("#topSentinel");
+  if (feed === f && f.base > 0 && top && top.getBoundingClientRect().bottom > -1200) requestAnimationFrame(loadPrev);
+}
+
+async function jumpTo(offset) {
+  const f = feed; if (!f) return;
+  offset = Math.max(0, Math.min(offset, (f.total || 1) - 1));
+  f.base = offset; f.items = [];
+  $("#days").innerHTML = "";
+  $("#main").scrollTop = $("#days").offsetTop - 70;
+  await loadMore();
+  $("#main").scrollTop = $("#days").offsetTop - 70;
+  loadPrev();   // the top marker is already in view, so it won't signal: start filling in earlier months now
 }
 
 function rowHeight() { return innerWidth < 600 ? 112 : innerWidth < 1200 ? 180 : 220; }
 
-function renderSections(all = false) {
+function renderSections(all = true) {
   const days = $("#days"); if (!days || !feed) return;
   const W = days.clientWidth, H = rowHeight();
-  for (const s of feed.sections) {
-    if (!all && !s.dirty) continue;
-    s.dirty = false;
-    if (!s.el) { s.el = document.createElement("section"); s.el.className = "day"; days.append(s.el); }
-    let html = `<h3>${dayLabel(s.items[0].taken_at)}</h3>`;
+  const sections = [];
+  feed.items.forEach((it, i) => {
+    const d = it.taken_at.slice(0, 10), s = sections[sections.length - 1];
+    if (!s || s.day !== d) sections.push({day: d, items: [[it, i]]}); else s.items.push([it, i]);
+  });
+  let html = "";
+  for (const s of sections) {
+    html += `<section class="day"><h3>${dayLabel(s.items[0][0].taken_at)}</h3>`;
     let row = [], sumA = 0;
-    const flush = (fill) => {
+    const flush = fill => {
       if (!row.length) return;
       const h = fill ? (W - GAP * (row.length - 1)) / sumA : H;
-      html += `<div class="row">` + row.map(([it, a]) => tileHtml(it, Math.floor(a * h), Math.round(h))).join("") + `</div>`;
+      html += `<div class="row">` + row.map(([it, i, a]) => tileHtml(it, Math.floor(a * h), Math.round(h), i)).join("") + `</div>`;
       row = []; sumA = 0;
     };
-    for (const it of s.items) {
+    for (const [it, i] of s.items) {
       const a = it.width && it.height ? Math.min(3, Math.max(.4, it.width / it.height)) : 1;
-      row.push([it, a]); sumA += a;
+      row.push([it, i, a]); sumA += a;
       if (sumA * H + GAP * (row.length - 1) >= W) flush(true);
     }
     flush(false);
-    s.el.innerHTML = html;
+    html += `</section>`;
   }
+  days.innerHTML = html;
+  days.classList.toggle("selecting", picked.size > 0);
+  updateScrubberPos();
 }
 
-function tileHtml(it, w, h) {
-  // thumbnails are made on demand by the server; fall back to the file name if that fails
+function tileHtml(it, w, h, i) {
   let inner = it.thumb !== -1
     ? `<img loading="lazy" decoding="async" src="/thumb/${it.id}" alt="" onload="this.classList.add('ok')" onerror="thumbFailed(this)">`
     : `<span class="fname">${esc(it.name)}</span>`;
+  inner += `<span class="sel" title="Select">${ico("check")}</span>`;
   if (it.kind === "video") inner += `<span class="dur">${dur(it.duration)}${ico("play")}</span>`;
+  if (it.fav) inner += `<span class="fav">${ico("star")}</span>`;
   if (!it.cloud) inner += `<span class="off" title="Not backed up to Telegram yet">${ico("cloud-off")}</span>`;
-  return `<div class="tile" data-i="${it.idx}" style="width:${w}px;height:${h}px">${inner}</div>`;
+  return `<div class="tile ${picked.has(it.id) ? "picked" : ""}" data-i="${i}" data-id="${it.id}" style="width:${w}px;height:${h}px">${inner}</div>`;
 }
-
 function thumbFailed(img) {
-  const tile = img.closest(".tile"), it = feed?.items[+tile.dataset.i];
+  const tile = img.closest(".tile"); const it = feed?.items[+tile.dataset.i];
   if (it) it.thumb = -1;
   img.outerHTML = `<span class="fname">${esc(it ? it.name : "")}</span>`;
 }
 
-$("#page").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) openViewer(+t.dataset.i); });
-let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => renderSections(true), 120); });
-$("#main").addEventListener("scroll", () => $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0), {passive: true});
+$("#page").addEventListener("click", e => {
+  const t = e.target.closest("#days .tile"); if (!t) return;
+  if (e.target.closest(".sel") || picked.size) { togglePick(+t.dataset.id, t); return; }
+  openViewer(+t.dataset.i);
+});
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderSections(true); drawScrubber(); }, 120); });
+$("#main").addEventListener("scroll", () => { $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0); updateScrubberPos(); }, {passive: true});
 new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#main"), rootMargin: "2000px"}).observe($("#sentinel"));
+const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadPrev(), {root: $("#main"), rootMargin: "1200px"});
+
+// ---------- selection ----------
+function togglePick(id, tile) {
+  picked.has(id) ? picked.delete(id) : picked.add(id);
+  tile?.classList.toggle("picked", picked.has(id));
+  updateSelbar();
+}
+function clearPicked() { picked.clear(); document.querySelectorAll(".tile.picked").forEach(t => t.classList.remove("picked")); updateSelbar(); }
+function updateSelbar() {
+  $("#selbar").hidden = picked.size === 0;
+  $("#selCount").textContent = `${picked.size} selected`;
+  $("#selRemove").hidden = !feed?.o?.userAlbum;
+  $("#days")?.classList.toggle("selecting", picked.size > 0);
+}
+$("#selClose").onclick = clearPicked;
+$("#selFav").onclick = async () => {
+  const ids = [...picked]; await post("/api/favorites", {ids});
+  feed?.items.forEach(it => { if (picked.has(it.id)) it.fav = 1; });
+  toast(`Added ${plural(ids.length, "item")} to <a href="#/favorites">Favorites</a>`); clearPicked(); renderSections(true);
+};
+$("#selAlbum").onclick = async () => { if (await addToAlbum([...picked])) clearPicked(); };
+$("#selRemove").onclick = async () => {
+  const a = feed.o.userAlbum; await post(`/api/user-albums/${a.id}/remove`, {ids: [...picked]});
+  await loadUserAlbums(); clearPicked(); route();
+};
+$("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
+
+// ---------- dialogs ----------
+function dialog(html) {
+  const bg = document.createElement("div"); bg.className = "dialog-bg";
+  bg.innerHTML = `<div class="dialog" role="dialog">${html}</div>`;
+  document.body.append(bg);
+  return bg;
+}
+function promptDialog(title, label, value = "") {
+  return new Promise(res => {
+    const d = dialog(`<h2>${esc(title)}</h2><input id="dlgIn" placeholder="${esc(label)}" value="${esc(value)}">
+      <div class="actions"><button class="txt-btn" data-x="0">Cancel</button><button class="fill-btn" data-x="1">Save</button></div>`);
+    const inp = d.querySelector("#dlgIn"); inp.focus(); inp.select();
+    const done = ok => { d.remove(); res(ok ? inp.value.trim() : null); };
+    d.onclick = e => { if (e.target === d) done(false); const b = e.target.closest("[data-x]"); if (b) done(b.dataset.x === "1"); };
+    inp.onkeydown = e => { if (e.key === "Enter") done(true); if (e.key === "Escape") done(false); };
+  });
+}
+function confirmDialog(title, text, ok = "OK") {
+  return new Promise(res => {
+    const d = dialog(`<h2>${esc(title)}</h2><p>${text}</p><div class="actions"><button class="txt-btn" data-x="0">Cancel</button><button class="fill-btn" data-x="1">${esc(ok)}</button></div>`);
+    d.onclick = e => { if (e.target === d) { d.remove(); res(false); } const b = e.target.closest("[data-x]"); if (b) { d.remove(); res(b.dataset.x === "1"); } };
+  });
+}
+function pickDialog(title, options, extra = "") {
+  return new Promise(res => {
+    const d = dialog(`<h2>${esc(title)}</h2>${extra}<div class="pick-list">${options.map(o => `<button data-id="${o.id}">${o.img ? `<img src="${o.img}" alt="">` : `<span class="ph"></span>`}<span><b>${esc(o.label)}</b><br><span class="muted">${esc(o.sub || "")}</span></span></button>`).join("") || `<p>Nothing to choose from yet.</p>`}</div>
+      <div class="actions"><button class="txt-btn" data-x="0">Cancel</button></div>`);
+    d.onclick = e => {
+      if (e.target === d || e.target.closest("[data-x]")) { d.remove(); res(null); return; }
+      const b = e.target.closest("[data-id]"); if (b) { d.remove(); res(b.dataset.id === "new" ? "new" : +b.dataset.id); }
+    };
+  });
+}
+async function addToAlbum(ids) {
+  const choice = await pickDialog("Add to album", [{id: "new", label: "New album…", sub: ""},
+    ...userAlbums.map(a => ({id: a.id, label: a.name, sub: plural(a.n, "item"), img: a.cover ? `/thumb/${a.cover}` : null}))]);
+  if (!choice) return false;
+  let id = choice;
+  if (choice === "new") {
+    const name = await promptDialog("New album", "Album name"); if (!name) return false;
+    id = (await post("/api/user-albums", {name})).id;
+  }
+  const r = await post(`/api/user-albums/${id}/add`, {ids});
+  await loadUserAlbums();
+  const a = userAlbums.find(x => x.id === id);
+  toast(`Added ${plural(r.added, "item")} to <a href="#/ualbum/${id}">${esc(a?.name || "album")}</a>`);
+  return true;
+}
+
+// ---------- restore ----------
+async function startRestore(query, label) {
+  try {
+    const n = picked.size && query.ids ? query.ids.length : feed?.total;
+    if (!await confirmDialog("Restore from Telegram?",
+      `This downloads ${n ? plural(n, "item") : "these items"} from your Telegram backup into a new folder in <b>Downloads › Photo Vault Restore</b>, with the original file dates. Nothing on the drive or in Telegram changes.`, "Restore")) return;
+    const r = await post("/api/restore", {...query, label});
+    clearPicked();
+    toast(`Restoring ${plural(r.files, "file")} (${size(r.bytes)})${r.not_backed_up ? ` · ${r.not_backed_up} not backed up yet` : ""} · <a href="#/backup">Progress</a>`, 8000);
+  } catch (e) { toast(esc(e.message)); }
+}
+
+// ---------- date scrubber ----------
+async function loadMonths() {
+  const f = feed; if (!f || !f.total || f.total < 60) return;
+  try { f.months = await api(feedUrl("/api/months")); } catch { return; }
+  if (f !== feed) return;
+  drawScrubber();
+}
+function hideScrubber() { $("#scrubber").hidden = true; document.body.classList.remove("with-scrubber"); }
+function drawScrubber() {
+  const f = feed, sc = $("#scrubber");
+  if (!f?.months || f.months.length < 2 || innerWidth < 500) return hideScrubber();
+  sc.hidden = false; document.body.classList.add("with-scrubber");
+  const H = sc.clientHeight - 20; let cum = 0, lastY = -99, html = "";
+  f.cum = f.months.map(m => { const c = cum; cum += m.n; return c; });
+  f.months.forEach((m, i) => {
+    const y = 10 + H * f.cum[i] / f.total, yr = m.m.slice(0, 4);
+    const prevYr = i ? f.months[i - 1].m.slice(0, 4) : null;
+    if (yr !== prevYr && y - lastY > 16) { html += `<span class="yr" style="top:${y}px">${yr}</span>`; lastY = y; }
+  });
+  sc.innerHTML = html + `<span class="pos" id="scPos"></span><span class="tip" id="scTip"></span>`;
+  updateScrubberPos();
+}
+function monthAt(clientY) {
+  const f = feed, sc = $("#scrubber"), r = sc.getBoundingClientRect();
+  const frac = Math.min(1, Math.max(0, (clientY - r.top - 10) / (r.height - 20)));
+  const target = frac * f.total;
+  let i = f.cum.findIndex((c, k) => target < c + f.months[k].n);
+  if (i < 0) i = f.months.length - 1;
+  return i;
+}
+$("#scrubber").addEventListener("mousemove", e => {
+  if (!feed?.months) return;
+  const i = monthAt(e.clientY), tip = $("#scTip");
+  tip.textContent = monthLabel(feed.months[i].m); tip.style.top = (e.clientY - $("#scrubber").getBoundingClientRect().top) + "px";
+});
+$("#scrubber").addEventListener("click", e => { if (feed?.months) jumpTo(feed.cum[monthAt(e.clientY)]); });
+function updateScrubberPos() {
+  const f = feed, pos = $("#scPos"); if (!f?.months || !pos) return;
+  const t = [...document.querySelectorAll("#days .tile")].find(t => t.getBoundingClientRect().bottom > 70);
+  const idx = f.base + (t ? +t.dataset.i : 0);
+  pos.style.top = (10 + ($("#scrubber").clientHeight - 20) * idx / Math.max(1, f.total)) + "px";
+}
+
+// ---------- people, similar ----------
+async function renderPeople() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1></div><div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
+  const [people, st] = await Promise.all([api("/api/people"), api("/api/ml/status")]);
+  const box = $("#peopleBox");
+  if (!people.length) {
+    box.innerHTML = `<div class="note">${st.faces ? "Not enough faces grouped yet." : "No faces analysed yet."} ${mlNote(st)}</div>`; return;
+  }
+  box.innerHTML = `<div class="people">` + people.map(p => `<div class="person" data-id="${p.id}">
+      ${p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`}
+      <b class="${p.name ? "" : "unnamed"}">${esc(p.name || "Add a name")}</b><span>${plural(p.n, "photo")}</span></div>`).join("") + `</div>`;
+  box.onclick = e => { const p = e.target.closest(".person"); if (p) location.hash = "#/person/" + p.dataset.id; };
+}
+
+async function renderSimilar() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1></div>
+    <div class="page-sub">Groups of near-identical photos taken within a couple of minutes — handy for picking the best of a burst. Review only: nothing is changed or deleted.</div><div id="simBox"></div>`;
+  const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
+  const box = $("#simBox");
+  if (!r.groups.length) { box.innerHTML = `<div class="note">No similar groups found yet. ${mlNote(st)}</div>`; return; }
+  box.innerHTML = `<div class="muted">${plural(r.total, "group")}</div>` + r.groups.map((g, gi) => `<div class="sim-group">
+      <h3>${dayLabel(g.items[0].taken_at)} · ${timeLabel(g.items[0].taken_at)} · ${plural(g.items.length, "photo")}</h3>
+      <div class="sim-row" data-g="${gi}">${g.items.map((it, i) => tileHtml(it, 150, 150, i)).join("")}</div></div>`).join("");
+  box.onclick = e => {
+    const t = e.target.closest(".tile"); if (!t) return;
+    openViewerOn(r.groups[+t.closest(".sim-row").dataset.g].items, +t.dataset.i);
+  };
+}
+function mlNote(st) {
+  if (!st.models) return "The analysis models aren't installed yet.";
+  if (st.job?.status === "running") return `Analysis is running: ${st.job.detail?.step || ""} ${st.job.total ? `(${nf(st.job.done)} / ${nf(st.job.total)})` : ""}.`;
+  return `Run the analysis from the <a href="#/backup">Backup</a> page.`;
+}
+
+// ---------- backup dashboard ----------
+let backupTimer = null;
+async function renderBackup() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div><div class="page-sub" id="pgSub"></div><div id="dashBox"><div class="empty">Loading…</div></div>`;
+  clearInterval(backupTimer);
+  const draw = async () => {
+    if (!location.hash.startsWith("#/backup")) return clearInterval(backupTimer);
+    const [b, jobs, ml] = await Promise.all([api("/api/backup"), api("/api/jobs?kind=restore"), api("/api/ml/status")]);
+    const t = b.total, pct = t.files ? Math.round(1000 * t.backed_up / t.files) / 10 : 0;
+    const bar = (part, whole) => `<div class="bar"><i style="width:${whole ? 100 * part / whole : 0}%"></i></div>`;
+    const maxF = Math.max(...b.by_folder.map(f => f.bytes), 1), maxY = Math.max(...b.by_year.map(y => y.bytes), 1);
+    const dot = ok => `<span class="${ok ? "ok-dot" : "bad-dot"}"></span>`;
+    $("#pgSub").textContent = `${plural(t.files, "photo & video")} · ${size(t.bytes)}`;
+    $("#dashBox").innerHTML = `<div class="dash">
+      <div class="panel" id="dashTotal"><h3>Backed up to Telegram</h3><div class="big">${pct}%</div>
+        <div class="muted">${nf(t.backed_up)} of ${nf(t.files)} items · ${size(t.backed_up_bytes)} of ${size(t.bytes)}</div>${bar(t.backed_up, t.files)}
+        <div class="kv" style="margin-top:12px"><span>Exact duplicates skipped</span><span>${nf(b.skipped_duplicates)} (their twin is backed up)</span>
+        <span>Empty files skipped</span><span>${nf(b.empty_files)}</span><span>Videos</span><span>${nf(t.videos)}</span>
+        <span>No camera date</span><span>${nf(t.undated)}</span></div></div>
+      <div class="panel" id="dashStatus"><h3>Status</h3><div class="kv">
+        <span>Telegram</span><span>${dot(b.telegram)}${b.telegram ? "connected" : esc(b.telegram_error || "offline")}</span>
+        <span>Last sync</span><span>${b.last_sync ? ago(b.last_sync) : "not yet"}</span>
+        <span>Drive</span><span>${dot(b.drive)}${b.drive ? "plugged in" : "unplugged (viewing from Telegram)"}</span>
+        <span>Uploader</span><span>${b.uploader_running ? "running" : "idle"}${b.bots_running ? " · bots running" : ""}</span>
+        <span>Failed batches</span><span>${nf(b.failed_batches)}${b.failed_batches ? " (retried automatically)" : ""}</span></div>
+        ${b.upload_log_tail.length ? `<h3 style="margin-top:14px">Recent upload log</h3><div class="logbox">${esc(b.upload_log_tail.join("\n"))}</div>` : ""}</div>
+      <div class="panel" id="dashFolders"><h3>By folder</h3>${b.by_folder.map(f => `<div class="hbar"><span>${esc(pretty(f.folder))}</span>
+        <span class="track" title="${nf(f.backed_up)} of ${nf(f.files)} backed up"><i style="width:${100 * f.bytes / maxF}%"></i><b style="width:${100 * f.bytes / maxF * (f.files ? f.backed_up / f.files : 0)}%"></b></span>
+        <span class="n">${size(f.bytes)}</span></div>`).join("")}<div class="muted">Dark = backed up, light = not yet</div></div>
+      <div class="panel" id="dashYears"><h3>By year</h3>${b.by_year.map(y => `<div class="hbar"><span>${esc(y.year)}</span>
+        <span class="track" title="${nf(y.files)} items"><i style="width:${100 * y.bytes / maxY}%"></i><b style="width:${100 * y.bytes / maxY * (y.files ? y.backed_up / y.files : 0)}%"></b></span>
+        <span class="n">${nf(y.files)}</span></div>`).join("")}</div>
+      <div class="panel" id="dashMissing"><h3>Not backed up yet</h3>${b.not_backed_up_sample.length
+        ? `<div class="logbox">${esc(b.not_backed_up_sample.map(m => m.path).join("\n"))}</div><a class="all-link" href="#/photos" id="seeMissing">See them all</a>`
+        : `<div class="muted">${dot(true)}Everything in the gallery is backed up.</div>`}</div>
+      <div class="panel" id="dashMl"><h3>Photo analysis</h3><div class="kv">
+        <span>Understood (smart search)</span><span>${nf(ml.understood)} of ${nf(ml.images)}</span>
+        <span>Faces found</span><span>${nf(ml.faces)}</span><span>People</span><span>${nf(ml.people)}</span>
+        <span>Similar groups</span><span>${nf(ml.similar_groups)}</span></div>
+        ${ml.job?.status === "running" ? `<div class="muted" style="margin-top:10px">${esc(ml.job.detail?.step || "Running")} · ${nf(ml.job.done)} / ${nf(ml.job.total)}</div>${bar(ml.job.done, ml.job.total)}`
+          : ml.models ? `<button class="txt-btn" id="runMl" style="margin-top:10px">${ico("smart")}Analyse new photos</button>` : `<div class="muted">Models not installed: <code>venv/bin/python ml.py download</code></div>`}</div>
+      <div class="panel" id="dashJobs"><h3>Restores</h3>${jobs.length ? jobs.map(j => `<div class="job">
+        <b>${esc(j.detail.dest?.split("/").pop() || "Restore")}</b><span class="muted">${esc(j.status)} · ${nf(j.done)} / ${nf(j.total)} files${j.detail.verified ? ` · ${nf(j.detail.verified)} checked against the drive` : ""}${j.detail.errors?.length ? ` · ${j.detail.errors.length} problems` : ""}</span>
+        ${bar(j.done, j.total)}<span>${j.status === "running" ? `<button class="txt-btn" data-cancel="${j.id}">Cancel</button>` : `<button class="txt-btn" data-reveal="${j.id}">Show in Finder</button>`}</span></div>`).join("")
+        : `<div class="muted">Restore any album, folder, search or selection with its Restore button. Files go to Downloads › Photo Vault Restore with their original dates.</div>`}</div>
+    </div>`;
+    $("#runMl")?.addEventListener("click", async () => { try { await post("/api/ml/run"); toast("Analysis started"); draw(); } catch (e) { toast(esc(e.message)); } });
+    $("#seeMissing")?.addEventListener("click", () => { filterChip = "notbackedup"; lastPath = "/photos"; });
+    $("#dashJobs").onclick = async e => {
+      const c = e.target.closest("[data-cancel]"), r = e.target.closest("[data-reveal]");
+      if (c) { await post(`/api/jobs/${c.dataset.cancel}/cancel`); draw(); }
+      if (r) { try { await post(`/api/jobs/${r.dataset.reveal}/reveal`); } catch (err) { toast(esc(err.message)); } }
+    };
+  };
+  await draw();
+  backupTimer = setInterval(() => draw().catch(() => {}), 10000);
+}
 
 // ---------- viewer ----------
-function openViewer(i) {
+let viewList = null;   // the list the viewer steps through (the feed, or a fixed list like search matches)
+function curList() { return viewList || feed?.items || []; }
+function openViewer(i) { viewList = null; openViewerAt(i); }
+function openViewerOn(list, i) { viewList = list; openViewerAt(i); }
+function openViewerAt(i) {
   if (viewerIdx < 0) history.pushState({viewer: true}, "");
   viewerIdx = i; $("#viewer").classList.add("open"); document.body.style.overflow = "hidden";
   showItem();
 }
 function closeViewer(fromPop = false) {
   if (viewerIdx < 0) return;
-  viewerIdx = -1; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
+  viewerIdx = -1; viewList = null; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
   $("#vMain").querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   if (!fromPop && history.state?.viewer) history.back();
 }
 addEventListener("popstate", () => closeViewer(true));
 
 function updateNav() {
+  const list = curList();
   $("#vPrev").hidden = viewerIdx <= 0;
-  $("#vNext").hidden = !feed || viewerIdx >= feed.items.length - 1;
+  $("#vNext").hidden = viewerIdx >= list.length - 1;
+}
+
+const zoom = {s: 1, x: 0, y: 0};
+function applyZoom() {
+  const img = $("#vMain img.v-media"); if (!img) return;
+  img.style.transform = zoom.s === 1 ? "" : `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.s})`;
+  img.classList.toggle("zoomed", zoom.s > 1);
+  $("#vZoom").classList.toggle("on", zoom.s > 1);
+}
+function setZoom(s, cx, cy) {
+  const img = $("#vMain img.v-media"); if (!img) return;
+  s = Math.min(8, Math.max(1, s));
+  if (s === 1) { zoom.s = 1; zoom.x = zoom.y = 0; return applyZoom(); }
+  const r = $("#vMain").getBoundingClientRect();
+  cx = (cx ?? r.left + r.width / 2) - (r.left + r.width / 2); cy = (cy ?? r.top + r.height / 2) - (r.top + r.height / 2);
+  // keep the point under the cursor still
+  zoom.x = cx - (cx - zoom.x) * s / zoom.s; zoom.y = cy - (cy - zoom.y) * s / zoom.s; zoom.s = s;
+  applyZoom();
+  const it = curList()[viewerIdx];   // zoomed in: swap in the full-resolution original when the browser can show it
+  if (it && s > 1.5 && !img.dataset.full && /^(jpe?g|png|webp|gif)$/.test(it.ext) && it.size < 60e6) {
+    img.dataset.full = 1; const big = new Image(); big.onload = () => { if (curList()[viewerIdx] === it) img.src = big.src; }; big.src = `/original/${it.id}`;
+  }
 }
 
 function showItem() {
-  const it = feed?.items[viewerIdx]; if (!it) return;
-  if (viewerIdx >= feed.items.length - 8) loadMore();
+  const list = curList(), it = list[viewerIdx]; if (!it) return;
+  if (!viewList && viewerIdx >= list.length - 8) loadMore();
   updateNav();
+  zoom.s = 1; zoom.x = zoom.y = 0; $("#vZoom").classList.remove("on");
   const box = $("#vMain");
   box.querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   $("#vDl").href = `/original/${it.id}?download=1`;
+  setFavIcon(it.fav);
+  $("#vZoom").hidden = it.kind === "video";
   renderInfo(it);
-
   if (it.kind === "video") {
     const v = document.createElement("video");
     Object.assign(v, {controls: true, autoplay: true, playsInline: true, preload: "metadata", className: "v-media"});
@@ -453,34 +996,73 @@ function showItem() {
   }
   if (it.thumb !== -1) { const ph = new Image(); ph.className = "v-ph"; ph.onerror = () => ph.remove(); ph.src = `/thumb/${it.id}`; box.prepend(ph); }
   const sp = document.createElement("div"); sp.className = "spinner"; box.append(sp);
-  const img = new Image(); img.className = "v-media"; img.alt = it.name;
+  const img = new Image(); img.className = "v-media v-zoom"; img.alt = it.name; img.draggable = false;
   img.onload = () => { sp.remove(); box.querySelector(".v-ph")?.remove(); };
   img.onerror = async () => {
+    if (img.dataset.full) return;
     const r = await fetch(`/view/${it.id}`).catch(() => null);
     fail(img, (r && (await r.json().catch(() => ({}))).detail) || "Couldn't load this photo.");
   };
   img.src = `/view/${it.id}`;
   box.prepend(img);
-  const nx = feed.items[viewerIdx + 1]; if (nx?.kind === "image") new Image().src = `/view/${nx.id}`;
+  const nx = list[viewerIdx + 1]; if (nx?.kind === "image") new Image().src = `/view/${nx.id}`;
 }
 function fail(el, text) {
   el.remove(); $("#vMain").querySelector(".spinner")?.remove();
   const m = document.createElement("div"); m.className = "v-msg"; m.textContent = text; $("#vMain").append(m);
 }
-function step(d) { const n = viewerIdx + d; if (feed && n >= 0 && n < feed.items.length) { viewerIdx = n; showItem(); } }
+function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) { viewerIdx = n; showItem(); } }
 
-function renderInfo(it) {
-  $("#vInfo").innerHTML = `
-    <header><button class="icon-btn" id="vInfoClose" aria-label="Close info">${ico("close")}</button>Info</header>
+// zoom & pan: double-click, ctrl/pinch wheel, drag, + − 0
+$("#vMain").addEventListener("dblclick", e => { if (!e.target.closest(".v-media")) return; zoom.s > 1 ? setZoom(1) : setZoom(2.5, e.clientX, e.clientY); });
+$("#vMain").addEventListener("wheel", e => {
+  if (!$("#vMain img.v-media") || (!e.ctrlKey && zoom.s === 1)) return;
+  e.preventDefault();
+  if (e.ctrlKey) setZoom(zoom.s * Math.exp(-e.deltaY / 200), e.clientX, e.clientY);
+  else { zoom.x -= e.deltaX; zoom.y -= e.deltaY; applyZoom(); }
+}, {passive: false});
+let drag = null;
+$("#vMain").addEventListener("mousedown", e => { if (zoom.s > 1 && e.target.closest(".v-media")) { drag = {x: e.clientX - zoom.x, y: e.clientY - zoom.y}; e.preventDefault(); } });
+addEventListener("mousemove", e => { if (drag) { zoom.x = e.clientX - drag.x; zoom.y = e.clientY - drag.y; applyZoom(); } });
+addEventListener("mouseup", () => drag = null);
+$("#vZoom").onclick = () => zoom.s > 1 ? setZoom(1) : setZoom(2.5);
+
+function setFavIcon(on) { $("#vFav").innerHTML = ico(on ? "star" : "star-o"); $("#vFav").classList.toggle("on", !!on); $("#vFav").title = on ? "Remove from favorites (f)" : "Add to favorites (f)"; }
+async function toggleFav() {
+  const it = curList()[viewerIdx]; if (!it) return;
+  const on = !it.fav;
+  await post(on ? "/api/favorites" : "/api/favorites/remove", {ids: [it.id]});
+  it.fav = on ? 1 : 0; setFavIcon(on);
+  const f = feed?.items.find(x => x.id === it.id); if (f) f.fav = it.fav;
+}
+$("#vFav").onclick = toggleFav;
+$("#vAlbum").onclick = () => { const it = curList()[viewerIdx]; if (it) addToAlbum([it.id]).then(() => renderInfo(it)); };
+
+async function renderInfo(it) {
+  const base = `<header><button class="icon-btn" id="vInfoClose" aria-label="Close info">${ico("close")}</button>Info</header>
     <div class="info-h">Details</div>
     <div class="info-row">${ico("cal")}<div><b>${longDate(it.taken_at)}</b><span>${timeLabel(it.taken_at)}${it.date_src === "file" ? " · from file date (no camera date)" : ""}</span></div></div>
     <div class="info-row">${ico(it.kind === "video" ? "play" : "photo")}<div><b>${esc(it.name)}</b>
       <span>${[mp(it.width, it.height), size(it.size), it.kind === "video" ? dur(it.duration) : ""].filter(Boolean).join(" · ")}</span></div></div>
-    <div class="info-row">${ico("folder")}<div><b><a data-album="${esc(it.album)}">${esc(albumTitle(it.album))}</a></b><span>${esc(it.album)}</span></div></div>
+    <div id="infoMore"></div>
+    <div class="info-row">${ico("folder")}<div><b><a data-href="#/album/${encodeURIComponent(it.album)}">${esc(albumTitle(it.album))}</a></b><span>${esc(it.album)}</span></div></div>
     <div class="info-row">${ico(it.cloud ? "cloud" : "cloud-off")}<div><b>${it.cloud ? "Backed up to Telegram" : "Not backed up yet"}</b>
       <span>${it.cloud ? "Viewable even with the drive unplugged" : "Only on the drive for now"}</span></div></div>`;
+  $("#vInfo").innerHTML = base;
   $("#vInfoClose").onclick = () => toggleInfo(false);
-  $("#vInfo a[data-album]").onclick = e => { const a = e.target.dataset.album; closeViewer(); setTimeout(() => location.hash = "#/album/" + encodeURIComponent(a), 0); };
+  $("#vInfo").onclick = e => { const a = e.target.closest("a[data-href]"); if (a) { const h = a.dataset.href; closeViewer(); setTimeout(() => location.hash = h, 0); } };
+  try {
+    const d = await api(`/api/item/${it.id}`);
+    if (curList()[viewerIdx]?.id !== it.id) return;
+    const exp = d.exposure ? (d.exposure >= 1 ? `${d.exposure}s` : `1/${Math.round(1 / d.exposure)}`) : "";
+    const settings = [exp, d.fnumber ? `f/${d.fnumber}` : "", d.focal ? `${Math.round(d.focal)}mm` : "", d.iso ? `ISO ${d.iso}` : ""].filter(Boolean).join(" · ");
+    let more = "";
+    if (d.make || d.model) more += `<div class="info-row">${ico("camera")}<div><b>${esc([d.make, d.model].filter(Boolean).join(" "))}</b><span>${esc([d.lens, settings].filter(Boolean).join(" · "))}</span></div></div>`;
+    if (d.lat != null) more += `<div class="info-row">${ico("place")}<div><b>${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</b><span><a href="https://www.openstreetmap.org/?mlat=${d.lat}&mlon=${d.lon}#map=15/${d.lat}/${d.lon}" target="_blank" rel="noopener noreferrer">Open map</a></span></div></div>`;
+    if (d.people.length) more += `<div class="info-row">${ico("people")}<div><b>People</b><span class="info-chips">${d.people.map(p => `<a data-href="#/person/${p.id}">${esc(p.name || "Unnamed")}</a>`).join("")}</span></div></div>`;
+    if (d.user_albums.length) more += `<div class="info-row">${ico("albums")}<div><b>In your albums</b><span class="info-chips">${d.user_albums.map(a => `<a data-href="#/ualbum/${a.id}">${esc(a.name)}</a>`).join("")}</span></div></div>`;
+    $("#infoMore").innerHTML = more;
+  } catch {}
 }
 function toggleInfo(on = !infoOpen) { infoOpen = on; $("#viewer").classList.toggle("info", on); }
 
@@ -489,34 +1071,34 @@ $("#vInfoBtn").onclick = () => toggleInfo();
 $("#vPrev").onclick = () => step(-1);
 $("#vNext").onclick = () => step(1);
 document.addEventListener("keydown", e => {
-  if (viewerIdx < 0 || e.target.tagName === "INPUT") return;
-  if (e.key === "Escape") infoOpen && innerWidth < 900 ? toggleInfo(false) : closeViewer();
-  else if (e.key === "ArrowLeft") step(-1);
-  else if (e.key === "ArrowRight") step(1);
+  if (e.target.tagName === "INPUT") return;
+  if (viewerIdx < 0) { if (e.key === "Escape" && picked.size) clearPicked(); return; }
+  if (e.key === "Escape") zoom.s > 1 ? setZoom(1) : infoOpen && innerWidth < 900 ? toggleInfo(false) : closeViewer();
+  else if (e.key === "ArrowLeft" && zoom.s === 1) step(-1);
+  else if (e.key === "ArrowRight" && zoom.s === 1) step(1);
   else if (e.key === "i") toggleInfo();
+  else if (e.key === "f") toggleFav();
+  else if (e.key === "+" || e.key === "=") setZoom(zoom.s * 1.5);
+  else if (e.key === "-") setZoom(zoom.s / 1.5);
+  else if (e.key === "0") setZoom(1);
 });
 let tx = null, ty = null;
 $("#vMain").addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive: true});
 $("#vMain").addEventListener("touchend", e => {
-  if (tx === null) return;
+  if (tx === null || zoom.s > 1) return;
   const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
-  else if (dy > 90) closeViewer();   // swipe down to close, like the phone apps
+  else if (dy > 90) closeViewer();
   tx = null;
 });
 
 // ---------- side nav / search ----------
 function closeSide() { $("#side").classList.remove("open"); $("#scrim").classList.remove("open"); }
-$("#menuBtn").onclick = () => {
-  if (innerWidth >= 900) return;
-  $("#side").classList.toggle("open"); $("#scrim").classList.toggle("open");
-};
+$("#menuBtn").onclick = () => { if (innerWidth >= 900) return; $("#side").classList.toggle("open"); $("#scrim").classList.toggle("open"); };
 $("#scrim").onclick = closeSide;
-$("#q").addEventListener("input", () => {
-  $("#qClear").hidden = !$("#q").value;
-  if (location.hash !== "#/albums") location.hash = "#/albums"; else renderAlbums();
-});
-$("#qClear").onclick = e => { e.preventDefault(); $("#q").value = ""; $("#qClear").hidden = true; renderAlbums(); };
+$("#searchForm").onsubmit = e => { e.preventDefault(); const q = $("#q").value.trim(); if (q) location.hash = "#/search/" + encodeURIComponent(q); };
+$("#q").addEventListener("input", () => { $("#qClear").hidden = !$("#q").value; });
+$("#qClear").onclick = () => { $("#q").value = ""; $("#qClear").hidden = true; $("#q").focus(); };
 
 function renderSide() {
   const tops = {};
@@ -532,15 +1114,15 @@ function renderSide() {
     <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
     <div>${nf(status.total)} photos & videos indexed</div>`;
 }
-
+async function loadUserAlbums() { userAlbums = await api("/api/user-albums"); }
 
 async function boot() {
-  [status, albums] = await Promise.all([api("/api/status"), api("/api/albums")]);
+  [status, albums] = await Promise.all([api("/api/status"), api("/api/albums"), loadUserAlbums()]);
   renderSide();
   route();
   setInterval(async () => { try { status = await api("/api/status"); renderSide(); } catch {} }, 60000);
 }
-boot().catch(() => {});
+boot().catch(e => { $("#page").innerHTML = `<div class="empty">Couldn't start: ${esc(e.message)}</div>`; });
 </script>
 </body>
 </html>

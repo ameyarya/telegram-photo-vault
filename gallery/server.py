@@ -1,7 +1,8 @@
-"""Read-only photo gallery over the Telegram backup channel.
+"""Photo gallery over the Telegram backup channel.
 
 Thumbnails and the index are local. Full-size photos and videos come from the drive when it is
-plugged in, otherwise they are streamed from Telegram. There are no write or delete endpoints.
+plugged in, otherwise they are streamed from Telegram. Nothing here can change or delete anything on the
+drive or in Telegram; the only things it writes are local (favorites, your albums, restored copies).
 Run: ../.venv/bin/python serve.py   (https://photo-vault.local), or install_service.sh to keep it running.
 """
 import asyncio
@@ -21,6 +22,7 @@ import tg
 from build_index import make_thumb, thumb_path
 from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, TELEGRAM, load_env
 from db import connect
+from search import parse_query, selection
 
 mimetypes.add_type("image/heic", ".heic")
 mimetypes.add_type("image/heif", ".heif")
@@ -64,6 +66,10 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
+import backup, library, ml, restore  # noqa: E402  (they import helpers defined in this module)
+for _mod in (library, ml, restore, backup):
+    app.include_router(_mod.router)
+
 
 @app.middleware("http")
 async def local_only(request: Request, call_next):
@@ -100,23 +106,51 @@ def albums():
     return [dict(r) for r in rows]
 
 
+ITEM_COLS = """id, name, album, kind, ext, taken_at, date_src, size, duration,
+               CASE WHEN orient = 1 THEN height ELSE width END AS width,
+               CASE WHEN orient = 1 THEN width ELSE height END AS height,
+               thumb, msg_id IS NOT NULL AS cloud, id IN (SELECT media_id FROM favorites) AS fav"""
+
+
 @app.get("/api/items")
-def items(album: str = "", sub: bool = True, offset: int = 0, limit: int = 500):
+def items(album: str = "", sub: bool = True, offset: int = 0, limit: int = 500, order: str = "asc",
+          filter: str = "", q: str = "", user_album: int | None = None, person: int | None = None):
+    direction = "DESC" if order == "desc" else "ASC"
+    where, args = selection(album, sub, filter, q, user_album, person)
     con = connect()
-    if not album:
-        where, args = "1", []
-    elif sub:
-        where, args = "(album = ? OR album LIKE ? ESCAPE '\\')", [album, album.replace("%", "\\%").replace("_", "\\_") + "/%"]
-    else:
-        where, args = "album = ?", [album]
-    total = con.execute(f"SELECT count(*) FROM media WHERE {where}", args).fetchone()[0]
-    rows = con.execute(f"""SELECT id, name, album, kind, ext, taken_at, date_src, size, duration,
-                                  CASE WHEN orient = 1 THEN height ELSE width END AS width,
-                                  CASE WHEN orient = 1 THEN width ELSE height END AS height,
-                                  thumb, msg_id IS NOT NULL AS cloud
-                           FROM media WHERE {where} ORDER BY taken_at, id LIMIT ? OFFSET ?""",
-                       args + [min(limit, 2000), offset]).fetchall()
-    return {"total": total, "items": [dict(r) for r in rows]}
+    total, first, last = con.execute(f"SELECT count(*), min(taken_at), max(taken_at) FROM media WHERE {where}",
+                                     args).fetchone()
+    rows = con.execute(f"""SELECT {ITEM_COLS} FROM media WHERE {where}
+                           ORDER BY taken_at {direction}, id {direction} LIMIT ? OFFSET ?""",
+                       args + [min(limit, 2000), max(offset, 0)]).fetchall()
+    # first/last cover the whole selection (oldest and newest), not just this page
+    return {"total": total, "first": first, "last": last, "query": parse_query(q)[2] if q else "",
+            "items": [dict(r) for r in rows]}
+
+
+@app.get("/api/months")
+def months(album: str = "", sub: bool = True, order: str = "asc", filter: str = "", q: str = "",
+           user_album: int | None = None, person: int | None = None):
+    """How many items each month has, in display order: lets the date scrubber jump straight to a month."""
+    where, args = selection(album, sub, filter, q, user_album, person)
+    rows = connect().execute(f"""SELECT substr(taken_at, 1, 7) m, count(*) n FROM media WHERE {where}
+                                 GROUP BY m ORDER BY m {"DESC" if order == "desc" else "ASC"}""", args).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.get("/api/item/{media_id}")
+def item(media_id: int):
+    """Everything known about one photo or video, for the info panel."""
+    con = connect()
+    row = con.execute(f"SELECT {ITEM_COLS}, path, make, model, lens, iso, fnumber, exposure, focal, lat, lon "
+                      "FROM media WHERE id = ?", (media_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "not found")
+    albums_in = con.execute("""SELECT a.id, a.name FROM user_albums a JOIN user_album_items i ON i.album_id = a.id
+                               WHERE i.media_id = ? ORDER BY a.name""", (media_id,)).fetchall()
+    people_in = con.execute("""SELECT DISTINCT p.id, p.name FROM faces f JOIN people p ON p.id = f.person
+                               WHERE f.media_id = ? ORDER BY p.name""", (media_id,)).fetchall()
+    return {**dict(row), "user_albums": [dict(a) for a in albums_in], "people": [dict(p) for p in people_in]}
 
 
 def get_row(media_id):

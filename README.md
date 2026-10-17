@@ -15,11 +15,18 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | **Duplicate skipping** (`backup/find_duplicates.py`) — copies confirmed byte-for-byte (SHA-256), never by name alone | ✅ tested |
 | **Timestamp manifest** (`backup/save_timestamps.sh`) — saves created/modified dates Telegram doesn't keep | ✅ tested |
 | **Upload verification** (`backup/verify_uploads.py`) — downloads samples back and compares SHA-256 with the originals | ✅ |
-| **Gallery** (`gallery/`) — albums from your folders, real capture dates, viewer, info panel, streams from Telegram, read-only, HTTPS at `https://photo-vault.local`, this Mac only | ✅ 52 tests incl. browser tests |
+| **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photo-vault.local`, this Mac only | ✅ tested, incl. headless-browser tests |
+| ↳ **Date scrubber**, oldest/newest-first, **filter chips** (photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date) | ✅ |
+| ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
+| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
+| ↳ **Similar shots** — near-identical bursts grouped for review (never deletes anything) | ✅ optional |
+| ↳ Viewer with **zoom & pan**, camera details (lens, exposure, ISO, GPS), **favorites**, **your own albums**, multi-select | ✅ |
+| ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
+| ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |
+| **Auto-backup** (`backup/autobackup.sh`) — plugging in the drive backs up new photos and updates the gallery | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
-Not built: restoring from Telegram back to a drive (download the files, then use the timestamp manifest),
-encryption before upload, Windows/Linux support, viewing from a phone.
+Not built: encryption before upload, Windows/Linux support, viewing from a phone.
 
 ## Caveats
 
@@ -83,9 +90,32 @@ run it again later. Add `--rescan` after adding new photos.
    zsh install_service.sh         # starts at login; `zsh install_service.sh --remove` to undo
    ```
 
-Only this Mac can open the gallery: it refuses every other device. It has no delete or edit functions,
-so it can't change anything in your channel. Photos come from the drive when it's plugged in, otherwise
-from Telegram; anything not uploaded yet shows a crossed-out cloud.
+Only this Mac can open the gallery: it refuses every other device. Nothing in it can change or delete anything on
+the drive or in your channel; the only things it writes are local (favorites, your albums, restored copies).
+Photos come from the drive when it's plugged in, otherwise from Telegram; anything not uploaded yet shows a
+crossed-out cloud.
+
+### Optional: smart search, people, similar shots
+
+Runs entirely on your Mac (uses the Apple GPU when available); nothing is sent anywhere.
+
+```sh
+.venv/bin/pip install -r requirements-ml.txt
+cd gallery && ../.venv/bin/python ml.py download    # ~650 MB, once: OpenCLIP ViT-B/32 + OpenCV YuNet/SFace
+../.venv/bin/python ml.py run                        # analyse every photo (resumable; ~1 h per 70k photos)
+```
+
+Later runs only process new photos; the Backup page has an "Analyse new photos" button.
+
+### Optional: auto-backup when the drive is plugged in
+
+```sh
+zsh backup/install_autobackup.sh            # on  (zsh backup/install_autobackup.sh --remove  to turn off)
+```
+
+Whenever a drive is mounted, if it's `DRIVE`, it rescans for new files, uploads them, updates the gallery index
+and shows a notification. It won't run twice at once, skips if an upload is already running, and waits an hour
+between runs so other drives mounting don't trigger rescans.
 
 ### Optional: bot uploader (experimental)
 
@@ -117,8 +147,9 @@ run at once without uploading the same file twice; whether each one adds speed i
 .venv/bin/python -m pytest
 ```
 
-The backup tests use a fake drive and a fake `tdl`; the gallery tests build sample photos and videos and
-drive a headless browser. Nothing touches your drive or Telegram.
+The backup tests use a fake drive and a fake `tdl`; the gallery tests build sample photos and videos, a fake
+Telegram channel (for streaming and restore) and small stand-in ML models, and drive a headless browser.
+Nothing touches your drive or Telegram.
 
 ## License
 

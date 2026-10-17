@@ -99,15 +99,20 @@ def test_search_clear_button_only_when_typing(page):
     expect(page.locator("#qClear")).to_be_visible()
 
 
-def test_search_filters_albums(page):
+def test_search_shows_matching_albums_and_photos(page):
     go(page)
     page.fill("#q", "day 2")
-    expect(page.locator(".card")).to_have_count(1)
-    expect(page.locator(".side a.active")).to_have_text("Albums")
+    page.press("#q", "Enter")
+    expect(page).to_have_url(page.base + "/#/search/day%202")
+    expect(page.locator(".page-head h1")).to_have_text("Results for “day 2”")
+    expect(page.locator(".card")).to_have_count(1)                     # the "Day 2" folder
+    expect(page.locator("#days .tile")).to_have_count(1)                # IMG_0001.heic lives there
     page.click("#qClear")
-    expect(page.locator(".card")).to_have_count(6)
+    expect(page.locator("#q")).to_have_value("")
     page.fill("#q", "zzz")
-    expect(page.locator(".empty")).to_contain_text("No albums")
+    page.press("#q", "Enter")
+    expect(page.locator(".card")).to_have_count(0)
+    expect(page.locator("#days .empty")).to_contain_text("No names, dates or cameras match")
 
 
 # ---------- viewer ----------
@@ -183,7 +188,7 @@ def test_info_panel(page):
 def test_info_album_link_navigates(page):
     open_first_photo(page, "family%2Fwedding%2Fday%202")
     page.click("#vInfoBtn")
-    page.click("#vInfo a[data-album]")
+    page.click("#vInfo a[data-href^='#/album/']")
     expect(page.locator("#viewer")).to_be_hidden()
     expect(page.locator(".page-head h1")).to_have_text("Day 2")
 
@@ -294,3 +299,35 @@ def test_viewer_inside_folder_steps_only_through_that_folder(page):
     page.click("#vInfoBtn")
     expect(page.locator("#vInfo")).to_contain_text("group.jpg")
     expect(page.locator("#vNext")).to_be_hidden()            # sub-folder photos aren't mixed in
+
+
+# ---------- sort order ----------
+def test_sort_toggle_newest_first_and_remembered(page):
+    go(page)
+    expect(page.locator("#sortBtn")).to_have_text("Oldest first")
+    assert "2023" in page.locator(".day h3").first.inner_text()          # oldest first by default
+    page.click("#sortBtn")
+    expect(page.locator("#sortBtn")).to_have_text("Newest first")
+    expect(page.locator(".day h3").first).to_contain_text("Aug 26")       # the newest day now leads
+    expect(page.locator(".tile")).to_have_count(10)
+    expect(page.locator("#pgSub")).to_contain_text("May 1, 2023 – Mon, Aug 26, 2024")  # full range either way
+    page.reload()
+    page.wait_for_selector(".tile")
+    expect(page.locator("#sortBtn")).to_have_text("Newest first")         # remembered
+    shot(page, "photos-newest-first")
+
+
+def test_sort_applies_to_albums_and_viewer(page):
+    go(page, "#/album/vacation")
+    page.click("#sortBtn")
+    page.locator(".tile").first.click()
+    page.click("#vInfoBtn")
+    expect(page.locator("#vInfo")).to_contain_text("pier.jpg")            # newest photo first
+    page.keyboard.press("ArrowRight")
+    expect(page.locator("#vInfo")).to_contain_text("sunset.jpg")          # next = older
+
+
+def test_no_sort_button_on_folder_with_only_subfolders(page):
+    go(page, "#/album/family")
+    expect(page.locator(".card")).to_have_count(2)
+    expect(page.locator("#sortBtn")).to_have_count(0)
