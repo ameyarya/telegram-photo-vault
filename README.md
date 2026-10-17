@@ -18,8 +18,10 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photo-vault.local`, this Mac only | ✅ tested, incl. headless-browser tests |
 | ↳ **Date scrubber**, oldest/newest-first, **filter chips** (photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date) | ✅ |
 | ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
-| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
-| ↳ **Similar shots** — near-identical bursts grouped for review (never deletes anything) | ✅ optional |
+| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
+| ↳ **Similar shots** — near-identical bursts grouped, best shot picked (favorite, else sharpest); "keep best, trash the rest" | ✅ optional |
+| ↳ **Live Photos** — the photo and its motion clip show as one item; a LIVE button plays the motion | ✅ |
+| ↳ **Trash** — trashed items are hidden and moved to `<drive>/.photo-vault-trash`; put back any time. "Empty trash" deletes them from the drive only — the Telegram copy is never touched | ✅ tested |
 | ↳ Viewer with **zoom & pan**, camera details (lens, exposure, ISO, GPS), **favorites**, **your own albums**, multi-select | ✅ |
 | ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
 | ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |
@@ -90,8 +92,9 @@ run it again later. Add `--rescan` after adding new photos.
    zsh install_service.sh         # starts at login; `zsh install_service.sh --remove` to undo
    ```
 
-Only this Mac can open the gallery: it refuses every other device. Nothing in it can change or delete anything on
-the drive or in your channel; the only things it writes are local (favorites, your albums, restored copies).
+Only this Mac can open the gallery: it refuses every other device. It never changes your Telegram channel. On the drive
+it only moves files you trash into `.photo-vault-trash` (and back), and deletes them only when you press "Empty trash";
+everything else it writes is local (favorites, your albums, restored copies).
 Photos come from the drive when it's plugged in, otherwise from Telegram; anything not uploaded yet shows a
 crossed-out cloud.
 

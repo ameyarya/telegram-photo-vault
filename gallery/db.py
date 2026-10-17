@@ -36,12 +36,18 @@ CREATE INDEX IF NOT EXISTS faces_person ON faces(person);
 CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY, name TEXT, cover_face INTEGER, n INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS similar (group_id INTEGER NOT NULL, media_id INTEGER NOT NULL, PRIMARY KEY (group_id, media_id));
 CREATE TABLE IF NOT EXISTS ml_done (media_id INTEGER NOT NULL, task TEXT NOT NULL, PRIMARY KEY (media_id, task));
+-- Similar-shots "trash": hidden in the gallery and moved to <drive>/.photo-vault-trash (Telegram copy kept)
+CREATE TABLE IF NOT EXISTS trash (media_id INTEGER PRIMARY KEY, trashed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  moved INTEGER DEFAULT 0, emptied INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS similar_dismissed (group_key TEXT PRIMARY KEY);         -- "these aren't duplicates"
+CREATE TABLE IF NOT EXISTS people_not_same (a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY (a, b));  -- a < b
 CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT, done INTEGER DEFAULT 0, total INTEGER DEFAULT 0,
   detail TEXT, started TEXT DEFAULT CURRENT_TIMESTAMP, finished TEXT);
 """
 
 # photo details read from EXIF (camera, settings, location); exif2 = 1 once read
-EXTRA_COLUMNS = {"orient": "INTEGER", "make": "TEXT", "model": "TEXT", "lens": "TEXT", "iso": "INTEGER",
+EXTRA_COLUMNS = {"live_id": "INTEGER", "live_of": "INTEGER",  # Live Photo: still -> its motion clip, clip -> its still
+                 "orient": "INTEGER", "make": "TEXT", "model": "TEXT", "lens": "TEXT", "iso": "INTEGER",
                  "fnumber": "REAL", "exposure": "REAL", "focal": "REAL", "lat": "REAL", "lon": "REAL", "exif2": "INTEGER"}
 
 
@@ -56,6 +62,9 @@ def connect(timeout=30):
     if str(DB_PATH) not in _ready:
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
+        pcols = {r["name"] for r in con.execute("PRAGMA table_info(people)")}
+        if "confirmed" not in pcols:  # 1 = you named or merged them: regrouping keeps all their faces together
+            con.execute("ALTER TABLE people ADD COLUMN confirmed INTEGER DEFAULT 0")
         cols = {r["name"] for r in con.execute("PRAGMA table_info(media)")}
         # orient: 1 = stored sideways (EXIF orientation 5-8 / video rotation 90/270): swap w/h for display
         for col, typ in EXTRA_COLUMNS.items():

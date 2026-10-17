@@ -39,6 +39,7 @@ PEOPLE_MERGE = 0.70       # tight groups whose average faces are this similar ar
 MIN_FACE_FRACTION = 0.06  # faces narrower than this share of the photo are too small to identify reliably
 MIN_FACE_SCORE = 0.85     # detector confidence needed to use a face for grouping
 MIN_FACES_PER_PERSON = 3  # smaller groups aren't shown as people
+MAYBE_SAME = 0.45         # people whose average faces are this similar are suggested as "maybe the same person?"
 SIMILAR_COS = 0.93        # CLIP similarity for "near-identical shot"
 SIMILAR_WINDOW_S = 120    # ... taken within two minutes of each other
 
@@ -304,27 +305,26 @@ def cluster_faces(embs, k=FACE_NEIGHBOURS, link=FACE_LINK, merge=PEOPLE_MERGE, i
 
 
 def group_people(con):
-    """Cluster faces into people; keep the names (and ids) of people found before."""
-    rows = con.execute(f"""SELECT id, media_id, emb, person, score FROM faces
-                           WHERE score >= ? AND w >= ? ORDER BY score DESC, id""",
+    """Cluster faces into people; keep the ids, names and your merges of people found before.
+
+    A person you named or merged is "confirmed": every group of faces that was theirs before stays theirs (so two
+    groups you merged stay one person), and their faces that no longer fall into any group are kept too.
+    """
+    rows = con.execute("""SELECT id, media_id, emb, person, score FROM faces
+                          WHERE score >= ? AND w >= ? ORDER BY score DESC, id""",
                        (MIN_FACE_SCORE, MIN_FACE_FRACTION)).fetchall()
     old = {r["id"]: r["person"] for r in con.execute("SELECT id, person FROM faces")}
-    named = {r["id"]: r["name"] for r in con.execute("SELECT id, name FROM people")}
+    confirmed = {r["id"] for r in con.execute("SELECT id FROM people WHERE confirmed = 1")}
     con.execute("UPDATE faces SET person = NULL")
-    if not rows:
-        con.execute("DELETE FROM people")
-        con.commit()
-        return
     ids = [r["id"] for r in rows]
-    labels = cluster_faces(_norm(np.stack([np.frombuffer(r["emb"], dtype=np.float32) for r in rows])))
+    labels = (cluster_faces(_norm(np.stack([np.frombuffer(r["emb"], dtype=np.float32) for r in rows])))
+              if rows else [])
     clusters = {}
     for k, lab in enumerate(labels):
         if lab >= 0:
             clusters.setdefault(int(lab), []).append(k)
-    used, keep = set(), []
+    used, keep, assigned = set(), set(), set()
     for members in sorted(clusters.values(), key=len, reverse=True):
-        if len({rows[k]["media_id"] for k in members}) < MIN_FACES_PER_PERSON:
-            continue
         # reuse the previous person id this cluster overlaps most, so names survive regrouping
         votes = {}
         for k in members:
@@ -332,17 +332,61 @@ def group_people(con):
             if p is not None and p not in used:
                 votes[p] = votes.get(p, 0) + 1
         pid = max(votes, key=votes.get) if votes else None
-        if pid is None or pid not in named:
+        if pid not in confirmed and len({rows[k]["media_id"] for k in members}) < MIN_FACES_PER_PERSON:
+            continue
+        if pid is None:
             pid = con.execute("INSERT INTO people(name) VALUES (NULL)").lastrowid
-        used.add(pid)
-        best = max(members, key=lambda k: rows[k]["score"])
+        if pid not in confirmed:
+            used.add(pid)          # a confirmed person can take several groups (you said they're one person)
         con.executemany("UPDATE faces SET person = ? WHERE id = ?", [(pid, ids[k]) for k in members])
-        photos = con.execute("SELECT count(DISTINCT media_id) FROM faces WHERE person = ?", (pid,)).fetchone()[0]
-        con.execute("UPDATE people SET n = ?, cover_face = ?, name = ? WHERE id = ?",
-                    (photos, ids[best], named.get(pid), pid))
-        keep.append(pid)
+        assigned.update(ids[k] for k in members)
+        keep.add(pid)
+    stay = [(p, f) for f, p in old.items() if p in confirmed and f not in assigned]
+    con.executemany("UPDATE faces SET person = ? WHERE id = ?", stay)
+    keep.update(p for p, _ in stay)
+    keep = sorted(keep)
     con.execute(f"DELETE FROM people WHERE id NOT IN ({','.join('?' * len(keep)) or 'NULL'})", keep)
+    con.execute("DELETE FROM people_not_same WHERE a NOT IN (SELECT id FROM people) OR b NOT IN (SELECT id FROM people)")
+    for pid in keep:
+        _refresh_person(con, pid)
     con.commit()
+
+
+def _refresh_person(con, pid):
+    """Photo count, and a cover face (keeps the current one if it's still theirs)."""
+    n = con.execute("SELECT count(DISTINCT media_id) FROM faces WHERE person = ?", (pid,)).fetchone()[0]
+    cover = con.execute("""SELECT f.id FROM faces f JOIN people p ON p.id = f.person
+                           WHERE f.person = ? ORDER BY f.id = p.cover_face DESC, f.score DESC, f.id LIMIT 1""",
+                        (pid,)).fetchone()
+    con.execute("UPDATE people SET n = ?, cover_face = ? WHERE id = ?", (n, cover[0] if cover else None, pid))
+
+
+def person_centroids(con):
+    """{person id: average face vector}."""
+    sums = {}
+    for r in con.execute("SELECT person, emb FROM faces WHERE person IS NOT NULL"):
+        v = np.frombuffer(r["emb"], dtype=np.float32)
+        s = sums.get(r["person"])
+        sums[r["person"]] = v.copy() if s is None else s + v
+    return {p: _norm(v) for p, v in sums.items()}
+
+
+def maybe_same(cents, not_same=(), person=None, threshold=MAYBE_SAME, limit=60):
+    """[(a, b, similarity)] pairs of people who might be one person, most likely first."""
+    pids = sorted(cents) if person is None else [person]
+    if not cents or (person is not None and person not in cents):
+        return []
+    others = sorted(cents)
+    m = np.stack([cents[p] for p in others])
+    out = []
+    for a in pids:
+        sims = m @ cents[a]
+        for b, s in zip(others, sims):
+            if b == a or (person is None and b < a):
+                continue
+            if float(s) >= threshold and (min(a, b), max(a, b)) not in not_same:
+                out.append((a, b, float(s)))
+    return sorted(out, key=lambda t: -t[2])[:limit]
 
 
 def group_similar(con):
@@ -426,6 +470,33 @@ def people():
     return [dict(r) for r in rows]
 
 
+@router.get("/api/people/suggestions")
+def people_suggestions(person: int | None = None):
+    """People the face model thinks might be the same person (it wasn't sure enough to merge them itself)."""
+    con = connect()
+    not_same = {(r["a"], r["b"]) for r in con.execute("SELECT a, b FROM people_not_same")}
+    info = {r["id"]: dict(r) for r in con.execute("SELECT id, name, n, cover_face FROM people WHERE n >= 1")}
+    cents = {p: v for p, v in person_centroids(con).items() if p in info}
+    pairs = maybe_same(cents, not_same, person)
+    return [{"a": info[a], "b": info[b], "similarity": round(s, 3)} for a, b, s in pairs]
+
+
+class Pair(BaseModel):
+    a: int
+    b: int
+
+
+@router.post("/api/people/not-same")
+def not_same(body: Pair):
+    """'These two are different people': stop suggesting them."""
+    if body.a == body.b:
+        raise HTTPException(400, "pick two different people")
+    con = connect()
+    con.execute("INSERT OR IGNORE INTO people_not_same(a, b) VALUES (?, ?)", (min(body.a, body.b), max(body.a, body.b)))
+    con.commit()
+    return {"ok": True}
+
+
 class PersonName(BaseModel):
     name: str
 
@@ -435,7 +506,7 @@ def name_person(person_id: int, body: PersonName):
     con = connect()
     if not con.execute("SELECT 1 FROM people WHERE id = ?", (person_id,)).fetchone():
         raise HTTPException(404, "no such person")
-    con.execute("UPDATE people SET name = ? WHERE id = ?", (body.name.strip()[:100] or None, person_id))
+    con.execute("UPDATE people SET name = ?, confirmed = 1 WHERE id = ?", (body.name.strip()[:100] or None, person_id))
     con.commit()
     return {"ok": True}
 
@@ -444,18 +515,46 @@ class Merge(BaseModel):
     into: int
 
 
+class MergeMany(BaseModel):
+    ids: list[int]
+    into: int | None = None
+
+
+def _merge(con, ids, into):
+    """These people are all one person. Keeps `into` (its name, or the first name among them)."""
+    ids = [i for i in dict.fromkeys(ids) if i != into]
+    found = {r["id"]: r["name"] for r in con.execute(
+        f"SELECT id, name FROM people WHERE id IN ({','.join('?' * (len(ids) + 1))})", ids + [into])}
+    if not ids or into not in found or any(i not in found for i in ids):
+        raise HTTPException(400, "pick at least two different people")
+    name = found[into] or next((found[i] for i in ids if found[i]), None)
+    q = ",".join("?" * len(ids))
+    con.execute(f"UPDATE faces SET person = ? WHERE person IN ({q})", [into] + ids)
+    con.execute(f"DELETE FROM people WHERE id IN ({q})", ids)
+    con.execute(f"DELETE FROM people_not_same WHERE a IN ({q}) OR b IN ({q})", ids + ids)
+    con.execute("UPDATE people SET name = ?, confirmed = 1 WHERE id = ?", (name, into))
+    _refresh_person(con, into)
+    con.commit()
+
+
 @router.post("/api/people/{person_id}/merge")
 def merge_person(person_id: int, body: Merge):
     """'These two are the same person.'"""
-    con = connect()
-    if person_id == body.into or not con.execute("SELECT 1 FROM people WHERE id = ?", (body.into,)).fetchone():
-        raise HTTPException(400, "pick another person to merge into")
-    con.execute("UPDATE faces SET person = ? WHERE person = ?", (body.into, person_id))
-    con.execute("DELETE FROM people WHERE id = ?", (person_id,))
-    n = con.execute("SELECT count(DISTINCT media_id) FROM faces WHERE person = ?", (body.into,)).fetchone()[0]
-    con.execute("UPDATE people SET n = ? WHERE id = ?", (n, body.into))
-    con.commit()
+    _merge(connect(), [person_id], body.into)
     return {"ok": True}
+
+
+@router.post("/api/people/merge")
+def merge_people(body: MergeMany):
+    """Several people are one person: merged into `into`, or into the named / biggest of them."""
+    con = connect()
+    into = body.into
+    if into is None:
+        best = con.execute(f"""SELECT id FROM people WHERE id IN ({','.join('?' * len(body.ids)) or 'NULL'})
+                               ORDER BY name IS NULL, n DESC, id LIMIT 1""", body.ids).fetchone()
+        into = best[0] if best else -1
+    _merge(con, body.ids, into)
+    return {"ok": True, "into": into}
 
 
 @router.get("/face/{face_id}")
@@ -476,20 +575,66 @@ def face_crop(face_id: int):
     return FileResponse(out, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
 
 
+_sharpness = {}
+
+
+def sharpness(media_id):
+    """How much fine detail the thumbnail has (blurry / shaken shots score low). Cached."""
+    if media_id not in _sharpness:
+        from PIL import Image, ImageFilter
+        p = thumb_path(media_id)
+        try:
+            g = Image.open(p).convert("L")
+            _sharpness[media_id] = float(np.asarray(g.filter(ImageFilter.FIND_EDGES), dtype=np.float32).var())
+        except OSError:
+            _sharpness[media_id] = 0.0
+    return _sharpness[media_id]
+
+
+def best_of(items):
+    """The shot to keep: a favourite if there is one, else the sharpest, bigger photos winning ties."""
+    def score(i):
+        px = (i.get("width") or 0) * (i.get("height") or 0)
+        return (bool(i.get("fav")), sharpness(i["id"]) * max(px, 1) ** 0.25)
+    return max(items, key=score)["id"]
+
+
+def _group_key(ids):
+    return ",".join(map(str, sorted(ids)))
+
+
 @router.get("/api/similar")
 def similar(offset: int = 0, limit: int = 30):
     import server
+    from search import VISIBLE
     con = connect()
-    total = con.execute("SELECT count(DISTINCT group_id) FROM similar").fetchone()[0]
-    groups = con.execute("""SELECT group_id, count(*) n FROM similar GROUP BY group_id
-                            ORDER BY n DESC, group_id LIMIT ? OFFSET ?""", (limit, offset)).fetchall()
+    dismissed = {r[0] for r in con.execute("SELECT group_key FROM similar_dismissed")}
+    members = {}
+    for r in con.execute(f"""SELECT s.group_id, s.media_id FROM similar s JOIN media ON media.id = s.media_id
+                             WHERE {VISIBLE} ORDER BY s.group_id"""):
+        members.setdefault(r[0], []).append(r[1])
+    groups = sorted(((g, m) for g, m in members.items() if len(m) > 1 and _group_key(m) not in dismissed),
+                    key=lambda t: (-len(t[1]), t[0]))
     out = []
-    for g in groups:
-        items = con.execute(f"""SELECT {server.ITEM_COLS} FROM media WHERE id IN
-                                (SELECT media_id FROM similar WHERE group_id = ?) ORDER BY taken_at, id""",
-                            (g["group_id"],)).fetchall()
-        out.append({"group": g["group_id"], "items": [dict(i) for i in items]})
-    return {"total": total, "groups": out}
+    for g, ids in groups[offset:offset + limit]:
+        items = [dict(i) for i in con.execute(
+            f"SELECT {server.ITEM_COLS} FROM media WHERE id IN ({','.join('?' * len(ids))}) "
+            "ORDER BY taken_at, id", ids)]
+        out.append({"group": g, "key": _group_key(ids), "best": best_of(items), "items": items})
+    return {"total": len(groups), "groups": out}
+
+
+class GroupKey(BaseModel):
+    key: str
+
+
+@router.post("/api/similar/dismiss")
+def dismiss_similar(body: GroupKey):
+    """'These aren't duplicates' / 'keep them all': stop showing this group."""
+    con = connect()
+    con.execute("INSERT OR IGNORE INTO similar_dismissed(group_key) VALUES (?)", (body.key,))
+    con.commit()
+    return {"ok": True}
 
 
 def _ml_running():

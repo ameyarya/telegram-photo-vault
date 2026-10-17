@@ -129,6 +129,27 @@ def make_thumb(row):
     return row["id"], 1 if ok else -1
 
 
+LIVE_MAX_SECONDS = 5  # an iPhone Live Photo's motion clip is ~1.5-3 s; longer same-name videos are real videos
+
+
+def pair_live_photos(con):
+    """A short video with the same name as a photo in the same folder is that photo's Live Photo motion:
+    hide it from the timeline and let the photo play it."""
+    stills = {}
+    for r in con.execute("SELECT id, album, name, ext FROM media WHERE kind = 'image'"):
+        stills[(r["album"], r["name"][:-len(r["ext"]) - 1].lower())] = r["id"]
+    pairs = []
+    for r in con.execute("SELECT id, album, name, ext, duration FROM media WHERE kind = 'video'"):
+        sid = stills.get((r["album"], r["name"][:-len(r["ext"]) - 1].lower()))
+        if sid and (r["duration"] or 0) <= LIVE_MAX_SECONDS:
+            pairs.append((sid, r["id"]))
+    con.execute("UPDATE media SET live_id = NULL, live_of = NULL WHERE live_id IS NOT NULL OR live_of IS NOT NULL")
+    con.executemany("UPDATE media SET live_id = ? WHERE id = ?", [(v, s) for s, v in pairs])
+    con.executemany("UPDATE media SET live_of = ? WHERE id = ?", pairs)
+    con.commit()
+    return len(pairs)
+
+
 def main():
     if not DRIVE.is_dir():
         sys.exit(f"Drive not mounted at {DRIVE}")
@@ -175,6 +196,9 @@ def main():
                         [(sideways(exif.get(p, {})),) + details(exif.get(p, {})) + (p,) for p in old[i:i + 500]])
         con.commit()
         print(f"details backfill {min(i + 500, len(old))}/{len(old)}", flush=True)
+
+    n = pair_live_photos(con)
+    print(f"{n} Live Photos paired with their motion clips", flush=True)
 
     if "--no-thumbs" in sys.argv:
         return

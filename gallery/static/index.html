@@ -185,6 +185,41 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .sim-group h3{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--ink2)}
 .sim-row{display:flex;gap:4px;flex-wrap:wrap}
 .sim-row .tile{width:150px;height:150px}
+.tile .live{position:absolute;top:6px;right:6px;color:#fff;z-index:1;font-size:10px;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:3px;
+  filter:drop-shadow(0 0 2px rgb(0 0 0/.7))}
+.tile .live svg,.v-top #vLive svg{width:16px;height:16px}
+.v-top #vLive{width:auto;padding:0 12px;border-radius:18px;font-size:12px;font-weight:700;letter-spacing:.06em;gap:6px;display:inline-flex;align-items:center}
+.v-top #vLive.on{background:rgb(255 255 255/.18);color:#fdd663}
+.sim-group .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px}
+.sim-group .head h3{margin:0 auto 0 0}
+.sim-group .tile .sel{display:none}
+.sim-group .tile .tg{position:absolute;left:6px;top:6px;z-index:2;height:24px;padding:0 8px;border-radius:12px;font-size:11px;font-weight:600;
+  display:flex;align-items:center;gap:4px;background:rgb(0 0 0/.55);color:#fff}
+.sim-group .tile .tg svg{width:14px;height:14px}
+.sim-group .tile.keep .tg{background:#1e8e3e}
+.sim-group .tile.drop img{opacity:.4;filter:grayscale(.6)}
+.sim-group .tile.drop .tg{background:#d93025}
+.sim-group .tile .best{position:absolute;bottom:6px;left:6px;z-index:1;font-size:11px;font-weight:600;color:#fff;background:rgb(0 0 0/.55);border-radius:10px;padding:1px 8px}
+.review{display:grid;gap:10px;margin-top:12px;max-width:760px}
+.pair{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);flex-wrap:wrap}
+.pair .who,.pair .who *{text-decoration:none;color:inherit}
+.pair .who{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}
+.pair .who img,.pair .who .ph{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--tile);flex:none}
+.pair .who b{display:block;font-weight:500}
+.pair .who span{color:var(--ink2);font-size:12px}
+.pair .q{color:var(--ink2);font-size:13px;margin:0 4px}
+.pair .acts{margin-left:auto;display:flex;gap:4px}
+.maybe{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.maybe .m{display:flex;align-items:center;gap:6px}
+.maybe .m img,.maybe .m .ph{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--tile);cursor:pointer}
+.people.selecting .person{opacity:.75}
+.person.picked{opacity:1!important}
+.person.picked img,.person.picked .ph{outline:4px solid var(--accent);outline-offset:3px}
+.trash-tile .sel{display:none}
+.trash-tile .tg{position:absolute;left:6px;top:6px;z-index:2;width:30px;height:30px;border-radius:50%;background:rgb(0 0 0/.55);color:#fff;display:grid;place-items:center}
+.trash-tile .tg svg{width:18px;height:18px}
+.trash-grid{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.trash-grid .tile{width:150px;height:150px}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
@@ -225,7 +260,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   .with-scrubber .page{padding-right:44px}
   .people{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
   .person img,.person .ph{width:88px;height:88px}
-  .sim-row .tile{width:31vw;height:31vw}
+  .sim-row .tile,.trash-grid .tile{width:31vw;height:31vw}
 }
 </style>
 </head>
@@ -250,6 +285,9 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <symbol id="i-sort" viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
   <symbol id="i-star-o" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
+  <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" opacity=".9"/><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm0 17.6a8.1 8.1 0 1 1 0-16.2 8.1 8.1 0 0 1 0 16.2z" opacity=".6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+  <symbol id="i-untrash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></symbol>
   <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
@@ -282,6 +320,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
   <button class="icon-btn" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
+  <button class="icon-btn" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
 </div>
 
 <div class="scrim" id="scrim"></div>
@@ -293,6 +332,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
+  <a href="#/trash" data-route="trash"><svg><use href="#i-trash"/></svg>Trash</a>
   <h4>FOLDERS</h4>
   <div id="topFolders"></div>
   <div class="stat" id="stat"></div>
@@ -306,6 +346,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
     <div class="v-top">
       <button class="icon-btn" id="vBack" aria-label="Back" title="Back (Esc)"><svg><use href="#i-back"/></svg></button>
       <div class="spacer"></div>
+      <button class="icon-btn" id="vLive" aria-label="Play Live Photo" title="Play the Live Photo (l)" hidden><svg><use href="#i-live"/></svg>LIVE</button>
       <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (+ / − / 0, or double-click)"><svg><use href="#i-zoom"/></svg></button>
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
@@ -367,7 +408,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/similar": "similar", "/backup": "backup"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -387,6 +428,8 @@ function route() {
   if (!h.startsWith("/search/") && document.activeElement !== $("#q")) { $("#q").value = ""; $("#qClear").hidden = true; }
   if (h === "/albums") return renderAlbums();
   if (h === "/people") return renderPeople();
+  if (h === "/people/review") return renderPeopleReview();
+  if (h === "/trash") return renderTrash();
   if (h === "/similar") return renderSimilar();
   if (h === "/backup") return renderBackup();
   if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites"});
@@ -497,12 +540,16 @@ function openUserAlbum(id) {
   };
 }
 
+const faceImg = p => p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`;
 async function openPerson(id) {
-  const people = await api("/api/people");
+  const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).catch(() => [])]);
   const p = people.find(x => x.id === id);
   if (!p) { $("#page").innerHTML = `<div class="empty">This person isn't in the list any more (people are regrouped as photos are analysed).</div>`; return; }
+  const pre = maybe.length ? `<div class="maybe" id="maybe"><span class="muted">Maybe also ${esc(p.name || "this person")}?</span>${maybe.map(m => `
+      <span class="m" data-b="${m.b.id}"><a href="#/person/${m.b.id}" title="${esc(m.b.name || "Unnamed")} · ${plural(m.b.n, "photo")}">${faceImg(m.b)}</a>
+      <button class="txt-btn" data-same="${m.b.id}">Same</button><button class="txt-btn" data-diff="${m.b.id}">No</button></span>`).join("")}</div>` : "";
   openFeed({
-    title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person",
+    title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person", pre,
     actions: `<button class="txt-btn" id="pName">${ico("edit")}${p.name ? "Rename" : "Add a name"}</button>
               <button class="txt-btn" id="pMerge">Same person as…</button>`,
   });
@@ -517,6 +564,11 @@ async function openPerson(id) {
     if (!into) return;
     await post(`/api/people/${id}/merge`, {into}); location.hash = "#/person/" + into;
   };
+  $("#maybe")?.addEventListener("click", async e => {
+    const same = e.target.closest("[data-same]"), diff = e.target.closest("[data-diff]");
+    if (same) { await post("/api/people/merge", {ids: [id, +same.dataset.same], into: id}); toast("Merged"); route(); }
+    if (diff) { await post("/api/people/not-same", {a: id, b: +diff.dataset.diff}); diff.closest(".m").remove(); if (!$("#maybe .m")) $("#maybe").remove(); }
+  });
 }
 
 async function openSearch(q) {
@@ -554,7 +606,7 @@ function openFeed(o) {
   const params = {...o.params};
   feed = {o, params, base: 0, items: [], total: null, loading: false, loadingPrev: false, months: null};
   const chips = o.chips === false ? "" : `<div class="chips" id="chips">${[["", "All"], ["photos", "Photos"], ["videos", "Videos"],
-    ["favorites", "Favorites"], ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
+    ["favorites", "Favorites"], ["live", "Live photos"], ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
     .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k)
     .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
@@ -684,6 +736,7 @@ function tileHtml(it, w, h, i) {
   inner += `<span class="sel" title="Select">${ico("check")}</span>`;
   if (it.kind === "video") inner += `<span class="dur">${dur(it.duration)}${ico("play")}</span>`;
   if (it.fav) inner += `<span class="fav">${ico("star")}</span>`;
+  if (it.live_id) inner += `<span class="live" title="Live Photo">${ico("live")}LIVE</span>`;
   if (!it.cloud) inner += `<span class="off" title="Not backed up to Telegram yet">${ico("cloud-off")}</span>`;
   return `<div class="tile ${picked.has(it.id) ? "picked" : ""}" data-i="${i}" data-id="${it.id}" style="width:${w}px;height:${h}px">${inner}</div>`;
 }
@@ -728,6 +781,17 @@ $("#selRemove").onclick = async () => {
   await loadUserAlbums(); clearPicked(); route();
 };
 $("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
+$("#selTrash").onclick = async () => {
+  const ids = [...picked];
+  await trashItems(ids);
+  clearPicked(); route();
+};
+async function trashItems(ids) {
+  const r = await post("/api/trash", {ids});
+  const t = toast(`Moved ${plural(ids.length, "item")} to <a href="#/trash">Trash</a> <a id="undoTrash">Undo</a>`, 8000);
+  t.querySelector("#undoTrash").onclick = async () => { await post("/api/trash/restore", {ids}); t.remove(); route(); };
+  return r;
+}
 
 // ---------- dialogs ----------
 function dialog(html) {
@@ -836,31 +900,136 @@ function updateScrubberPos() {
 // ---------- people, similar ----------
 async function renderPeople() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1></div><div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
-  const [people, st] = await Promise.all([api("/api/people"), api("/api/ml/status")]);
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1><div class="head-actions">
+      <button class="txt-btn" id="pSelect" hidden>${ico("check")}Select to merge</button><button class="fill-btn" id="pMergeSel" hidden></button></div></div>
+    <div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
+  const [people, st, sugg] = await Promise.all([api("/api/people"), api("/api/ml/status"), api("/api/people/suggestions").catch(() => [])]);
   const box = $("#peopleBox");
   if (!people.length) {
     box.innerHTML = `<div class="note">${st.faces ? "Not enough faces grouped yet." : "No faces analysed yet."} ${mlNote(st)}</div>`; return;
   }
-  box.innerHTML = `<div class="people">` + people.map(p => `<div class="person" data-id="${p.id}">
-      ${p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`}
+  $("#pSelect").hidden = people.length < 2;
+  box.innerHTML = (sugg.length ? `<div class="note" id="reviewNote">${ico("people")} ${sugg.length === 1 ? "1 possible match" : nf(sugg.length) + " possible matches"} — the face model thinks some of these might be the same person.
+      <a href="#/people/review" class="all-link" id="reviewLink">Review</a></div>` : "") +
+    `<div class="people" id="peopleGrid">` + people.map(p => `<div class="person" data-id="${p.id}">${faceImg(p)}
       <b class="${p.name ? "" : "unnamed"}">${esc(p.name || "Add a name")}</b><span>${plural(p.n, "photo")}</span></div>`).join("") + `</div>`;
-  box.onclick = e => { const p = e.target.closest(".person"); if (p) location.hash = "#/person/" + p.dataset.id; };
+  const sel = new Set();
+  const sync = () => {
+    $("#peopleGrid").classList.toggle("selecting", sel.size > 0);
+    $("#pMergeSel").hidden = sel.size < 2; $("#pMergeSel").textContent = `Merge ${sel.size} into one person`;
+    $("#pSelect").innerHTML = sel.size ? `${ico("close")}Cancel` : `${ico("check")}Select to merge`;
+  };
+  let selecting = false;
+  $("#pSelect").onclick = () => { selecting = !selecting; if (!selecting) { sel.clear(); box.querySelectorAll(".person.picked").forEach(p => p.classList.remove("picked")); }
+    $("#peopleGrid").classList.toggle("selecting", selecting); sync(); if (selecting) $("#pSelect").innerHTML = `${ico("close")}Cancel`; };
+  $("#pMergeSel").onclick = async () => {
+    const r = await post("/api/people/merge", {ids: [...sel]});
+    toast(`Merged ${sel.size} people into one`); location.hash = "#/person/" + r.into;
+  };
+  $("#peopleGrid").onclick = e => {
+    const p = e.target.closest(".person"); if (!p) return;
+    if (!selecting) { location.hash = "#/person/" + p.dataset.id; return; }
+    const id = +p.dataset.id; sel.has(id) ? sel.delete(id) : sel.add(id); p.classList.toggle("picked", sel.has(id)); sync();
+  };
+}
+
+async function renderPeopleReview() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button><h1>Same person?</h1></div>
+    <div class="page-sub">The face model wasn't sure enough to group these itself. Your answers are kept when photos are analysed again.</div><div id="reviewBox"></div>`;
+  $("#pgBack").onclick = () => location.hash = "#/people";
+  const draw = async () => {
+    const pairs = await api("/api/people/suggestions");
+    const who = p => `<a class="who" href="#/person/${p.id}">${faceImg(p)}<span><b>${esc(p.name || "Unnamed")}</b><span>${plural(p.n, "photo")}</span></span></a>`;
+    $("#reviewBox").innerHTML = pairs.length ? `<div class="review">${pairs.map(x => `<div class="pair" data-a="${x.a.id}" data-b="${x.b.id}">
+        ${who(x.a)}<span class="q">and</span>${who(x.b)}
+        <span class="acts"><button class="fill-btn" data-same>Same person</button><button class="txt-btn" data-diff>Different</button></span></div>`).join("")}</div>`
+      : `<div class="note">No more suggestions. You can still merge people from the People page (Select to merge) or from a person's page.</div>`;
+  };
+  $("#reviewBox").onclick = async e => {
+    const row = e.target.closest(".pair"); if (!row) return;
+    const a = +row.dataset.a, b = +row.dataset.b;
+    if (e.target.closest("[data-same]")) { await post("/api/people/merge", {ids: [a, b]}); toast("Merged"); await draw(); }
+    if (e.target.closest("[data-diff]")) { await post("/api/people/not-same", {a, b}); row.remove(); if (!$("#reviewBox .pair")) await draw(); }
+  };
+  await draw();
 }
 
 async function renderSimilar() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1></div>
-    <div class="page-sub">Groups of near-identical photos taken within a couple of minutes — handy for picking the best of a burst. Review only: nothing is changed or deleted.</div><div id="simBox"></div>`;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn" id="simAll" hidden>${ico("trash")}Keep best in every group</button></div></div>
+    <div class="page-sub">Near-identical photos taken within a couple of minutes. The best shot (a favorite, else the sharpest) is picked for you; tap Keep / Trash on any photo to change it.
+      Trashed photos go to the Trash page, where you can put them back; they stay backed up in Telegram.</div><div id="simBox"></div>`;
   const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
   const box = $("#simBox");
-  if (!r.groups.length) { box.innerHTML = `<div class="note">No similar groups found yet. ${mlNote(st)}</div>`; return; }
-  box.innerHTML = `<div class="muted">${plural(r.total, "group")}</div>` + r.groups.map((g, gi) => `<div class="sim-group">
+  if (!r.groups.length) { box.innerHTML = `<div class="note">No similar groups ${r.total === 0 && st.similar_groups ? "left to review" : "found yet"}. ${st.similar_groups ? "" : mlNote(st)}</div>`; return; }
+  const drop = r.groups.map(g => new Set(g.items.filter(it => it.id !== g.best).map(it => it.id)));
+  const tg = (on) => on ? `${ico("trash")}Trash` : `${ico("check")}Keep`;
+  const groupHtml = (g, gi) => `<div class="sim-group" data-g="${gi}"><div class="head">
       <h3>${dayLabel(g.items[0].taken_at)} · ${timeLabel(g.items[0].taken_at)} · ${plural(g.items.length, "photo")}</h3>
-      <div class="sim-row" data-g="${gi}">${g.items.map((it, i) => tileHtml(it, 150, 150, i)).join("")}</div></div>`).join("");
-  box.onclick = e => {
-    const t = e.target.closest(".tile"); if (!t) return;
-    openViewerOn(r.groups[+t.closest(".sim-row").dataset.g].items, +t.dataset.i);
+      <button class="fill-btn" data-act="clean"></button><button class="txt-btn" data-act="dismiss" title="Keep them all and stop showing this group">Not duplicates</button></div>
+      <div class="sim-row">${g.items.map((it, i) => tileHtml(it, 150, 150, i).replace('<span class="sel"',
+        `${it.id === g.best ? `<span class="best">Best</span>` : ""}<button class="tg" data-tg="${it.id}" title="Keep or trash this one">${tg(drop[gi].has(it.id))}</button><span class="sel"`)).join("")}</div></div>`;
+  const paint = gi => {
+    const el = box.querySelector(`.sim-group[data-g="${gi}"]`); if (!el) return;
+    el.querySelectorAll(".tile").forEach(t => { const d = drop[gi].has(+t.dataset.id); t.classList.toggle("drop", d); t.classList.toggle("keep", !d); t.querySelector(".tg").innerHTML = tg(d); });
+    const n = drop[gi].size, b = el.querySelector('[data-act="clean"]');
+    b.textContent = n === r.groups[gi].items.length ? "Keep at least one" : n ? `Trash ${n}, keep ${r.groups[gi].items.length - n}` : "Keep all";
+    b.disabled = n === r.groups[gi].items.length;
+  };
+  const left = () => box.querySelectorAll(".sim-group").length;
+  box.innerHTML = `<div class="muted" id="simCount">${plural(r.total, "group")}</div>` + r.groups.map(groupHtml).join("");
+  r.groups.forEach((_, gi) => paint(gi));
+  $("#simAll").hidden = false;
+  const done = (gi) => { box.querySelector(`.sim-group[data-g="${gi}"]`)?.remove(); $("#simCount").textContent = plural(r.total -= 1, "group"); if (!left()) renderSimilar(); };
+  box.onclick = async e => {
+    const g = e.target.closest(".sim-group"); if (!g) return;
+    const gi = +g.dataset.g, grp = r.groups[gi];
+    const t = e.target.closest("[data-tg]");
+    if (t) { const id = +t.dataset.tg; drop[gi].has(id) ? drop[gi].delete(id) : drop[gi].add(id); paint(gi); return; }
+    const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "dismiss" || (act === "clean" && !drop[gi].size)) { await post("/api/similar/dismiss", {key: grp.key}); done(gi); return; }
+    if (act === "clean") {
+      const kept = grp.items.map(it => it.id).filter(id => !drop[gi].has(id));
+      await trashItems([...drop[gi]]);
+      if (kept.length > 1) await post("/api/similar/dismiss", {key: [...kept].sort((a, b) => a - b).join(",")});  // you kept these on purpose
+      done(gi); return;
+    }
+    const tile = e.target.closest(".tile"); if (tile) openViewerOn(grp.items, +tile.dataset.i);
+  };
+  $("#simAll").onclick = async () => {
+    const gis = [...box.querySelectorAll(".sim-group")].map(g => +g.dataset.g).filter(gi => drop[gi].size && drop[gi].size < r.groups[gi].items.length);
+    const ids = gis.flatMap(gi => [...drop[gi]]);
+    if (!ids.length) return;
+    if (!await confirmDialog(`Trash ${plural(ids.length, "photo")}?`, `Keeps the marked photo in each of the ${plural(gis.length, "group")} on this page and moves the other ${plural(ids.length, "photo")} to Trash. You can put them back from the Trash page; Telegram keeps its copy.`, "Move to trash")) return;
+    await trashItems(ids); renderSimilar();
+  };
+}
+
+// ---------- trash ----------
+async function renderTrash() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Trash</h1><div class="head-actions">
+      <button class="txt-btn" id="trRestoreAll" hidden>${ico("untrash")}Restore all</button><button class="txt-btn" id="trEmpty" hidden>${ico("trash")}Empty trash</button></div></div>
+    <div class="page-sub" id="pgSub"></div><div id="trashBox"></div>`;
+  const r = await api("/api/trash");
+  $("#pgSub").textContent = r.items.length
+    ? `${plural(r.items.length, "item")} · ${size(r.bytes)} on the drive (in its .photo-vault-trash folder). Hidden from the gallery; still backed up in Telegram.${r.drive ? "" : " The drive is unplugged: files move to its trash folder when it's plugged in."}`
+    : "";
+  if (!r.items.length) { $("#trashBox").innerHTML = `<div class="note">Trash is empty. Photos you trash (for example extra shots in Similar shots) show up here until you empty it.</div>`; return; }
+  $("#trRestoreAll").hidden = $("#trEmpty").hidden = false;
+  $("#trashBox").innerHTML = `<div class="trash-grid">${r.items.map((it, i) => tileHtml(it, 150, 150, i).replace('class="tile ', 'class="tile trash-tile ')
+    .replace('<span class="sel"', `<button class="tg" data-restore="${it.id}" title="Put back">${ico("untrash")}</button><span class="sel"`)).join("")}</div>`;
+  $("#trashBox").onclick = async e => {
+    const b = e.target.closest("[data-restore]");
+    if (b) { await post("/api/trash/restore", {ids: [+b.dataset.restore]}); toast("Put back"); return renderTrash(); }
+    const t = e.target.closest(".tile"); if (t) openViewerOn(r.items, +t.dataset.i);
+  };
+  $("#trRestoreAll").onclick = async () => { await post("/api/trash/restore", {ids: r.items.map(i => i.id)}); toast(`Put back ${plural(r.items.length, "item")}`); renderTrash(); };
+  $("#trEmpty").onclick = async () => {
+    if (!await confirmDialog("Empty trash?", `Permanently deletes ${plural(r.items.length, "file")} (${size(r.bytes)}) from the drive. This can't be undone on the drive. The copies in your Telegram channel are kept.`, "Delete from drive")) return;
+    try { const x = await post("/api/trash/empty"); toast(`Deleted ${plural(x.deleted, "file")} from the drive · ${size(x.bytes)} freed`); } catch (err) { toast(esc(err.message)); }
+    renderTrash();
   };
 }
 function mlNote(st) {
@@ -984,6 +1153,7 @@ function showItem() {
   $("#vDl").href = `/original/${it.id}?download=1`;
   setFavIcon(it.fav);
   $("#vZoom").hidden = it.kind === "video";
+  $("#vLive").hidden = !it.live_id; $("#vLive").classList.remove("on");
   renderInfo(it);
   if (it.kind === "video") {
     const v = document.createElement("video");
@@ -1011,6 +1181,23 @@ function fail(el, text) {
   el.remove(); $("#vMain").querySelector(".spinner")?.remove();
   const m = document.createElement("div"); m.className = "v-msg"; m.textContent = text; $("#vMain").append(m);
 }
+function playLive() {
+  const it = curList()[viewerIdx], box = $("#vMain"), img = box.querySelector("img.v-media");
+  if (!it?.live_id || box.querySelector(".v-live")) return;
+  setZoom(1);
+  const v = document.createElement("video");
+  Object.assign(v, {autoplay: true, playsInline: true, className: "v-media v-live"});
+  v.poster = `/view/${it.id}`;
+  const back = () => { v.remove(); if (img) img.style.display = ""; $("#vLive").classList.remove("on"); };
+  v.onended = back;
+  v.onerror = () => { back(); toast("This Live Photo's motion clip can't be played in this browser. It's in the download as a separate .MOV."); };
+  v.onclick = back;
+  v.src = `/original/${it.live_id}`;
+  if (img) img.style.display = "none";
+  box.querySelector(".v-ph")?.remove();
+  box.prepend(v); $("#vLive").classList.add("on");
+}
+$("#vLive").onclick = () => $("#vMain .v-live") ? $("#vMain .v-live").onended() : playLive();
 function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) { viewerIdx = n; showItem(); } }
 
 // zoom & pan: double-click, ctrl/pinch wheel, drag, + − 0
@@ -1078,6 +1265,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "ArrowRight" && zoom.s === 1) step(1);
   else if (e.key === "i") toggleInfo();
   else if (e.key === "f") toggleFav();
+  else if (e.key === "l") $("#vLive").hidden || $("#vLive").click();
   else if (e.key === "+" || e.key === "=") setZoom(zoom.s * 1.5);
   else if (e.key === "-") setZoom(zoom.s / 1.5);
   else if (e.key === "0") setZoom(1);

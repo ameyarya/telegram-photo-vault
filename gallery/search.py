@@ -14,7 +14,11 @@ FILTERS = {
     "undated": "date_src = 'file'",
     "favorites": "id IN (SELECT media_id FROM favorites)",
     "located": "lat IS NOT NULL",
+    "live": "live_id IS NOT NULL",
 }
+
+# Shown everywhere unless asked otherwise: Live Photo motion clips play from their photo, trashed items are hidden.
+VISIBLE = "live_of IS NULL AND id NOT IN (SELECT media_id FROM trash)"
 
 MONTHS = {m: i + 1 for i, names in enumerate(
     [("jan", "january"), ("feb", "february"), ("mar", "march"), ("apr", "april"), ("may",), ("jun", "june"),
@@ -48,8 +52,8 @@ def parse_query(q):
     return clauses, args, " · ".join(said)
 
 
-def selection(album="", sub=True, filter="", q="", user_album=None, person=None, ids=None):
-    clauses, args = [], []
+def selection(album="", sub=True, filter="", q="", user_album=None, person=None, ids=None, visible=True):
+    clauses, args = ([VISIBLE] if visible else []), []
     if album:
         if sub:
             clauses.append("(album = ? OR album LIKE ? ESCAPE '\\')")
