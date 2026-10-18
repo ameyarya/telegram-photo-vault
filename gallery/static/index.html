@@ -275,7 +275,8 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .job .bar{height:6px}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink2);margin:8px 0}
 .v-zoom{cursor:zoom-in}
-.zoomed{cursor:grab}
+.zoomed{cursor:zoom-out}
+.zoomed:active{cursor:grabbing}
 #vMain img.v-media{touch-action:none}  /* pinch and drag go to the photo, not the page */
 .v-top .icon-btn.on{color:#fdd663}
 .info-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
@@ -389,7 +390,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
       <button class="icon-btn" id="vBack" aria-label="Back" title="Back (Esc)"><svg><use href="#i-back"/></svg></button>
       <div class="spacer"></div>
       <button class="icon-btn" id="vLive" aria-label="Play Live Photo" title="Play the Live Photo (l)" hidden><svg><use href="#i-live"/></svg>LIVE</button>
-      <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (+ / − / 0, or double-click)"><svg><use href="#i-zoom"/></svg></button>
+      <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (click the photo, or + / − / 0)"><svg><use href="#i-zoom"/></svg></button>
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
@@ -477,7 +478,7 @@ function route() {
   if (h === "/dates") return renderDates();
   if (h === "/similar") return renderSimilar();
   if (h === "/backup") return renderBackup();
-  if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites"});
+  if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites", noBack: true});
   if (h.startsWith("/album/")) return openFolder(h.slice(7));
   if (h.startsWith("/all/")) return openFolder(h.slice(5), true);
   if (h.startsWith("/ualbum/")) return openUserAlbum(+h.slice(8));
@@ -1397,7 +1398,14 @@ $("#vLive").onclick = () => $("#vMain .v-live") ? $("#vMain .v-live").onended() 
 function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) { viewerIdx = n; showItem(); } }
 
 // zoom & pan: double-click, ctrl/pinch wheel, drag, + − 0
-$("#vMain").addEventListener("dblclick", e => { if (!e.target.closest(".v-media")) return; zoom.s > 1 ? setZoom(1) : setZoom(2.5, e.clientX, e.clientY); });
+// with a mouse or trackpad, one click zooms into that spot and the next zooms out (phones: double-tap, see below)
+let press = null;
+$("#vMain").addEventListener("pointerdown", e => { press = {x: e.clientX, y: e.clientY, mouse: e.pointerType === "mouse"}; });
+$("#vMain").addEventListener("click", e => {
+  if (!e.target.closest("img.v-media") || !press?.mouse) return;
+  if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5) return;   // that was a drag to look around
+  zoom.s > 1 ? setZoom(1) : setZoom(2.5, e.clientX, e.clientY);
+});
 $("#vMain").addEventListener("wheel", e => {
   if (!$("#vMain img.v-media") || (!e.ctrlKey && zoom.s === 1)) return;
   e.preventDefault();
