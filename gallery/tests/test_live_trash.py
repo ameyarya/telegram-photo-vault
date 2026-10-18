@@ -526,3 +526,24 @@ def test_same_moment():
     assert build_index.same_moment("2024-01-24T14:44:06", "2024-01-24T15:14:06")     # India's half-hour zone
     assert not build_index.same_moment("2024-01-01T10:00:00", "2024-01-01T10:00:30")
     assert not build_index.same_moment("2024-01-01T10:00:00", "2024-01-03T10:00:00")  # more than any zone shift
+
+
+def test_files_removed_outside_the_gallery_are_forgotten_unless_backed_up(lapi, liveworld):
+    """Regression: a folder renamed in Finder showed up twice (old name with nothing in it, and the new one)."""
+    drive = liveworld["drive"]
+    (drive / "renamed").mkdir(exist_ok=True)
+    (drive / "renamed/x.jpg").write_bytes((drive / "phone/plain.jpg").read_bytes())
+    subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+    assert "x.jpg" in names(lapi, album="renamed")
+    (drive / "renamed").rename(drive / "renamed-2")                                     # renamed outside the gallery
+    out = subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True,
+                         capture_output=True, text=True).stdout
+    assert "1 items removed" in out
+    assert names(lapi, album="renamed") == [] and names(lapi, album="renamed-2") == ["x.jpg"]   # once, under its new name
+    con = db(liveworld)
+    assert con.execute("SELECT count(*) FROM media WHERE msg_id IS NOT NULL").fetchone()[0] > 0
+    gone_but_backed_up = con.execute("SELECT count(*) FROM media WHERE name = 'IMG_0200.JPG'").fetchone()[0]
+    assert gone_but_backed_up == 1                                                      # deleted from the drive, still in Telegram
+    import shutil
+    shutil.rmtree(drive / "renamed-2")
+    subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)

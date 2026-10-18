@@ -142,6 +142,27 @@ def same_moment(a, b, tol=LIVE_SAME_MOMENT):
     return dt <= tol or (dt <= 26 * 3600 and min(off, 900 - off) <= tol)
 
 
+def prune_missing(con):
+    """Forget items whose file is gone from the drive (deleted or renamed in Finder) and that never reached Telegram:
+    there's nothing left to show. Items in Telegram stay (they're viewed from there), and so does the gallery's Trash.
+    Without this, a folder renamed in Finder showed up twice."""
+    if not DRIVE.is_dir():
+        return 0
+    rows = con.execute("""SELECT id, path FROM media WHERE msg_id IS NULL
+                          AND id NOT IN (SELECT media_id FROM trash)""").fetchall()
+    gone = [r["id"] for r in rows if not (DRIVE / r["path"]).exists()]
+    if not DRIVE.is_dir():                     # unplugged while checking: don't trust the answers
+        return 0
+    for i in range(0, len(gone), 500):
+        chunk = gone[i:i + 500]
+        q = ",".join("?" * len(chunk))
+        for table in ("faces", "clip", "similar", "favorites", "user_album_items", "ml_done", "date_fixes"):
+            con.execute(f"DELETE FROM {table} WHERE media_id IN ({q})", chunk)
+        con.execute(f"DELETE FROM media WHERE id IN ({q})", chunk)
+    con.commit()
+    return len(gone)
+
+
 def pair_live_photos(con):
     """A short video with the same name as a photo in the same folder, recorded at the same moment, is that photo's
     Live Photo motion: hide it from the timeline and let the photo play it. Names alone aren't enough: iPhone
@@ -218,6 +239,9 @@ def main():
         con.commit()
         print(f"details backfill {min(i + 500, len(old))}/{len(old)}", flush=True)
 
+    gone = prune_missing(con)
+    if gone:
+        print(f"{gone} items removed: their files are gone from the drive and were never backed up", flush=True)
     n = pair_live_photos(con)
     print(f"{n} Live Photos paired with their motion clips", flush=True)
 
