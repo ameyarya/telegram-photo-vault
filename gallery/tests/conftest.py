@@ -107,6 +107,7 @@ def build_live_drive(d: Path):
             str(d / f"burst/b_{i}.tmp.jpg"))
         (d / f"burst/b_{i}.tmp.jpg").replace(d / f"burst/b_{i}.jpg")
         run("exiftool", "-overwrite_original", f"-DateTimeOriginal=2023:04:01 12:00:{sec:02d}", str(d / f"burst/b_{i}.jpg"))
+    photo(d / "big/huge.jpg", 4000, 3000, "2023:05:01 10:00:00", color="testsrc")   # bigger than the 2048px view
     for i, who in enumerate(["alice"] * 3 + ["bob"] * 3 + ["dave"] * 3):
         photo(d / f"people/face_{who}_{i}.jpg", 400, 300, f"2023:06:{i + 1:02d} 12:00:00", color="c=gray")
 
@@ -295,7 +296,7 @@ def page(browser, request):
     Parametrize indirectly with {"world": "mlworld", "viewport": {...}, "scheme": "light"} to change it."""
     opts = getattr(request, "param", {}) or {}
     w = request.getfixturevalue(opts.get("world", "world"))
-    ctx = browser.new_context(viewport=opts.get("viewport", {"width": 1440, "height": 900}),
+    ctx = browser.new_context(viewport=opts.get("viewport", {"width": 1440, "height": 900}), has_touch=opts.get("touch", False),
                               color_scheme=opts.get("scheme", "dark"), accept_downloads=True)
     pg = ctx.new_page()
     errors = []
