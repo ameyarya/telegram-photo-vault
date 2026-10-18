@@ -488,3 +488,41 @@ def test_ui_select_a_whole_day(page):
     page.locator("#selCount", has_text="3 selected").wait_for()
     day.click()                                                                  # all picked: the day's circle unpicks them
     page.wait_for_function("document.querySelector('#selbar').hidden")
+
+
+def test_live_pairs_need_the_same_moment_not_just_the_same_name():
+    """Regression: iPhone numbers repeat, so a photo got some other day's IMG_xxxx.MOV as its 'Live' motion."""
+    import build_index
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    con.executescript("""CREATE TABLE media (id INTEGER PRIMARY KEY, album TEXT, name TEXT, ext TEXT, kind TEXT,
+                           duration REAL, taken_at TEXT, date_src TEXT, live_id INTEGER, live_of INTEGER);
+                         CREATE TABLE date_fixes (media_id INTEGER PRIMARY KEY, orig_taken_at TEXT, orig_src TEXT);""")
+    rows = [  # id, name, kind, duration, taken_at, date_src
+        (1, "IMG_1.HEIC", "image", None, "2024-02-10T10:00:00", "exif"), (2, "IMG_1.MOV", "video", 2, "2024-02-10T10:00:01", "exif"),
+        (3, "IMG_2.HEIC", "image", None, "2021-05-01T09:00:00", "exif"), (4, "IMG_2.MOV", "video", 2, "2025-12-19T15:44:19", "exif"),
+        (5, "IMG_3.HEIC", "image", None, "2024-02-11T08:37:26", "exif"), (6, "IMG_3.MOV", "video", 2, "2024-02-11T19:37:26", "exif"),
+        (7, "IMG_4.JPG", "image", None, "2022-01-01T10:00:00", "file"), (8, "IMG_4.MOV", "video", 2, "2022-01-01T10:00:00", "exif"),
+        (9, "IMG_5.JPG", "image", None, "2020-01-01T10:00:00", "exif"), (10, "IMG_5.HEIC", "image", None, "2023-03-03T12:00:00", "exif"),
+        (11, "IMG_5.MOV", "video", 2, "2023-03-03T12:00:02", "exif"),
+        (12, "IMG_6.HEIC", "image", None, "1999-01-01T00:00:00", "user"), (13, "IMG_6.MOV", "video", 2, "2023-06-06T06:06:06", "exif"),
+        (14, "IMG_7.HEIC", "image", None, "2023-07-07T07:07:07", "exif"), (15, "IMG_7.MOV", "video", 2, "2023-07-07T07:07:40", "exif"),
+    ]
+    con.executemany("INSERT INTO media(id, album, name, ext, kind, duration, taken_at, date_src) VALUES (?,'a',?,?,?,?,?,?)",
+                    [(i, n, n.rsplit(".", 1)[1].lower(), k, d, t, s) for i, n, k, d, t, s in rows])
+    con.execute("INSERT INTO date_fixes VALUES (12, '2023-06-06T06:06:05', 'exif')")   # you re-dated the photo
+    assert build_index.pair_live_photos(con) == 4
+    pairs = dict(con.execute("SELECT id, live_id FROM media WHERE live_id IS NOT NULL").fetchall())
+    assert pairs == {1: 2,      # same moment
+                     5: 6,      # 11 h apart: a time-zone shift while travelling, still the same moment
+                     10: 11,    # of two photos named IMG_5, the clip goes to the one taken with it
+                     12: 13}    # your date edit doesn't break the pair
+    # not paired: IMG_2 (years apart), IMG_4 (photo has no camera date), IMG_7 (33 s apart)
+
+
+def test_same_moment():
+    import build_index
+    assert build_index.same_moment("2024-01-01T10:00:00", "2024-01-01T10:00:09")
+    assert build_index.same_moment("2024-01-24T14:44:06", "2024-01-24T15:14:06")     # India's half-hour zone
+    assert not build_index.same_moment("2024-01-01T10:00:00", "2024-01-01T10:00:30")
+    assert not build_index.same_moment("2024-01-01T10:00:00", "2024-01-03T10:00:00")  # more than any zone shift
