@@ -130,19 +130,39 @@ def make_thumb(row):
 
 
 LIVE_MAX_SECONDS = 5  # an iPhone Live Photo's motion clip is ~1.5-3 s; longer same-name videos are real videos
+LIVE_SAME_MOMENT = 10  # seconds between a photo and its motion clip (real pairs: within 2 s)
+
+
+def same_moment(a, b, tol=LIVE_SAME_MOMENT):
+    """Taken at the same moment: within tol seconds, also allowing a whole time-zone shift (photos taken while
+    travelling can store local time while their clip stores another zone; zones go in 15-minute steps)."""
+    from datetime import datetime
+    dt = abs((datetime.fromisoformat(a) - datetime.fromisoformat(b)).total_seconds())
+    off = dt % 900
+    return dt <= tol or (dt <= 26 * 3600 and min(off, 900 - off) <= tol)
 
 
 def pair_live_photos(con):
-    """A short video with the same name as a photo in the same folder is that photo's Live Photo motion:
-    hide it from the timeline and let the photo play it."""
+    """A short video with the same name as a photo in the same folder, recorded at the same moment, is that photo's
+    Live Photo motion: hide it from the timeline and let the photo play it. Names alone aren't enough: iPhone
+    numbers repeat (IMG_9999 wraps around, and every phone has an IMG_0001), which paired random videos."""
+    real = ("""SELECT m.id, m.album, m.name, m.ext, m.duration, m.kind,
+                      CASE WHEN m.date_src = 'user' THEN f.orig_taken_at ELSE m.taken_at END AS t,
+                      CASE WHEN m.date_src = 'user' THEN f.orig_src ELSE m.date_src END AS src
+               FROM media m LEFT JOIN date_fixes f ON f.media_id = m.id WHERE m.kind = ?""")  # your date edits don't count
     stills = {}
-    for r in con.execute("SELECT id, album, name, ext FROM media WHERE kind = 'image'"):
-        stills[(r["album"], r["name"][:-len(r["ext"]) - 1].lower())] = r["id"]
-    pairs = []
-    for r in con.execute("SELECT id, album, name, ext, duration FROM media WHERE kind = 'video'"):
-        sid = stills.get((r["album"], r["name"][:-len(r["ext"]) - 1].lower()))
-        if sid and (r["duration"] or 0) <= LIVE_MAX_SECONDS:
-            pairs.append((sid, r["id"]))
+    for r in con.execute(real, ("image",)):
+        if r["src"] == "exif":                     # only a camera date says when it was really taken
+            stills.setdefault((r["album"], r["name"][:-len(r["ext"]) - 1].lower()), []).append(r)
+    pairs, taken = [], set()
+    for r in con.execute(real, ("video",)):
+        if r["src"] != "exif" or (r["duration"] or 0) > LIVE_MAX_SECONDS:
+            continue
+        for st in stills.get((r["album"], r["name"][:-len(r["ext"]) - 1].lower()), []):
+            if st["id"] not in taken and same_moment(st["t"], r["t"]):
+                pairs.append((st["id"], r["id"]))
+                taken.add(st["id"])
+                break
     con.execute("UPDATE media SET live_id = NULL, live_of = NULL WHERE live_id IS NOT NULL OR live_of IS NOT NULL")
     con.executemany("UPDATE media SET live_id = ? WHERE id = ?", [(v, s) for s, v in pairs])
     con.executemany("UPDATE media SET live_of = ? WHERE id = ?", pairs)
