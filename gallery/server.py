@@ -2,7 +2,7 @@
 
 Thumbnails and the index are local. Full-size photos and videos come from the drive when it is
 plugged in, otherwise they are streamed from Telegram. Nothing here can change or delete anything on the
-drive or in Telegram; the only things it writes are local (favorites, your albums, restored copies).
+drive or in Telegram, except moving files you trash (see trash.py); other writes are local (favorites, albums, restores).
 Run: ../.venv/bin/python serve.py   (https://photo-vault.local), or install_service.sh to keep it running.
 """
 import asyncio
@@ -70,17 +70,16 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-import backup, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
-for _mod in (library, ml, restore, backup, trash):
+import auth, backup, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
+for _mod in (auth, library, ml, restore, backup, trash):
     app.include_router(_mod.router)
 
 
+# --- who may use it: this Mac always; phones on the home Wi-Fi only when shared and signed in (see auth.py) ---
 @app.middleware("http")
-async def local_only(request: Request, call_next):
-    # macOS only allows ports below 1024 on the wildcard address, so "this Mac only" is enforced here
-    if request.client is None or request.client.host not in ("127.0.0.1", "::1", "::ffff:127.0.0.1"):
-        return Response("This gallery is only available on the Mac it runs on.", status_code=403)
-    return await call_next(request)
+async def gatekeeper(request: Request, call_next):
+    refused = await asyncio.to_thread(auth.gate, request)
+    return refused or await call_next(request)
 
 
 # --- index ---
@@ -90,7 +89,7 @@ def index():
 
 
 @app.get("/api/status")
-def status():
+def status(request: Request):
     con = connect()
     r = con.execute("""SELECT count(*) total, sum(msg_id IS NOT NULL) uploaded, sum(thumb=1) thumbs,
                        sum(date_src='file') undated FROM media""").fetchone()

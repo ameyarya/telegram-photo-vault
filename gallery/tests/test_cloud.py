@@ -101,6 +101,13 @@ def test_restore_selection_search_and_label(capi, citems):
     assert r["files"] == 1
 
 
+def in_thread(fn):
+    """Run fn on its own thread: the browser tests' Playwright keeps an event loop running on this one."""
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(1) as ex:
+        return ex.submit(fn).result()
+
+
 def test_restore_skips_files_already_there_and_checks_them(tmp_path, cloud, citems, monkeypatch):
     """Restoring into a folder that already has a file (e.g. an interrupted restore) skips it, but still verifies it."""
     import asyncio, json, sqlite3, types
@@ -121,13 +128,13 @@ def test_restore_skips_files_already_there_and_checks_them(tmp_path, cloud, cite
     monkeypatch.setattr(server, "tg_bytes", fake_bytes, raising=False)
     jobs = {}
     monkeypatch.setattr(R, "_update", lambda job_id, **f: jobs.update(f))
-    asyncio.run(R._run(1, rows, dest, True))
+    in_thread(lambda: asyncio.run(R._run(1, rows, dest, True)))
     assert calls == ["vacation/sunset.jpg"]                   # beach was skipped
     detail = json.loads(jobs["detail"])
     assert detail["skipped"] == 1 and detail["verified"] == 2 and detail["errors"] == []
     (dest / "vacation/beach.jpg").write_bytes(b"corrupt")      # a wrong file of a different size is re-downloaded
     calls.clear()
-    asyncio.run(R._run(1, rows, dest, True))
+    in_thread(lambda: asyncio.run(R._run(1, rows, dest, True)))
     assert sorted(calls) == ["vacation/beach.jpg"]
     assert sha(dest / "vacation/beach.jpg") == sha(cloud["drive"] / "vacation/beach.jpg")
 

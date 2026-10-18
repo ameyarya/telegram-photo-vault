@@ -220,6 +220,25 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .trash-tile .tg svg{width:18px;height:18px}
 .trash-grid{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
 .trash-grid .tile{width:150px;height:150px}
+body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
+.login{min-height:100vh;display:grid;place-items:center;padding:16px;box-sizing:border-box}
+.login form{width:100%;max-width:340px;display:grid;gap:12px}
+.login h1{font-weight:400;font-size:26px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+.login h1 svg{width:32px;height:32px;fill:var(--accent)}
+.login input,.share input,.share select{height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;font:inherit;font-size:16px}
+.login .err{color:#d93025;min-height:1.4em;font-size:14px}
+.login button{height:44px}
+.me{margin:6px 24px 0;font-size:12px;color:var(--ink2);display:flex;gap:8px;align-items:center}
+.me a{color:var(--accent);cursor:pointer}
+.share{max-width:760px}
+.share .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:500}
+.switch input{width:40px;height:22px;accent-color:var(--accent)}
+.acct{border-top:1px solid var(--line);padding:12px 0;display:grid;gap:6px}
+.acct:first-child{border-top:0}
+.acct .dev{font-size:13px;color:var(--ink2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.share form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.share form input{flex:1;min-width:150px}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
@@ -285,6 +304,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <symbol id="i-sort" viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3 5 6.99h3V14h2V6.99h3L9 3z"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
   <symbol id="i-star-o" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8 3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4 2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></symbol>
   <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" opacity=".9"/><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm0 17.6a8.1 8.1 0 1 1 0-16.2 8.1 8.1 0 0 1 0 16.2z" opacity=".6"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
   <symbol id="i-untrash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
@@ -319,8 +339,8 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <button class="icon-btn" id="selFav" title="Add to favorites" aria-label="Add to favorites"><svg><use href="#i-star-o"/></svg></button>
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
-  <button class="icon-btn" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
-  <button class="icon-btn" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
+  <button class="icon-btn owner-only" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
+  <button class="icon-btn owner-only" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
 </div>
 
 <div class="scrim" id="scrim"></div>
@@ -332,10 +352,12 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
-  <a href="#/trash" data-route="trash"><svg><use href="#i-trash"/></svg>Trash</a>
+  <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
+  <a href="#/sharing" data-route="sharing" class="mac-only"><svg><use href="#i-share"/></svg>Sharing</a>
   <h4>FOLDERS</h4>
   <div id="topFolders"></div>
   <div class="stat" id="stat"></div>
+  <div class="me" id="me"></div>
 </nav>
 
 <main id="main"><div class="page" id="page"></div><div class="sentinel" id="sentinel"></div></main>
@@ -364,7 +386,7 @@ const $ = s => document.querySelector(s);
 const ico = (id, cls = "") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const PAGE = 400, GAP = 4;
-let albums = [], userAlbums = [], status = null;
+let albums = [], userAlbums = [], status = null, me = null;
 let feed = null;          // current timeline (see openFeed)
 let viewerIdx = -1, infoOpen = false;
 let newestFirst = false;  // timeline order; remembered in this browser
@@ -374,6 +396,7 @@ try { newestFirst = localStorage.getItem("pv-order") === "desc"; } catch {}
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
+  if (r.status === 401 && me && !me.local) { location.reload(); throw new Error("Signed out"); }
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
 }
@@ -408,7 +431,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -430,6 +453,7 @@ function route() {
   if (h === "/people") return renderPeople();
   if (h === "/people/review") return renderPeopleReview();
   if (h === "/trash") return renderTrash();
+  if (h === "/sharing") return renderSharing();
   if (h === "/similar") return renderSimilar();
   if (h === "/backup") return renderBackup();
   if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites"});
@@ -526,7 +550,7 @@ function openUserAlbum(id) {
   openFeed({
     title: a.name, params: {user_album: id}, back: "#/albums", userAlbum: a, restoreLabel: a.name,
     actions: `<button class="icon-btn" id="uaRename" title="Rename album" aria-label="Rename album">${ico("edit")}</button>
-              <button class="icon-btn" id="uaDelete" title="Delete album (photos are kept)" aria-label="Delete album">${ico("delete")}</button>`,
+              <button class="icon-btn owner-only" id="uaDelete" title="Delete album (photos are kept)" aria-label="Delete album">${ico("delete")}</button>`,
     emptyText: "This album is empty. Select photos anywhere and choose “Add to album”.",
   });
   $("#uaRename").onclick = async () => {
@@ -545,13 +569,13 @@ async function openPerson(id) {
   const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).catch(() => [])]);
   const p = people.find(x => x.id === id);
   if (!p) { $("#page").innerHTML = `<div class="empty">This person isn't in the list any more (people are regrouped as photos are analysed).</div>`; return; }
-  const pre = maybe.length ? `<div class="maybe" id="maybe"><span class="muted">Maybe also ${esc(p.name || "this person")}?</span>${maybe.map(m => `
-      <span class="m" data-b="${m.b.id}"><a href="#/person/${m.b.id}" title="${esc(m.b.name || "Unnamed")} · ${plural(m.b.n, "photo")}">${faceImg(m.b)}</a>
+  const pre = maybe.length ? `<div class="maybe owner-only" id="maybe"><span class="muted">Maybe also ${esc(p.name || "this person")}?</span>${maybe.map(m => `
+      <span class="m owner-only" data-b="${m.b.id}"><a href="#/person/${m.b.id}" title="${esc(m.b.name || "Unnamed")} · ${plural(m.b.n, "photo")}">${faceImg(m.b)}</a>
       <button class="txt-btn" data-same="${m.b.id}">Same</button><button class="txt-btn" data-diff="${m.b.id}">No</button></span>`).join("")}</div>` : "";
   openFeed({
     title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person", pre,
     actions: `<button class="txt-btn" id="pName">${ico("edit")}${p.name ? "Rename" : "Add a name"}</button>
-              <button class="txt-btn" id="pMerge">Same person as…</button>`,
+              <button class="txt-btn owner-only" id="pMerge">Same person as…</button>`,
   });
   $("#pName").onclick = async () => {
     const name = await promptDialog(p.name ? "Rename" : "Who is this?", "Name", p.name || "");
@@ -611,7 +635,7 @@ function openFeed(o) {
     .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="restoreBtn" title="Download these from Telegram into a folder">${ico("restore")}Restore</button>` + sortBtn()}</div></div>
+      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn owner-only" id="restoreBtn" title="Download these from Telegram into a folder">${ico("restore")}Restore</button>` + sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
     <div class="sentinel" id="topSentinel"></div><div id="days"></div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
@@ -800,9 +824,9 @@ function dialog(html) {
   document.body.append(bg);
   return bg;
 }
-function promptDialog(title, label, value = "") {
+function promptDialog(title, label, value = "", type = "text") {
   return new Promise(res => {
-    const d = dialog(`<h2>${esc(title)}</h2><input id="dlgIn" placeholder="${esc(label)}" value="${esc(value)}">
+    const d = dialog(`<h2>${esc(title)}</h2><input id="dlgIn" type="${type}" placeholder="${esc(label)}" value="${esc(value)}">
       <div class="actions"><button class="txt-btn" data-x="0">Cancel</button><button class="fill-btn" data-x="1">Save</button></div>`);
     const inp = d.querySelector("#dlgIn"); inp.focus(); inp.select();
     const done = ok => { d.remove(); res(ok ? inp.value.trim() : null); };
@@ -901,7 +925,7 @@ function updateScrubberPos() {
 async function renderPeople() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1><div class="head-actions">
-      <button class="txt-btn" id="pSelect" hidden>${ico("check")}Select to merge</button><button class="fill-btn" id="pMergeSel" hidden></button></div></div>
+      <button class="txt-btn owner-only" id="pSelect" hidden>${ico("check")}Select to merge</button><button class="fill-btn" id="pMergeSel" hidden></button></div></div>
     <div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
   const [people, st, sugg] = await Promise.all([api("/api/people"), api("/api/ml/status"), api("/api/people/suggestions").catch(() => [])]);
   const box = $("#peopleBox");
@@ -909,7 +933,7 @@ async function renderPeople() {
     box.innerHTML = `<div class="note">${st.faces ? "Not enough faces grouped yet." : "No faces analysed yet."} ${mlNote(st)}</div>`; return;
   }
   $("#pSelect").hidden = people.length < 2;
-  box.innerHTML = (sugg.length ? `<div class="note" id="reviewNote">${ico("people")} ${sugg.length === 1 ? "1 possible match" : nf(sugg.length) + " possible matches"} — the face model thinks some of these might be the same person.
+  box.innerHTML = (sugg.length ? `<div class="note owner-only" id="reviewNote">${ico("people")} ${sugg.length === 1 ? "1 possible match" : nf(sugg.length) + " possible matches"} — the face model thinks some of these might be the same person.
       <a href="#/people/review" class="all-link" id="reviewLink">Review</a></div>` : "") +
     `<div class="people" id="peopleGrid">` + people.map(p => `<div class="person" data-id="${p.id}">${faceImg(p)}
       <b class="${p.name ? "" : "unnamed"}">${esc(p.name || "Add a name")}</b><span>${plural(p.n, "photo")}</span></div>`).join("") + `</div>`;
@@ -957,7 +981,7 @@ async function renderPeopleReview() {
 
 async function renderSimilar() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn" id="simAll" hidden>${ico("trash")}Keep best in every group</button></div></div>
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn owner-only" id="simAll" hidden>${ico("trash")}Keep best in every group</button></div></div>
     <div class="page-sub">Near-identical photos taken within a couple of minutes. The best shot (a favorite, else the sharpest) is picked for you; tap Keep / Trash on any photo to change it.
       Trashed photos go to the Trash page, where you can put them back; they stay backed up in Telegram.</div><div id="simBox"></div>`;
   const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
@@ -967,9 +991,9 @@ async function renderSimilar() {
   const tg = (on) => on ? `${ico("trash")}Trash` : `${ico("check")}Keep`;
   const groupHtml = (g, gi) => `<div class="sim-group" data-g="${gi}"><div class="head">
       <h3>${dayLabel(g.items[0].taken_at)} · ${timeLabel(g.items[0].taken_at)} · ${plural(g.items.length, "photo")}</h3>
-      <button class="fill-btn" data-act="clean"></button><button class="txt-btn" data-act="dismiss" title="Keep them all and stop showing this group">Not duplicates</button></div>
+      <button class="fill-btn owner-only" data-act="clean"></button><button class="txt-btn owner-only" data-act="dismiss" title="Keep them all and stop showing this group">Not duplicates</button></div>
       <div class="sim-row">${g.items.map((it, i) => tileHtml(it, 150, 150, i).replace('<span class="sel"',
-        `${it.id === g.best ? `<span class="best">Best</span>` : ""}<button class="tg" data-tg="${it.id}" title="Keep or trash this one">${tg(drop[gi].has(it.id))}</button><span class="sel"`)).join("")}</div></div>`;
+        `${it.id === g.best ? `<span class="best">Best</span>` : ""}<button class="tg owner-only" data-tg="${it.id}" title="Keep or trash this one">${tg(drop[gi].has(it.id))}</button><span class="sel"`)).join("")}</div></div>`;
   const paint = gi => {
     const el = box.querySelector(`.sim-group[data-g="${gi}"]`); if (!el) return;
     el.querySelectorAll(".tile").forEach(t => { const d = drop[gi].has(+t.dataset.id); t.classList.toggle("drop", d); t.classList.toggle("keep", !d); t.querySelector(".tg").innerHTML = tg(d); });
@@ -1004,6 +1028,58 @@ async function renderSimilar() {
     if (!await confirmDialog(`Trash ${plural(ids.length, "photo")}?`, `Keeps the marked photo in each of the ${plural(gis.length, "group")} on this page and moves the other ${plural(ids.length, "photo")} to Trash. You can put them back from the Trash page; Telegram keeps its copy.`, "Move to trash")) return;
     await trashItems(ids); renderSimilar();
   };
+}
+
+// ---------- sharing on the home Wi-Fi (this Mac only) ----------
+const deviceName = ua => /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android phone"
+  : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows PC" : "Device";
+const browserName = ua => /EdgA?\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "";
+const since = ts => { const t = Date.parse(ts.replace(" ", "T") + "Z"); return isNaN(t) ? "" : ago(t / 1000); };
+async function renderSharing() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Sharing</h1></div>
+    <div class="page-sub">Let family open the gallery from their phones while they're on this Wi-Fi. Only devices on your home network
+      that sign in with an account below can get in; everyone else is refused. Telegram isn't needed on their phones.</div><div class="share" id="shareBox"></div>`;
+  const draw = async () => {
+    const [u, sh] = await Promise.all([api("/api/users"), api("/api/sharing")]);
+    const acct = a => `<div class="acct" data-id="${a.id}"><div class="row"><b>${esc(a.name)}</b>
+        <span class="muted">${a.role === "owner" ? "Full access" : "View, favorite, albums"}</span><span class="spacer" style="flex:1"></span>
+        <button class="txt-btn" data-pw>Change password</button><button class="txt-btn" data-del>Remove</button></div>
+      ${a.sessions.length ? a.sessions.map(s => `<div class="dev"><span>${deviceName(s.device)} ${browserName(s.device)}
+        · last used ${since(s.last_seen)}${s.ip ? " · " + esc(s.ip) : ""}</span><button class="txt-btn" data-revoke="${s.id}">Sign out</button></div>`).join("")
+        : `<div class="dev">Not signed in on any device yet</div>`}</div>`;
+    $("#shareBox").innerHTML = `
+      <div class="panel"><label class="switch"><input type="checkbox" id="shareOn" ${sh.sharing ? "checked" : ""} ${u.users.length ? "" : "disabled"}>
+        Share on home Wi-Fi</label>
+        <div class="muted" style="margin-top:8px">${sh.sharing
+          ? `On. On the phone, open <b>http://photo-vault.local/setup</b> once (in Safari on iPhone) to trust this Mac, then <b>https://photo-vault.local</b>.
+             If the name doesn't open, use <b>http://${esc(sh.address || "this Mac's address")}/setup</b>.`
+          : u.users.length ? "Off: only this Mac can open the gallery." : "Add an account first."}</div></div>
+      <div class="panel" style="margin-top:16px"><h3>Accounts</h3>${u.users.map(acct).join("") || `<div class="muted">No accounts yet.</div>`}
+        <form id="addForm" autocomplete="off"><input id="aName" placeholder="Name (e.g. her first name)" maxlength="40" required>
+          <input id="aPw" type="password" placeholder="Password (8+ characters)" minlength="8" autocomplete="new-password" required>
+          <select id="aRole"><option value="member">View, favorite, albums</option><option value="owner">Full access (trash, restore…)</option></select>
+          <button class="fill-btn">Add account</button></form></div>`;
+    $("#shareOn").onchange = async e => { try { await post("/api/sharing", {on: e.target.checked}); } catch (err) { toast(esc(err.message)); } draw(); };
+    $("#addForm").onsubmit = async e => {
+      e.preventDefault();
+      try { await post("/api/users", {name: $("#aName").value, password: $("#aPw").value, role: $("#aRole").value}); toast("Account added"); draw(); }
+      catch (err) { toast(esc(err.message)); }
+    };
+    $("#shareBox").querySelectorAll(".acct").forEach(el => el.onclick = async e => {
+      const id = +el.dataset.id, name = el.querySelector("b").textContent;
+      if (e.target.closest("[data-pw]")) {
+        const pw = await promptDialog(`New password for ${name}`, "Password (8+ characters)", "", "password"); if (!pw) return;
+        try { await post(`/api/users/${id}/password`, {password: pw}); toast("Password changed; signed out on their devices"); } catch (err) { toast(esc(err.message)); }
+        draw();
+      }
+      if (e.target.closest("[data-del]") && await confirmDialog(`Remove ${esc(name)}?`, "They're signed out everywhere and can't open the gallery any more. Nothing else changes.", "Remove")) {
+        await post(`/api/users/${id}/delete`); draw();
+      }
+      const r = e.target.closest("[data-revoke]"); if (r) { await post(`/api/sessions/${r.dataset.revoke}/revoke`); draw(); }
+    });
+  };
+  await draw();
 }
 
 // ---------- trash ----------
@@ -1046,7 +1122,7 @@ async function renderBackup() {
   clearInterval(backupTimer);
   const draw = async () => {
     if (!location.hash.startsWith("#/backup")) return clearInterval(backupTimer);
-    const [b, jobs, ml] = await Promise.all([api("/api/backup"), api("/api/jobs?kind=restore"), api("/api/ml/status")]);
+    const [b, jobs, ml] = await Promise.all([api("/api/backup"), (me.role === "owner" ? api("/api/jobs?kind=restore") : Promise.resolve([])), api("/api/ml/status")]);
     const t = b.total, pct = t.files ? Math.round(1000 * t.backed_up / t.files) / 10 : 0;
     const bar = (part, whole) => `<div class="bar"><i style="width:${whole ? 100 * part / whole : 0}%"></i></div>`;
     const maxF = Math.max(...b.by_folder.map(f => f.bytes), 1), maxY = Math.max(...b.by_year.map(y => y.bytes), 1);
@@ -1079,8 +1155,8 @@ async function renderBackup() {
         <span>Faces found</span><span>${nf(ml.faces)}</span><span>People</span><span>${nf(ml.people)}</span>
         <span>Similar groups</span><span>${nf(ml.similar_groups)}</span></div>
         ${ml.job?.status === "running" ? `<div class="muted" style="margin-top:10px">${esc(ml.job.detail?.step || "Running")} · ${nf(ml.job.done)} / ${nf(ml.job.total)}</div>${bar(ml.job.done, ml.job.total)}`
-          : ml.models ? `<button class="txt-btn" id="runMl" style="margin-top:10px">${ico("smart")}Analyse new photos</button>` : `<div class="muted">Models not installed: <code>venv/bin/python ml.py download</code></div>`}</div>
-      <div class="panel" id="dashJobs"><h3>Restores</h3>${jobs.length ? jobs.map(j => `<div class="job">
+          : ml.models ? `<button class="txt-btn owner-only" id="runMl" style="margin-top:10px">${ico("smart")}Analyse new photos</button>` : `<div class="muted">Models not installed: <code>venv/bin/python ml.py download</code></div>`}</div>
+      <div class="panel owner-only" id="dashJobs"><h3>Restores</h3>${jobs.length ? jobs.map(j => `<div class="job">
         <b>${esc(j.detail.dest?.split("/").pop() || "Restore")}</b><span class="muted">${esc(j.status)} · ${nf(j.done)} / ${nf(j.total)} files${j.detail.verified ? ` · ${nf(j.detail.verified)} checked against the drive` : ""}${j.detail.errors?.length ? ` · ${j.detail.errors.length} problems` : ""}</span>
         ${bar(j.done, j.total)}<span>${j.status === "running" ? `<button class="txt-btn" data-cancel="${j.id}">Cancel</button>` : `<button class="txt-btn" data-reveal="${j.id}">Show in Finder</button>`}</span></div>`).join("")
         : `<div class="muted">Restore any album, folder, search or selection with its Restore button. Files go to Downloads › Photo Vault Restore with their original dates.</div>`}</div>
@@ -1301,10 +1377,31 @@ function renderSide() {
     <div><span class="status-dot ${status.telegram ? "on" : ""}"></span>Telegram ${status.telegram ? "connected" : "offline"}</div>
     <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
     <div>${nf(status.total)} photos & videos indexed</div>`;
+  $("#me").innerHTML = me && !me.local ? `Signed in as ${esc(me.name)} · <a id="signOut">Sign out</a>` : "";
+  $("#signOut") && ($("#signOut").onclick = async () => { await post("/api/logout"); location.reload(); });
 }
 async function loadUserAlbums() { userAlbums = await api("/api/user-albums"); }
 
+function showLogin() {
+  document.body.innerHTML = `<div class="login"><form id="loginForm" autocomplete="on">
+      <h1><svg viewBox="0 0 24 24"><use href="#i-photo"/></svg>Photo Vault</h1>
+      <input id="lName" name="username" autocomplete="username" placeholder="Name" autocapitalize="none" required>
+      <input id="lPw" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
+      <div class="err" id="lErr"></div><button class="fill-btn">Sign in</button></form></div>` + document.querySelector("svg").outerHTML;
+  $("#lName").focus();
+  $("#loginForm").onsubmit = async e => {
+    e.preventDefault(); $("#lErr").textContent = "";
+    try { await post("/api/login", {name: $("#lName").value, password: $("#lPw").value}); location.reload(); }
+    catch (err) { $("#lErr").textContent = err.message; $("#lPw").select(); }
+  };
+}
+
 async function boot() {
+  const r = await fetch("/api/me");
+  if (r.status === 401) return showLogin();
+  me = await r.json();
+  document.body.classList.toggle("member", me.role !== "owner");
+  document.body.classList.toggle("mac", !!me.local);
   [status, albums] = await Promise.all([api("/api/status"), api("/api/albums"), loadUserAlbums()]);
   renderSide();
   route();

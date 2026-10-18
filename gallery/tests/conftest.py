@@ -300,8 +300,8 @@ def page(browser, request):
     pg = ctx.new_page()
     errors = []
     pg.on("pageerror", lambda e: errors.append(str(e)))
-    # 404 (no thumbnail) and 503 (Telegram unavailable) are expected answers the page handles and explains
-    pg.on("console", lambda m: m.type == "error" and not re.search(r"status of (404|503)", m.text) and errors.append(m.text))
+    # 401 (not signed in), 404 (no thumbnail) and 503 (Telegram unavailable) are expected answers the page handles and explains
+    pg.on("console", lambda m: m.type == "error" and not re.search(r"status of (401|404|503)", m.text) and errors.append(m.text))
     pg.base = w["url"]
     pg.world = w
     yield pg
