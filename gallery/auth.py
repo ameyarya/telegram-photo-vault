@@ -216,7 +216,9 @@ def users(request: Request):
     con = connect()
     rows = con.execute("SELECT id, name, role, created FROM users ORDER BY id").fetchall()
     sess = con.execute("SELECT rowid AS id, user_id, created, last_seen, ip, device FROM sessions ORDER BY last_seen DESC").fetchall()
-    return {"users": [{**dict(u), "sessions": [dict(s) for s in sess if s["user_id"] == u["id"]]} for u in rows],
+    import upload
+    return {"users": [{**dict(u), "folder": upload.folder_for(dict(u)),
+                       "sessions": [dict(s) for s in sess if s["user_id"] == u["id"]]} for u in rows],
             "sharing": sharing_on(con)}
 
 
