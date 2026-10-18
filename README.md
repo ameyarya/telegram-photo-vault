@@ -143,6 +143,11 @@ something was backed up. If files are still being copied onto the drive (say, an
 the next check, so a half-copied file is never uploaded. It won't run twice at once and skips if an upload is running.
 Leave `FOLDERS` empty in `config.env` to include new top-level folders automatically.
 
+**It uploads with your bot(s), so set up the bot uploader below first.** macOS doesn't let background jobs read an
+external drive with `zsh`, `find` or `tdl` ("Operation not permitted"), so the background backup lists the drive and
+uploads in Python (`backup/auto_upload.py`), which macOS asks you to allow once. Running `upload.sh` yourself in
+Terminal still uses tdl as before.
+
 ### Optional: bot uploader (experimental)
 
 Telegram limits upload speed per account; a bot is a separate account. Create one with

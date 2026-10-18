@@ -99,7 +99,7 @@ async def speedtest(mb=512, workers=8):
         await client.disconnect()
 
 
-MARGIN = 60  # stop this many files short of the account uploader to avoid both taking the same batch
+MARGIN = int(os.environ.get("BOT_MARGIN", 60))  # stop this many files short of the account uploader (0: none running)
 
 
 CLAIMS = STATE / "claims.txt"  # "pid<TAB>path" for files a bot is uploading right now
