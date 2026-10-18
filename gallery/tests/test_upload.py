@@ -93,16 +93,37 @@ def test_drive_unplugged_files_wait_on_the_mac(upworld):
     assert (upworld["drive"] / "mac-uploads/late.jpg").read_bytes() == b"while unplugged" and not waiting.exists()
 
 
+def test_status_tells_backed_up_on_drive_and_missing(mac, upworld):
+    import sqlite3
+    put(mac, "S_1.jpg", b"one"), put(mac, "S_2.jpg", b"two")
+    con = sqlite3.connect(upworld["data"] / "index.db")
+    con.execute("INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, msg_id) VALUES "
+                "('mac-uploads/S_1.jpg', 'mac-uploads', 'S_1.jpg', 'image', 'jpg', '2024-01-01T00:00:00', 'file', 3, 999)")
+    con.commit()
+    r = mac.post("/api/upload/status", json={"files": [{"name": "S_1.jpg", "size": 3}, {"name": "S_2.jpg", "size": 3},
+                                                      {"name": "S_2.jpg", "size": 4}, {"name": "S_3.jpg", "size": 3},
+                                                      {"name": "../x.txt", "size": 1}]}).json()
+    assert r["status"] == ["backed_up", "on_drive", "missing", "missing", "missing"]
+    # (same name, other size: a different photo, not backed up)
+
+
 @pytest.mark.parametrize("page", [{"world": "upworld", "viewport": {"width": 390, "height": 844}}], indirect=True)
-def test_ui_pick_and_upload(page, tmp_path, upworld):
+def test_ui_pick_see_status_then_upload(page, tmp_path, upworld):
     a, b = tmp_path / "IMG_9001.jpg", tmp_path / "VID_9002.mp4"
     a.write_bytes(b"jpg bytes"), b.write_bytes(b"mp4 bytes" * 1000)
     page.goto(page.base + "/#/upload")
     page.locator("text=mac-uploads").first.wait_for()
     page.set_input_files("#upFiles", [str(a), str(b)])
+    page.locator("#upGo", has_text="Upload 2 photos and videos").wait_for()          # checked first, nothing sent yet
+    assert not (upworld["drive"] / "mac-uploads/IMG_9001.jpg").exists()
+    assert page.locator(".up-tile .up-badge", has_text="Not backed up").count() == 2
+    page.click("#upGo")
     page.locator("#upNow", has_text="Done").wait_for(timeout=30000)
-    assert page.locator("#upDone").inner_text() == "2"
-    shot(page, "upload-phone")
-    page.set_input_files("#upFiles", [str(a), str(b)])                                     # again: nothing re-sent
-    page.locator("#upSkip", has_text="2").wait_for(timeout=30000)
+    assert page.locator("#upD").inner_text() == "2"                                   # on the hard disk now
+    page.locator(".chip[data-f=on_drive]").click()
+    assert page.locator(".up-tile .up-badge", has_text="On hard disk").count() == 2
+    shot(page, "upload-status")
     assert (upworld["drive"] / "mac-uploads/VID_9002.mp4").stat().st_size == 9000
+    page.set_input_files("#upFiles", [str(a), str(b)])                                 # picking again: nothing to send
+    page.locator("#upD", has_text="2").wait_for()
+    assert page.locator("#upGo").count() == 0
