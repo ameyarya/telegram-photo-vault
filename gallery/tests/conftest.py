@@ -285,7 +285,10 @@ def unplugged(world):
 def browser():
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        try:
+            b = p.chromium.launch()
+        except Exception:  # Playwright's own browser not downloaded: use the installed Google Chrome
+            b = p.chromium.launch(channel="chrome")
         yield b
         b.close()
 
