@@ -176,8 +176,9 @@ def main():
                 f"""INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime, width, height, duration,
                                       orient, thumb, exif2, {", ".join(DETAIL_COLS)})
                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,{",".join("?" * len(DETAIL_COLS))})
-                   ON CONFLICT(path) DO UPDATE SET album=excluded.album, name=excluded.name, taken_at=excluded.taken_at,
-                     date_src=excluded.date_src, size=excluded.size, mtime=excluded.mtime, width=excluded.width,
+                   ON CONFLICT(path) DO UPDATE SET album=excluded.album, name=excluded.name,
+                     taken_at=CASE WHEN date_src = 'user' THEN taken_at ELSE excluded.taken_at END,
+                     date_src=CASE WHEN date_src = 'user' THEN 'user' ELSE excluded.date_src END, size=excluded.size, mtime=excluded.mtime, width=excluded.width,
                      height=excluded.height, duration=excluded.duration, orient=excluded.orient, thumb=0, exif2=1,
                      {", ".join(f"{c}=excluded.{c}" for c in DETAIL_COLS)}""",
                 (rel, album, name, kind, ext, date[:19], src, st.st_size, st.st_mtime,

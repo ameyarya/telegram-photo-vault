@@ -70,8 +70,8 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-import auth, backup, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
-for _mod in (auth, library, ml, restore, backup, trash):
+import auth, backup, dates, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
+for _mod in (auth, dates, library, ml, restore, backup, trash):
     app.include_router(_mod.router)
 
 
@@ -153,7 +153,10 @@ def item(media_id: int):
                                WHERE i.media_id = ? ORDER BY a.name""", (media_id,)).fetchall()
     people_in = con.execute("""SELECT DISTINCT p.id, p.name FROM faces f JOIN people p ON p.id = f.person
                                WHERE f.media_id = ? ORDER BY p.name""", (media_id,)).fetchall()
-    return {**dict(row), "user_albums": [dict(a) for a in albums_in], "people": [dict(p) for p in people_in]}
+    fix = con.execute("SELECT orig_taken_at, orig_src FROM date_fixes WHERE media_id = ?", (media_id,)).fetchone()
+    sug = dates.suggestions(con, [media_id]) if row["date_src"] == "file" else []
+    return {**dict(row), "user_albums": [dict(a) for a in albums_in], "people": [dict(p) for p in people_in],
+            "date_original": dict(fix) if fix else None, "date_suggestion": sug[0] if sug else None}
 
 
 def get_row(media_id):

@@ -239,6 +239,17 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .acct .dev{font-size:13px;color:var(--ink2);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .share form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .share form input{flex:1;min-width:150px}
+.info-row .edit-date{margin-left:auto;align-self:flex-start;color:#a8c7fa}
+.date-dlg label{display:flex;gap:8px;align-items:flex-start;margin:8px 0;cursor:pointer}
+.date-dlg input[type=datetime-local]{height:40px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 10px;font:inherit;width:100%;box-sizing:border-box;margin:6px 0 10px;color-scheme:light dark}
+.date-dlg .sugg{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:8px 0;display:flex;gap:10px;align-items:center}
+.page-sub a,.note a{color:var(--accent)}
+.fixes{display:grid;gap:8px;margin-top:12px;max-width:900px}
+.fix{display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);flex-wrap:wrap}
+.fix img{width:72px;height:72px;object-fit:cover;border-radius:8px;cursor:pointer;background:var(--tile)}
+.fix .what{flex:1;min-width:200px;font-size:13px;color:var(--ink2)}
+.fix .what b{color:var(--ink);font-weight:500;font-size:14px}
+.fix .arrow{color:var(--ink2)}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
@@ -305,6 +316,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></symbol>
   <symbol id="i-star-o" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8 3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4 2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></symbol>
+  <symbol id="i-cal-edit" viewBox="0 0 24 24"><path d="M5 10h14v2h2V6c0-1.1-.9-2-2-2h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h7v-2H5V10zm0-4h14v2H5V6zm17.84 10.28-.71.71-2.12-2.12.71-.71a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71zm-3.54-.71 2.12 2.12-5.3 5.31H14v-2.12l5.3-5.31z"/></symbol>
   <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" opacity=".9"/><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm0 17.6a8.1 8.1 0 1 1 0-16.2 8.1 8.1 0 0 1 0 16.2z" opacity=".6"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
   <symbol id="i-untrash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
@@ -340,6 +352,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
   <button class="icon-btn owner-only" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
+  <button class="icon-btn owner-only" id="selDate" title="Edit date &amp; time" aria-label="Edit date and time"><svg><use href="#i-cal-edit"/></svg></button>
   <button class="icon-btn owner-only" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
 </div>
 
@@ -431,7 +444,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -454,6 +467,7 @@ function route() {
   if (h === "/people/review") return renderPeopleReview();
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
+  if (h === "/dates") return renderDates();
   if (h === "/similar") return renderSimilar();
   if (h === "/backup") return renderBackup();
   if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites"});
@@ -646,6 +660,8 @@ function openFeed(o) {
     route();
   });
   $("#chips")?.addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route(); });
+  if (filterChip === "undated") $("#chips")?.insertAdjacentHTML("afterend", `<div class="note owner-only">These have no camera date, so they're dated by the file.
+    Select some and press ${ico("cal-edit")} to set or shift their date, or see <a href="#/dates">suggested dates</a>.</div>`);
   $("#restoreBtn") && ($("#restoreBtn").onclick = () => startRestore(feedQuery(), o.restoreLabel || o.title));
   if (o.empty) { feed.total = 0; $("#pgSub").textContent = o.empty; return; }
   topObserver.observe($("#topSentinel"));
@@ -805,6 +821,10 @@ $("#selRemove").onclick = async () => {
   await loadUserAlbums(); clearPicked(); route();
 };
 $("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
+$("#selDate").onclick = async () => {
+  const ids = [...picked], known = (feed?.items || []).filter(it => picked.has(it.id));
+  if (await dateDialog(ids, known)) { clearPicked(); route(); }
+};
 $("#selTrash").onclick = async () => {
   const ids = [...picked];
   await trashItems(ids);
@@ -1082,6 +1102,70 @@ async function renderSharing() {
   await draw();
 }
 
+// ---------- dates ----------
+const localInput = iso => (iso || "").slice(0, 19);   // "2023-05-01T14:30:05" for <input type=datetime-local step=1>
+const fmtWhen = iso => `${longDate(iso)}, ${timeLabel(iso)}`;
+function dateDialog(ids, known, detail = null) {
+  const one = ids.length === 1, first = known.map(k => k.taken_at).sort()[0] || "";
+  const sug = detail?.date_suggestion, orig = detail?.date_original;
+  return new Promise(res => {
+    const d = dialog(`<div class="date-dlg"><h2>${one ? "Edit date & time" : `Edit date of ${plural(ids.length, "item")}`}</h2>
+      ${sug ? `<div class="sugg"><span style="flex:1"><b>Suggested: ${fmtWhen(sug.suggested)}</b><br><span class="muted">${esc(sug.why)}</span></span>
+        <button class="fill-btn" data-x="sugg">Use</button></div>` : ""}
+      ${one ? "" : `<label><input type="radio" name="dm" value="shift" checked><span>Shift them all, keeping their order and spacing.<br><span class="muted">Pick the new date of the earliest one.</span></span></label>
+        <label><input type="radio" name="dm" value="set"><span>Give them all the same date and time</span></label>`}
+      <input type="datetime-local" id="dIn" step="1" value="${localInput(first)}">
+      ${orig ? `<div class="muted">Edited. Original: ${fmtWhen(orig.orig_taken_at)}${orig.orig_src === "file" ? " (file date)" : ""} · <a id="dUndo" style="cursor:pointer;color:var(--accent)">Undo edit</a></div>` : ""}
+      <div class="muted" style="margin-top:8px">Changes the date in the gallery only. Your files and the Telegram backup stay exactly as they are.</div>
+      <div class="actions"><button class="txt-btn" data-x="0">Cancel</button><button class="fill-btn" data-x="1">Save</button></div></div>`);
+    const close = v => { d.remove(); res(v); };
+    const send = async body => {
+      try { await post("/api/dates", {ids, ...body}); close(true); } catch (e) { toast(esc(e.message)); }
+    };
+    d.querySelector("#dUndo")?.addEventListener("click", async () => { await post("/api/dates/reset", {ids}); close(true); });
+    d.onclick = e => {
+      if (e.target === d) return close(false);
+      const b = e.target.closest("[data-x]"); if (!b) return;
+      if (b.dataset.x === "0") return close(false);
+      if (b.dataset.x === "sugg") return send({use_suggested: true});
+      const v = d.querySelector("#dIn").value; if (!v) return toast("Pick a date and time");
+      const mode = one ? "set" : d.querySelector("input[name=dm]:checked").value;
+      send(mode === "set" ? {set: v} : {first: v});
+    };
+  });
+}
+
+async function renderDates() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button><h1>Fix dates</h1>
+      <div class="head-actions"><button class="fill-btn owner-only" id="fxAll" hidden>Use all suggestions</button></div></div>
+    <div class="page-sub" id="pgSub"></div><div id="fixBox"></div>`;
+  $("#pgBack").onclick = () => history.length > 1 ? history.back() : location.hash = "#/backup";
+  const r = await api("/api/dates/suggestions");
+  $("#pgSub").innerHTML = `${r.undated === 1 ? "1 photo or video" : nf(r.undated) + " photos & videos"} ${r.undated === 1 ? "has" : "have"} no camera date, so ${r.undated === 1 ? "it's" : "they're"} dated by the file, often the day ${r.undated === 1 ? "it was" : "they were"} copied.
+    ${r.items.length ? `For ${nf(r.items.length)} there's a better date: in the file name, or from the same photo with a camera date.` : ""}
+    <a href="#/photos" id="seeUndated">See them all</a> to fix the rest by hand (select, then ${ico("cal-edit")}).`;
+  $("#seeUndated").onclick = () => { filterChip = "undated"; lastPath = "/photos"; };
+  if (!r.items.length) { $("#fixBox").innerHTML = `<div class="note">No suggestions right now.</div>`; return; }
+  $("#fxAll").hidden = false;
+  $("#fixBox").innerHTML = `<div class="fixes">${r.items.map((it, i) => `<div class="fix" data-id="${it.id}" data-i="${i}">
+      <img src="/thumb/${it.id}" alt="" loading="lazy">${it.twin ? `<img src="/thumb/${it.twin}" alt="" loading="lazy" title="The photo it was matched with">` : ""}
+      <div class="what"><b>${esc(it.name)}</b><br>${fmtWhen(it.taken_at)} <span class="arrow">→</span> <b>${fmtWhen(it.suggested)}</b><br>${esc(it.why)}</div>
+      <button class="fill-btn owner-only" data-use>Use</button></div>`).join("")}</div>`;
+  $("#fixBox").onclick = async e => {
+    const row = e.target.closest(".fix"); if (!row) return;
+    if (e.target.closest("[data-use]")) {
+      await post("/api/dates", {ids: [+row.dataset.id], use_suggested: true}); row.remove(); toast("Date fixed");
+      if (!$("#fixBox .fix")) renderDates();
+    } else if (e.target.tagName === "IMG") openViewerOn(r.items, +row.dataset.i);
+  };
+  $("#fxAll").onclick = async () => {
+    if (!await confirmDialog(`Use ${plural(r.items.length, "suggested date")}?`, "Each one can be undone from the photo's info panel (Edit → Undo edit).", "Use all")) return;
+    const x = await post("/api/dates", {ids: r.items.map(i => i.id), use_suggested: true});
+    toast(`Fixed ${plural(x.changed, "date")}`); renderDates();
+  };
+}
+
 // ---------- trash ----------
 async function renderTrash() {
   feed = null;
@@ -1133,7 +1217,7 @@ async function renderBackup() {
         <div class="muted">${nf(t.backed_up)} of ${nf(t.files)} items · ${size(t.backed_up_bytes)} of ${size(t.bytes)}</div>${bar(t.backed_up, t.files)}
         <div class="kv" style="margin-top:12px"><span>Exact duplicates skipped</span><span>${nf(b.skipped_duplicates)} (their twin is backed up)</span>
         <span>Empty files skipped</span><span>${nf(b.empty_files)}</span><span>Videos</span><span>${nf(t.videos)}</span>
-        <span>No camera date</span><span>${nf(t.undated)}</span></div></div>
+        <span>No camera date</span><span>${nf(t.undated)}${t.undated ? ` · <a href="#/dates" id="fixDates">Fix dates</a>` : ""}</span></div></div>
       <div class="panel" id="dashStatus"><h3>Status</h3><div class="kv">
         <span>Telegram</span><span>${dot(b.telegram)}${b.telegram ? "connected" : esc(b.telegram_error || "offline")}</span>
         <span>Last sync</span><span>${b.last_sync ? ago(b.last_sync) : "not yet"}</span>
@@ -1183,8 +1267,10 @@ function openViewerAt(i) {
   viewerIdx = i; $("#viewer").classList.add("open"); document.body.style.overflow = "hidden";
   showItem();
 }
+let reorderPending = false;
 function closeViewer(fromPop = false) {
   if (viewerIdx < 0) return;
+  if (reorderPending) { reorderPending = false; setTimeout(route, 0); }
   viewerIdx = -1; viewList = null; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
   $("#vMain").querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   if (!fromPop && history.state?.viewer) history.back();
@@ -1304,7 +1390,8 @@ $("#vAlbum").onclick = () => { const it = curList()[viewerIdx]; if (it) addToAlb
 async function renderInfo(it) {
   const base = `<header><button class="icon-btn" id="vInfoClose" aria-label="Close info">${ico("close")}</button>Info</header>
     <div class="info-h">Details</div>
-    <div class="info-row">${ico("cal")}<div><b>${longDate(it.taken_at)}</b><span>${timeLabel(it.taken_at)}${it.date_src === "file" ? " · from file date (no camera date)" : ""}</span></div></div>
+    <div class="info-row">${ico("cal")}<div><b>${longDate(it.taken_at)}</b><span>${timeLabel(it.taken_at)}${it.date_src === "file" ? " · from file date (no camera date)" : it.date_src === "user" ? " · date edited" : ""}</span></div>
+      <button class="txt-btn edit-date owner-only" id="vEditDate" title="Edit date &amp; time">Edit</button></div>
     <div class="info-row">${ico(it.kind === "video" ? "play" : "photo")}<div><b>${esc(it.name)}</b>
       <span>${[mp(it.width, it.height), size(it.size), it.kind === "video" ? dur(it.duration) : ""].filter(Boolean).join(" · ")}</span></div></div>
     <div id="infoMore"></div>
@@ -1313,6 +1400,15 @@ async function renderInfo(it) {
       <span>${it.cloud ? "Viewable even with the drive unplugged" : "Only on the drive for now"}</span></div></div>`;
   $("#vInfo").innerHTML = base;
   $("#vInfoClose").onclick = () => toggleInfo(false);
+  $("#vEditDate").onclick = async () => {
+    const d = await api(`/api/item/${it.id}`);
+    if (!await dateDialog([it.id], [it], d)) return;
+    const fresh = await api(`/api/item/${it.id}`);
+    it.taken_at = fresh.taken_at; it.date_src = fresh.date_src;
+    const f = feed?.items.find(x => x.id === it.id); if (f) { f.taken_at = it.taken_at; f.date_src = it.date_src; }
+    renderInfo(it); toast("Date changed. It moves to its new place in the timeline when you close the photo.");
+    reorderPending = true;
+  };
   $("#vInfo").onclick = e => { const a = e.target.closest("a[data-href]"); if (a) { const h = a.dataset.href; closeViewer(); setTimeout(() => location.hash = h, 0); } };
   try {
     const d = await api(`/api/item/${it.id}`);
