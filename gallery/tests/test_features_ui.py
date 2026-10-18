@@ -57,6 +57,7 @@ def test_favorite_from_viewer_and_favorites_page(page):
     expect(page.locator("#vFav")).to_have_class(re.compile(r"\bon\b"))
     page.keyboard.press("Escape")
     page.click(".side a[data-route=favorites]")
+    expect(page.locator("#pgBack")).to_have_count(0)            # a main page: no back arrow
     expect(page.locator("#days .tile")).to_have_count(1)
     expect(page.locator("#days .tile .fav")).to_have_count(1)
     expect(page.locator(".chip")).to_have_count(0)               # no chips on Favorites
@@ -146,12 +147,12 @@ def test_info_shows_camera_settings_and_location(page):
 
 
 # ---------- zoom ----------
-def test_zoom_double_click_keys_and_button(page):
+def test_zoom_click_keys_and_button(page):
     open_photo(page, "vacation", "beach.jpg")
     page.click("#vInfoClose")
     img = page.locator("#vMain img.v-media")
     page.wait_for_function("document.querySelector('#vMain img.v-media')?.naturalWidth > 0")
-    img.dblclick()
+    img.click()                                                  # one click zooms in
     expect(img).to_have_attribute("style", re.compile(r"scale\(2\.5\)"))
     expect(page.locator("#vZoom")).to_have_class(re.compile(r"\bon\b"))
     page.keyboard.press("ArrowRight")                            # arrows don't change photo while zoomed
@@ -162,6 +163,10 @@ def test_zoom_double_click_keys_and_button(page):
     page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
     page.mouse.down(); page.mouse.move(box["x"] + box["width"] / 2 + 80, box["y"] + box["height"] / 2); page.mouse.up()
     expect(img).to_have_attribute("style", re.compile(r"translate\("))
+    expect(img).to_have_attribute("style", re.compile(r"scale\(3\.75\)"))    # dragging around isn't a click
+    page.mouse.click(600, 450)                                   # a click on the photo zooms back out
+    expect(img).not_to_have_attribute("style", re.compile(r"scale"))
+    page.keyboard.press("+")
     page.keyboard.press("0")
     expect(img).not_to_have_attribute("style", re.compile(r"scale"))
     page.click("#vZoom")
