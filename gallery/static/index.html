@@ -456,7 +456,9 @@ const BRANDS = {iphone: "iPhone", icloud: "iCloud", ipad: "iPad"};
 const pretty = seg => seg.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim()
   .replace(/\b\p{Ll}/gu, c => c.toUpperCase()).replace(/\b(iphone|icloud|ipad)\b/gi, w => BRANDS[w.toLowerCase()]);
 const plural = (n, word) => `${nf(n)} ${word}${n === 1 ? "" : "s"}`;
-const albumTitle = path => pretty(path.split("/").pop());
+let folderNames = {};   // your names for folders (gallery only; the drive keeps the real names)
+const folderName = path => folderNames[path] || pretty(path.split("/").pop());
+const albumTitle = folderName;
 const mp = (w, h) => w && h ? `${Math.round(w*h/1e6)}MP · ${w} × ${h}` : "";
 const ago = t => { const s = Date.now()/1000 - t; return s < 90 ? "just now" : s < 5400 ? `${Math.round(s/60)} min ago` : `${Math.round(s/3600)} h ago`; };
 function toast(html, ms = 5000) {
@@ -515,9 +517,9 @@ function renderAlbums() {
   const groups = {};
   for (const a of albums) (groups[a.album.split("/")[0]] ??= []).push(a);
   for (const [top, items] of Object.entries(groups)) {
-    html += `<section class="group"><h2>${esc(pretty(top))}</h2><div class="cards">`;
+    html += `<section class="group"><h2>${esc(folderName(top))}</h2><div class="cards">`;
     for (const a of items) {
-      const trail = a.album.split("/").slice(1, -1).map(pretty).join(" › ");
+      const segs = a.album.split("/"), trail = segs.slice(1, -1).map((_, i) => folderName(segs.slice(0, i + 2).join("/"))).join(" › ");
       html += cardHtml("#/album/" + encodeURIComponent(a.album), albumTitle(a.album), plural(a.n, "item") + (trail ? " · " + trail : ""), a.cover);
     }
     html += `</div></section>`;
@@ -563,10 +565,10 @@ function openFolder(album, all = false) {
   const direct = albums.find(a => a.album === album)?.n || 0;
   const parts = album.split("/");
   const crumbs = parts.map((seg, i) => i === parts.length - 1 && !all ? ""
-    : `<a href="#/album/${encodeURIComponent(parts.slice(0, i + 1).join("/"))}">${esc(pretty(seg))}</a>`).filter(Boolean).join(" <span>›</span> ");
+    : `<a href="#/album/${encodeURIComponent(parts.slice(0, i + 1).join("/"))}">${esc(folderName(parts.slice(0, i + 1).join("/")))}</a>`).filter(Boolean).join(" <span>›</span> ");
   let pre = "";
   if (kids.length) {
-    pre += `<div class="cards">` + kids.map(k => cardHtml("#/album/" + encodeURIComponent(k.path), pretty(k.name),
+    pre += `<div class="cards">` + kids.map(k => cardHtml("#/album/" + encodeURIComponent(k.path), folderName(k.path),
       plural(k.n, "item") + (k.folders.size ? ` · ${plural(k.folders.size, "folder")}` : ""), k.cover)).join("") + `</div>`;
     pre += `<a class="all-link" href="#/all/${encodeURIComponent(album)}">${ico("photo")}View all ${plural(folderTotal(album), "item")} as one timeline</a>`;
     if (direct) pre += `<h2 class="sec">Photos in this folder</h2>`;
@@ -574,10 +576,19 @@ function openFolder(album, all = false) {
   const parent = parts.slice(0, -1).join("/");
   openFeed({
     title: albumTitle(album) + (all ? " · everything" : ""), crumbs, pre,
+    actions: all ? "" : `<button class="txt-btn owner-only" id="renameFolder" title="Rename in the gallery (the folder on the hard disk keeps its name)">${ico("edit")}Rename</button>`,
     params: {album, sub: all ? "true" : "false"}, restoreLabel: albumTitle(album),
     back: all ? "#/album/" + encodeURIComponent(album) : parent ? "#/album/" + encodeURIComponent(parent) : "#/albums",
     empty: kids.length && !direct ? `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}` : null,
     extraSub: kids.length ? ` here · ${plural(folderTotal(album), "item")} including sub-folders` : "",
+  });
+  $("#renameFolder")?.addEventListener("click", async () => {
+    const name = await promptDialog("Rename folder", `Name in the gallery (on the hard disk it stays “${parts[parts.length - 1]}”; leave empty to use that)`, folderNames[album] || "");
+    if (name === null) return;
+    try {
+      await post("/api/folder-names", {path: album, name});
+      folderNames = await api("/api/folder-names"); renderSide(); route();
+    } catch (e) { toast(esc(e.message)); }
   });
 }
 
@@ -635,7 +646,7 @@ async function openPerson(id) {
 async function openSearch(q) {
   $("#q").value = q; $("#qClear").hidden = !q;
   const ql = q.toLowerCase();
-  const fa = albums.filter(a => a.album.toLowerCase().includes(ql));
+  const fa = albums.filter(a => a.album.toLowerCase().includes(ql) || folderName(a.album).toLowerCase().includes(ql));
   const ua = userAlbums.filter(a => a.name.toLowerCase().includes(ql));
   let pre = "";
   if (fa.length || ua.length) {
@@ -1351,7 +1362,7 @@ async function renderBackup() {
         <span>Uploader</span><span>${b.uploader_running ? "running" : "idle"}${b.bots_running ? " · bots running" : ""}</span>
         <span>Failed batches</span><span>${nf(b.failed_batches)}${b.failed_batches ? " (retried automatically)" : ""}</span></div>
         ${b.upload_log_tail.length ? `<h3 style="margin-top:14px">Recent upload log</h3><div class="logbox">${esc(b.upload_log_tail.join("\n"))}</div>` : ""}</div>
-      <div class="panel" id="dashFolders"><h3>By folder</h3>${b.by_folder.map(f => `<div class="hbar"><span>${esc(pretty(f.folder))}</span>
+      <div class="panel" id="dashFolders"><h3>By folder</h3>${b.by_folder.map(f => `<div class="hbar"><span>${esc(folderName(f.folder))}</span>
         <span class="track" title="${nf(f.backed_up)} of ${nf(f.files)} backed up"><i style="width:${100 * f.bytes / maxF}%"></i><b style="width:${100 * f.bytes / maxF * (f.files ? f.backed_up / f.files : 0)}%"></b></span>
         <span class="n">${size(f.bytes)}</span></div>`).join("")}<div class="muted">Dark = backed up, light = not yet</div></div>
       <div class="panel" id="dashYears"><h3>By year</h3>${b.by_year.map(y => `<div class="hbar"><span>${esc(y.year)}</span>
@@ -1629,7 +1640,7 @@ function renderSide() {
   const tops = {};
   for (const a of albums) { const t = a.album.split("/")[0]; tops[t] = (tops[t] || 0) + a.n; }
   $("#topFolders").innerHTML = Object.keys(tops).sort().map(t =>
-    `<a class="sub-link" href="#/album/${encodeURIComponent(t)}" data-route="folder" data-folder="${esc(t)}">${ico("folder")}${esc(pretty(t))}</a>`).join("");
+    `<a class="sub-link" href="#/album/${encodeURIComponent(t)}" data-route="folder" data-folder="${esc(t)}">${ico("folder")}${esc(folderName(t))}</a>`).join("");
   if (!status) return;
   const pct = status.total ? Math.round(100 * status.uploaded / status.total) : 0;
   $("#stat").innerHTML = `
@@ -1663,7 +1674,7 @@ async function boot() {
   me = await r.json();
   document.body.classList.toggle("member", me.role !== "owner");
   document.body.classList.toggle("mac", !!me.local);
-  [status, albums] = await Promise.all([api("/api/status"), api("/api/albums"), loadUserAlbums()]);
+  [status, albums, folderNames] = await Promise.all([api("/api/status"), api("/api/albums"), api("/api/folder-names"), loadUserAlbums()]);
   renderSide();
   route();
   setInterval(async () => { try { status = await api("/api/status"); renderSide(); } catch {} }, 60000);
