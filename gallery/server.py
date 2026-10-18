@@ -280,6 +280,70 @@ async def original(media_id: int, request: Request, download: bool = False):
     return await serve_file(await asyncio.to_thread(get_row, media_id), request, download)
 
 
+@app.get("/download")
+async def download(request: Request, ids: str, name: str = "Photos"):
+    """One photo or video as itself; several as one .zip (with Live Photos' motion clips), streamed as it's read.
+
+    Files come from the drive when it's plugged in, otherwise from Telegram, so it works from a phone too."""
+    wanted = [int(i) for i in ids.split(",") if i.strip().isdigit()][:5000]
+    rows = await asyncio.to_thread(_download_rows, wanted)
+    if not rows:
+        raise HTTPException(404, "Nothing to download")
+    if len(rows) == 1:
+        return await serve_file(rows[0], request, download=True)
+    unavailable = [r["name"] for r in rows if local_file(r) is None and (r["msg_id"] is None or state["client"] is None)]
+    if unavailable:
+        raise HTTPException(503, f"{len(unavailable)} of these can't be downloaded right now (drive unplugged and "
+                                 f"not in Telegram yet, or Telegram offline), e.g. {unavailable[0]}")
+    from datetime import datetime
+    import zlib
+    from stream_zip import ZIP_64, async_stream_zip
+
+    async def chunks(row):
+        lf = local_file(row)
+        if lf:
+            with open(lf, "rb") as f:
+                while block := await asyncio.to_thread(f.read, 1 << 20):
+                    yield block
+        else:
+            async for block in tg_bytes(row, 0, row["size"] - 1):
+                yield block
+
+    async def members():
+        seen = set()
+        for r in rows:
+            base, dot, ext = os.path.basename(r["path"]).rpartition(".")
+            fname, n = os.path.basename(r["path"]), 1
+            while fname.lower() in seen:            # same name in different folders
+                n += 1
+                fname = f"{base} ({n}){dot}{ext}"
+            seen.add(fname.lower())
+            when = datetime.fromisoformat(r["taken_at"][:19]) if r["taken_at"] else datetime.now()
+            yield fname, when, 0o644, ZIP_64, chunks(r)
+
+    safe = " ".join("".join(c if c.isalnum() or c in "-_" else " " for c in name).split())[:60] or "Photos"
+    return StreamingResponse(
+        async_stream_zip(members(), get_compressobj=lambda: zlib.compressobj(0, zlib.DEFLATED, -15)),  # photos don't shrink
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(safe)}.zip", "Cache-Control": "no-store"})
+
+
+def _download_rows(ids):
+    if not ids:
+        return []
+    con = connect()
+    q = ",".join("?" * len(ids))
+    rows = {r["id"]: r for r in con.execute(f"SELECT * FROM media WHERE id IN ({q})", ids)}
+    clips = {r["live_of"]: r for r in con.execute(f"SELECT * FROM media WHERE live_of IN ({q})", ids)}
+    out = []
+    for i in ids:
+        if i in rows:
+            out.append(rows[i])
+            if i in clips and clips[i]["id"] not in rows:
+                out.append(clips[i])
+    return out
+
+
 @app.get("/view/{media_id}")
 async def view(media_id: int, request: Request):
     """Browser-viewable version: originals for videos and small JPEG/PNG; a 2048px JPEG for big photos and HEIC/RAW/TIFF."""

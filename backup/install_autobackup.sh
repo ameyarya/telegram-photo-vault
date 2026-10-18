@@ -15,10 +15,11 @@ cat > "$PLIST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array><string>/bin/zsh</string><string>$DIR/autobackup.sh</string></array>
   <key>StartOnMount</key><true/>
+  <key>StartInterval</key><integer>1800</integer>
   <key>StandardOutPath</key><string>$DIR/autobackup.log</string>
   <key>StandardErrorPath</key><string>$DIR/autobackup.log</string>
 </dict>
 </plist>
 EOF
 launchctl bootstrap "gui/$UID" "$PLIST" 2>/dev/null || launchctl bootstrap "gui/$UID" "$PLIST"
-echo "Auto-backup is on: plugging in the drive backs up new photos"
+echo "Auto-backup is on: new photos on the drive are backed up when it is plugged in and every 30 minutes"

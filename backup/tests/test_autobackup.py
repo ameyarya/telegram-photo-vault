@@ -20,11 +20,15 @@ def ab(tmp_path):
                       'exit ${FAKE_UPLOAD_EXIT:-0}\n')
     index = tmp_path / "fake_index.sh"
     index.write_text('#!/bin/zsh\ntouch "$STATE_DIR/indexed"\n')
+    ml = tmp_path / "fake_ml.sh"
+    ml.write_text('#!/bin/zsh\ntouch "$STATE_DIR/analysed"\n')
     env = {**os.environ, "AUTOBACKUP_STATE": str(state), "AUTOBACKUP_DRIVE": str(drive),
            "VAULT_CONFIG": str(tmp_path / "no-config.env"),
            "AUTOBACKUP_UPLOAD": f"zsh {upload}", "AUTOBACKUP_INDEX": f"zsh {index}", "AUTOBACKUP_NOTIFY": "0",
            "AUTOBACKUP_DELAY": "0", "AUTOBACKUP_RUNNING_PATTERN": "no-such-process-xyz",
-           "AUTOBACKUP_INDEX_PATTERN": "no-such-indexer-xyz", "STATE_DIR": str(state)}
+           "AUTOBACKUP_INDEX_PATTERN": "no-such-indexer-xyz", "STATE_DIR": str(state),
+           "AUTOBACKUP_ML": f"zsh {ml}", "AUTOBACKUP_ML_PATTERN": "no-such-analysis-xyz",
+           "AUTOBACKUP_SETTLE": "0", "AUTOBACKUP_USED": "echo 1000"}
 
     def run(**extra):
         r = subprocess.run(["zsh", str(SCRIPT)], env={**env, **extra}, capture_output=True, text=True, timeout=60)
@@ -51,7 +55,7 @@ def test_cooldown_prevents_repeat_runs(ab):
     ab["run"]()
     (ab["state"] / "upload_args").unlink()
     log = ab["run"]()
-    assert "skipped: last auto-backup was less than 60 min ago" in log
+    assert "skipped: last auto-backup was less than 10 min ago" in log
     assert not (ab["state"] / "upload_args").exists()
     ab["run"](AUTOBACKUP_COOLDOWN="0")
     assert (ab["state"] / "upload_args").exists()
@@ -103,3 +107,44 @@ def test_doesnt_start_a_second_indexer(ab):
     assert (ab["state"] / "upload_args").exists()        # still uploads
     assert not (ab["state"] / "indexed").exists()        # but leaves indexing to the one already running
     assert "gallery index already updating; skipped" in log
+
+
+def test_waits_while_photos_are_still_being_copied(ab, tmp_path):
+    """E.g. Image Capture importing onto the drive: the drive's used space changes, so nothing is uploaded yet."""
+    counter = tmp_path / "used"
+    counter.write_text("1000")
+    grow = f'n=$(cat {counter}); echo $((n + 50000)) > {counter}; echo $n'   # 50 MB more each time it's asked
+    log = ab["run"](AUTOBACKUP_USED=grow)
+    assert "waiting: files are still being copied" in log
+    assert not (ab["state"] / "upload_args").exists() and not (ab["state"] / ".autobackup.last").exists()
+    ab["run"](AUTOBACKUP_USED="echo 1000")          # copying finished: next check backs it up
+    assert (ab["state"] / "upload_args").exists()
+
+
+def test_small_changes_dont_count_as_copying(ab, tmp_path):
+    counter = tmp_path / "used"
+    counter.write_text("1000")
+    ab["run"](AUTOBACKUP_USED=f'n=$(cat {counter}); echo $((n + 100)) > {counter}; echo $n')  # 100 KB: indexes etc.
+    assert (ab["state"] / "upload_args").exists()
+
+
+def test_nothing_new_means_no_analysis_and_no_notification(ab, tmp_path):
+    quiet = tmp_path / "quiet_upload.sh"
+    quiet.write_text('#!/bin/zsh\necho "$@" > "$STATE_DIR/upload_args"\n')
+    log = ab["run"](AUTOBACKUP_UPLOAD=f"zsh {quiet}")
+    assert "nothing new" in log and "Backup finished" not in log
+    assert (ab["state"] / "indexed").exists() and not (ab["state"] / "analysed").exists()
+
+
+def test_doesnt_start_a_second_analysis(ab):
+    sleeper = subprocess.Popen(["sleep", "32"])
+    try:
+        log = ab["run"](AUTOBACKUP_ML_PATTERN="sleep 32")
+    finally:
+        sleeper.kill()
+    assert not (ab["state"] / "analysed").exists() and "photo analysis already running" in log
+
+
+def test_runs_every_30_minutes_too():
+    plist = (SCRIPT.parent / "install_autobackup.sh").read_text()
+    assert "<key>StartOnMount</key><true/>" in plist and "<key>StartInterval</key><integer>1800</integer>" in plist
