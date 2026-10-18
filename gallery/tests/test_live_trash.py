@@ -381,3 +381,42 @@ def test_ui_edit_date_from_viewer_and_selection(page, lapi):
     got = sorted(i["taken_at"] for i in lapi.get("/api/items", params={"album": "burst"}).json()["items"])
     assert got[:2] == ["2020-01-01T10:00:00", "2020-01-01T10:00:10"]
     lapi.post("/api/dates/reset", json={"ids": [i["id"] for i in lapi.get("/api/items", params={"album": "burst"}).json()["items"]]})
+
+
+# ---------------------------------------------------------------- downloading
+def test_download_several_as_zip_with_live_clips_and_from_telegram(lapi, liveworld):
+    import io, json, zipfile
+    store = liveworld["base"] / "channel"
+    by_caption = {m["caption"]: store / m["file"] for m in json.loads((store / "messages.json").read_text())}
+    con = db(liveworld)
+    gone = con.execute("SELECT id FROM media WHERE name = 'IMG_0200.JPG'").fetchone()[0]  # deleted from the drive earlier
+    ids = [item(lapi, "plain.jpg")["id"], item(lapi, "IMG_0100.JPG")["id"], gone]
+    r = lapi.get("/download", params={"ids": ",".join(map(str, ids)), "name": "My/picks"})
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    assert "My picks.zip" in r.headers["content-disposition"].replace("%20", " ")
+    z = zipfile.ZipFile(io.BytesIO(r.content))
+    assert sorted(z.namelist()) == ["IMG_0100.JPG", "IMG_0100.MOV", "IMG_0200.JPG", "plain.jpg"]  # motion clip included
+    drive = liveworld["drive"]
+    assert z.read("plain.jpg") == (drive / "phone/plain.jpg").read_bytes()
+    assert z.read("IMG_0100.MOV") == (drive / "phone/IMG_0100.MOV").read_bytes()
+    assert z.read("IMG_0200.JPG") == by_caption["phone/IMG_0200.JPG"].read_bytes()      # streamed from Telegram
+    assert z.getinfo("plain.jpg").date_time[:3] == (2023, 3, 3)                          # dated like the photo
+
+
+def test_download_one_is_the_file_itself(lapi, liveworld):
+    r = lapi.get("/download", params={"ids": str(item(lapi, "plain.jpg")["id"])})
+    assert r.status_code == 200 and r.content == (liveworld["drive"] / "phone/plain.jpg").read_bytes()
+    assert "attachment" in r.headers["content-disposition"]
+    assert lapi.get("/download", params={"ids": "999999"}).status_code == 404
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_download_selection(page):
+    page.goto(page.base + "/#/album/burst")
+    tiles = page.locator("#days .tile")
+    tiles.first.wait_for()
+    tiles.nth(0).locator(".sel").click()
+    tiles.nth(1).locator(".sel").click()
+    with page.expect_download() as dl:
+        page.click("#selDownload")
+    assert dl.value.suggested_filename.endswith(".zip")

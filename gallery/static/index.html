@@ -351,6 +351,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <button class="icon-btn" id="selFav" title="Add to favorites" aria-label="Add to favorites"><svg><use href="#i-star-o"/></svg></button>
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
+  <button class="icon-btn" id="selDownload" title="Download" aria-label="Download"><svg><use href="#i-download"/></svg></button>
   <button class="icon-btn owner-only" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
   <button class="icon-btn owner-only" id="selDate" title="Edit date &amp; time" aria-label="Edit date and time"><svg><use href="#i-cal-edit"/></svg></button>
   <button class="icon-btn owner-only" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
@@ -821,6 +822,13 @@ $("#selRemove").onclick = async () => {
   await loadUserAlbums(); clearPicked(); route();
 };
 $("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
+$("#selDownload").onclick = () => {
+  const ids = [...picked];
+  const a = document.createElement("a");
+  a.href = `/download?ids=${ids.join(",")}&name=${encodeURIComponent(feed?.o?.title || "Photos")}`;
+  a.download = ""; document.body.append(a); a.click(); a.remove();
+  toast(ids.length === 1 ? "Downloading…" : `Downloading ${plural(ids.length, "item")} as a .zip…`);
+};
 $("#selDate").onclick = async () => {
   const ids = [...picked], known = (feed?.items || []).filter(it => picked.has(it.id));
   if (await dateDialog(ids, known)) { clearPicked(); route(); }

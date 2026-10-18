@@ -4,3 +4,4 @@ telethon
 httpx
 numpy
 pillow
+stream-zip

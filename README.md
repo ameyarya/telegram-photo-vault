@@ -33,7 +33,8 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
 | ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |
 | ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
-| **Auto-backup** (`backup/autobackup.sh`) — plugging in the drive backs up new photos and updates the gallery | ✅ tested |
+| ↳ **Download** a selection — one file, or a streamed .zip (Live Photo clips included), from the drive or Telegram | ✅ tested |
+| **Auto-backup** (`backup/autobackup.sh`) — when the drive is plugged in and every 30 min: backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
 Not built: encryption before upload, Windows/Linux support, access from outside your home network.
@@ -136,9 +137,11 @@ Later runs only process new photos; the Backup page has an "Analyse new photos" 
 zsh backup/install_autobackup.sh            # on  (zsh backup/install_autobackup.sh --remove  to turn off)
 ```
 
-Whenever a drive is mounted, if it's `DRIVE`, it rescans for new files, uploads them, updates the gallery index
-and shows a notification. It won't run twice at once, skips if an upload is already running, and waits an hour
-between runs so other drives mounting don't trigger rescans.
+Whenever a drive is mounted, and every 30 minutes while it is, if it's `DRIVE`: it rescans for new files, uploads them,
+updates the gallery index, analyses new photos (if the optional models are installed) and shows a notification when
+something was backed up. If files are still being copied onto the drive (say, an Image Capture import), it waits for
+the next check, so a half-copied file is never uploaded. It won't run twice at once and skips if an upload is running.
+Leave `FOLDERS` empty in `config.env` to include new top-level folders automatically.
 
 ### Optional: bot uploader (experimental)
 
