@@ -1,7 +1,13 @@
 # telegram-photo-vault
 
-Back up a drive full of photos and videos to a **private Telegram channel** for free, then browse it
-in a **local, Google Photos–style gallery** that streams from Telegram — even with the drive unplugged.
+**A self-hosted Google Photos clone, with Telegram as free, unlimited storage.**
+
+Back up a drive full of photos and videos to a **private Telegram channel** for free, then browse it in a local
+gallery modelled on Google Photos: a timeline with a date scrubber, albums, search, smart search, people,
+favorites, Live Photos, similar shots and a trash. Photos stream from Telegram, so it works even with the drive unplugged.
+Everything runs on your Mac; nothing is sent anywhere except your own Telegram channel.
+
+*Not affiliated with Google or Telegram.*
 
 Built on macOS for one person's ~700 GB / 70,000-file photo drive. It works, it has tests, and it is
 still a personal project: read the [caveats](#caveats) before trusting it with anything.
