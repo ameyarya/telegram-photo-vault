@@ -420,3 +420,68 @@ def test_ui_download_selection(page):
     with page.expect_download() as dl:
         page.click("#selDownload")
     assert dl.value.suggested_filename.endswith(".zip")
+
+
+# ---------------------------------------------------------------- zoom and selecting a day
+def fitted_width(page):
+    return page.evaluate("document.querySelector('#vMain img.v-media').getBoundingClientRect().width")
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_zoom_is_2_5x_even_after_the_full_size_photo_loads(page):
+    """Regression: swapping in the 4000px original made '2.5x' about 7x (the original's own size, times 2.5)."""
+    page.goto(page.base + "/#/album/big")
+    page.locator("#days .tile").first.click()
+    page.wait_for_function("document.querySelector('#vMain img.v-media')?.naturalWidth > 0")
+    before = fitted_width(page)
+    page.click("#vZoom")
+    page.wait_for_function("document.querySelector('#vMain img.v-media').src.includes('/original/')")
+    page.wait_for_function("document.querySelector('#vMain img.v-media').naturalWidth === 4000")
+    assert abs(fitted_width(page) / before - 2.5) < 0.05
+    page.click("#vZoom")
+    assert abs(fitted_width(page) - before) < 2                                   # back to fitting the screen
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld", "viewport": {"width": 390, "height": 844}, "touch": True}],
+                         indirect=True)
+def test_ui_pinch_drag_and_double_tap_on_a_phone(page):
+    page.goto(page.base + "/#/album/big")
+    page.locator("#days .tile").first.click()
+    page.wait_for_function("document.querySelector('#vMain img.v-media')?.naturalWidth > 0")
+    before = fitted_width(page)
+    touch = """([kind, pts]) => {
+      const img = document.querySelector('#vMain img.v-media');
+      const ts = pts.map(([x, y], i) => new Touch({identifier: i, target: img, clientX: x, clientY: y}));
+      img.dispatchEvent(new TouchEvent(kind, {touches: kind === 'touchend' ? [] : ts, changedTouches: ts,
+                                              targetTouches: kind === 'touchend' ? [] : ts, bubbles: true, cancelable: true}));
+    }"""
+    page.evaluate(touch, ["touchstart", [[150, 400], [240, 400]]])               # fingers 90px apart ...
+    page.evaluate(touch, ["touchmove", [[105, 400], [285, 400]]])                # ... spread to 180px: 2x
+    page.evaluate(touch, ["touchend", [[105, 400], [285, 400]]])
+    assert abs(fitted_width(page) / before - 2) < 0.05
+    page.evaluate(touch, ["touchstart", [[200, 400]]])                           # drag moves it
+    page.evaluate(touch, ["touchmove", [[260, 400]]])
+    page.evaluate(touch, ["touchend", [[260, 400]]])
+    assert "translate(" in page.locator("#vMain img.v-media").get_attribute("style")
+    for _ in range(2):                                                           # double-tap: back to fit
+        page.evaluate(touch, ["touchstart", [[200, 400]]])
+        page.evaluate(touch, ["touchend", [[200, 400]]])
+    assert abs(fitted_width(page) - before) < 2
+    assert page.locator("#viewer").is_visible()                                  # still on the same photo
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_select_a_whole_day(page):
+    page.goto(page.base + "/#/album/burst")
+    day = page.locator("#days .day-sel").first
+    day.wait_for(state="attached")
+    day.click()
+    page.locator("#selCount", has_text="3 selected").wait_for()                   # the whole burst day
+    assert page.locator("#days .tile.picked").count() == 3 and "on" in day.get_attribute("class")
+    page.locator("#days .tile.picked .sel").first.click()                        # unpick one: the day isn't "all" any more
+    page.locator("#selCount", has_text="2 selected").wait_for()
+    assert "on" not in day.get_attribute("class")
+    day.click()
+    page.locator("#selCount", has_text="3 selected").wait_for()
+    day.click()                                                                  # all picked: the day's circle unpicks them
+    page.wait_for_function("document.querySelector('#selbar').hidden")
