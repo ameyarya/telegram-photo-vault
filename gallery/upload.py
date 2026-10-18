@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from config import BASE, DATA, DRIVE, IMAGE_EXT, VIDEO_EXT
 from db import connect
@@ -56,13 +57,19 @@ def root():
     return DRIVE if DRIVE.is_dir() else WAITING
 
 
-def _existing(folder, name, size):
-    """'same' if this file is already there (by name and size), else a free name to use."""
+def _listing(folder):
     d = root() / folder
-    stem, ext = name.rsplit(".", 1)
     names = {n.lower(): n for n in os.listdir(d)} if d.is_dir() else {}
     if root() is DRIVE and (WAITING / folder).is_dir():
         names.update({n.lower(): n for n in os.listdir(WAITING / folder)})
+    return names
+
+
+def _existing(folder, name, size, names=None):
+    """'same' if this file is already there (by name and size), else a free name to use."""
+    d = root() / folder
+    stem, ext = name.rsplit(".", 1)
+    names = _listing(folder) if names is None else names
     k = 1
     while True:
         cand = name if k == 1 else f"{stem} ({k}).{ext}"
@@ -171,3 +178,27 @@ def move_waiting():
 def info(request: Request):
     folder = folder_for(request.state.user)
     return {"folder": folder, "drive": DRIVE.is_dir()}
+
+
+class Files(BaseModel):
+    files: list[dict]   # [{"name": ..., "size": ...}]
+
+
+@router.post("/api/upload/status")
+def status(request: Request, body: Files):
+    """For each picked file: 'backed_up' (drive and Telegram), 'on_drive' (Telegram soon) or 'missing'."""
+    folder = folder_for(request.state.user)
+    con, names, out = connect(), _listing(folder), []
+    for f in body.files[:20000]:
+        try:
+            name, size = clean_name(str(f.get("name", ""))), int(f.get("size", 0))
+        except (HTTPException, ValueError):
+            out.append("missing")
+            continue
+        state, found = _existing(folder, name, size, names)
+        if state != "same":
+            out.append("missing")
+            continue
+        row = con.execute("SELECT msg_id FROM media WHERE path = ?", (f"{folder}/{found}",)).fetchone()
+        out.append("backed_up" if row and row["msg_id"] else "on_drive")
+    return {"folder": folder, "status": out}

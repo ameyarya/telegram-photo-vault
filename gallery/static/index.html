@@ -258,15 +258,27 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .fix .what{flex:1;min-width:200px;font-size:13px;color:var(--ink2)}
 .fix .what b{color:var(--ink);font-weight:500;font-size:14px}
 .fix .arrow{color:var(--ink2)}
-.up-box{max-width:640px;display:grid;gap:14px;margin-top:12px}
+.up-box{max-width:640px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:12px}
+.up-box .chips{flex-wrap:wrap}
 .up-pick{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--line);border-radius:16px;text-align:center}
 .up-pick .fill-btn{height:48px;padding:0 24px;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 .up-pick .fill-btn.disabled{opacity:.5;pointer-events:none}
 .up-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
 .up-stats b{display:block;font-size:22px;font-weight:400}
 .up-stats span{font-size:12px;color:var(--ink2)}
-.up-now{font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-now{font-size:13px;color:var(--ink2);overflow-wrap:anywhere}
 .up-err{font-size:13px;color:#d93025}
+.up-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:4px}
+.up-tile{position:relative;aspect-ratio:1;background:var(--tile);overflow:hidden;border-radius:4px}
+.up-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.up-tile .fname{position:absolute;inset:0;display:grid;place-items:center;padding:6px;font-size:10px;color:var(--ink2);text-align:center;word-break:break-all}
+.up-tile .dur{position:absolute;top:4px;right:4px;color:#fff}
+.up-tile .dur svg{width:16px;height:16px}
+.up-badge{position:absolute;left:4px;bottom:4px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;color:#fff;background:rgb(0 0 0/.6)}
+.up-tile.backed_up .up-badge{background:#1e8e3e}
+.up-tile.on_drive .up-badge{background:#b06000}
+.up-tile.uploading .up-badge{background:var(--accent)}
+.up-tile.failed .up-badge{background:#d93025}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
@@ -1227,35 +1239,93 @@ async function renderDates() {
 }
 
 // ---------- upload from a phone ----------
-let upRun = null;   // the running upload, kept while you look at other pages
+// Pick photos -> see which are backed up (drive + Telegram), on the hard disk (Telegram soon) or not yet -> upload the rest.
+const UP_LABEL = {backed_up: "Backed up", on_drive: "On hard disk", missing: "Not backed up", uploading: "Sending…", failed: "Failed"};
+let upRun = null;   // the picked files and their state, kept while you look at other pages
 async function renderUpload() {
   feed = null;
   const inf = await api("/api/upload/info");
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Upload from phone</h1></div>
-    <div class="page-sub">Backs up photos and videos from this phone to the hard disk, in the folder <b>${esc(inf.folder)}</b>, then to Telegram.
-      ${inf.drive ? "" : "The hard disk isn't plugged in: they wait on the Mac and move to it when it's plugged in."}</div>
+    <div class="page-sub">Back up photos and videos from this phone to the hard disk (folder <b>${esc(inf.folder)}</b>), then Telegram.
+      ${inf.drive ? "" : "The hard disk isn't plugged in: uploads wait on the Mac and move to it when it's plugged in."}</div>
     <div class="up-box">
       <div class="up-pick"><label class="fill-btn" id="upPickBtn">${ico("upload")}Choose photos &amp; videos<input type="file" id="upFiles" multiple accept="image/*,video/*" hidden></label>
-        <span class="muted">Pick as many as you like, even everything: ones already backed up are skipped.<br>Keep this page open and the phone charging until it says done.</span></div>
-      <div class="panel" id="upPanel" hidden><div class="up-stats"><div><b id="upDone">0</b><span>uploaded</span></div><div><b id="upSkip">0</b><span>already backed up</span></div><div><b id="upLeft">0</b><span>to go</span></div></div>
-        <div class="bar" style="margin:12px 0 6px"><i id="upBar" style="width:0%"></i></div><div class="up-now" id="upNow"></div><div class="up-err" id="upErr"></div>
-        <button class="txt-btn" id="upStop">Stop</button></div></div>`;
-  $("#upFiles").onchange = e => { if (e.target.files.length) startUpload([...e.target.files]); e.target.value = ""; };
-  $("#upStop").onclick = () => { if (upRun) upRun.stopped = true; };
-  if (upRun) drawUpload();
+        <span class="muted">Pick as many as you like, even everything. You'll see which are already backed up before anything is sent.</span></div>
+      <div class="panel" id="upPanel" hidden>
+        <div class="up-stats"><div><b id="upB">0</b><span>✅ backed up</span></div><div><b id="upD">0</b><span>🕓 on hard disk, Telegram soon</span></div><div><b id="upM">0</b><span>⬜ not backed up</span></div></div>
+        <div id="upAct" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+        <div class="bar" id="upBarBox" style="margin:12px 0 6px" hidden><i id="upBar" style="width:0%"></i></div><div class="up-now" id="upNow"></div><div class="up-err" id="upErr"></div></div>
+      <div class="chips" id="upChips" hidden></div><div class="up-grid" id="upGrid"></div><div id="upMore"></div></div>`;
+  $("#upFiles").onchange = e => { if (e.target.files.length) pickFiles([...e.target.files]); e.target.value = ""; };
+  if (upRun) drawUpload(true);
 }
-function drawUpload() {
+async function pickFiles(files) {
+  if (upRun?.sending) return toast("An upload is running");
+  upRun?.urls?.forEach(u => URL.revokeObjectURL(u));
+  upRun = {files, st: files.map(() => "checking"), filter: "missing", shown: 120, urls: []};
+  drawUpload(true);
+  await refreshStatus();
+}
+async function refreshStatus() {
+  const r = upRun; if (!r) return;
+  r.current = "Checking what's backed up…"; drawUpload();
+  for (let i = 0; i < r.files.length; i += 1000) {
+    const part = r.files.slice(i, i + 1000);
+    try {
+      const res = await post("/api/upload/status", {files: part.map(f => ({name: f.name, size: f.size}))});
+      res.status.forEach((x, k) => { if (!["uploading", "failed"].includes(r.st[i + k])) r.st[i + k] = x; });
+    } catch (e) { r.current = esc(e.message); }
+    drawUpload();
+  }
+  r.current = ""; drawUpload(true);
+}
+function upCounts(r) { const c = {backed_up: 0, on_drive: 0, missing: 0, failed: 0}; r.st.forEach(x => c[x] = (c[x] || 0) + 1); return c; }
+function drawUpload(grid = false) {
   const r = upRun; if (!r || !$("#upPanel")) return;
-  $("#upPanel").hidden = false; $("#upPickBtn").classList.toggle("disabled", !r.finished);
-  $("#upDone").textContent = nf(r.done); $("#upSkip").textContent = nf(r.skipped); $("#upLeft").textContent = nf(r.files.length - r.done - r.skipped - r.failed.length);
-  const pct = r.total ? 100 * (r.sentBytes + r.curBytes) / r.total : 100;
-  $("#upBar").style.width = Math.min(100, pct) + "%";
-  const secs = (Date.now() - r.t0) / 1000, rate = (r.sentBytes + r.curBytes) / Math.max(1, secs);
-  const eta = rate > 0 ? (r.total - r.sentBytes - r.curBytes) / rate : 0;
-  $("#upNow").textContent = r.finished ? (r.stopped ? "Stopped." : `Done: ${plural(r.done, "new file")} backed up.`)
-    : `${r.current || "Checking…"} · ${size(rate)}/s${eta > 5 ? ` · about ${eta > 5400 ? Math.round(eta / 3600) + " h" : Math.max(1, Math.round(eta / 60)) + " min"} left` : ""}`;
-  $("#upErr").textContent = r.failed.length ? `${plural(r.failed.length, "file")} couldn't be sent (e.g. ${r.failed[0]}). Choose them again to retry.` : "";
-  $("#upStop").hidden = r.finished;
+  const c = upCounts(r);
+  $("#upPanel").hidden = false;
+  $("#upB").textContent = nf(c.backed_up); $("#upD").textContent = nf(c.on_drive); $("#upM").textContent = nf(c.missing + c.failed);
+  $("#upPickBtn").classList.toggle("disabled", !!r.sending);
+  const todo = c.missing + c.failed;
+  $("#upAct").innerHTML = r.sending ? `<button class="txt-btn" id="upStop">Stop</button>`
+    : (todo ? `<button class="fill-btn" id="upGo">${ico("upload")}Upload ${todo === 1 ? "1 photo or video" : nf(todo) + " photos and videos"}</button>` : "") +
+      (c.on_drive ? `<button class="txt-btn" id="upRefresh">Refresh</button>` : "") +
+      (!todo && !c.on_drive && r.st.every(x => x !== "checking") ? `<span class="muted">Everything you picked is backed up. ✅</span>` : "");
+  $("#upGo") && ($("#upGo").onclick = () => uploadMissing());
+  $("#upStop") && ($("#upStop").onclick = () => { r.stopped = true; });
+  $("#upRefresh") && ($("#upRefresh").onclick = () => refreshStatus());
+  $("#upBarBox").hidden = !r.sending;
+  if (r.sending) {
+    const secs = (Date.now() - r.t0) / 1000, sent = r.sentBytes + r.curBytes, rate = sent / Math.max(1, secs), eta = rate ? (r.total - sent) / rate : 0;
+    $("#upBar").style.width = Math.min(100, 100 * sent / Math.max(1, r.total)) + "%";
+    $("#upNow").textContent = `${r.current} · ${size(rate)}/s${eta > 5 ? ` · about ${eta > 5400 ? Math.round(eta / 3600) + " h" : Math.max(1, Math.round(eta / 60)) + " min"} left` : ""}`;
+  } else $("#upNow").textContent = r.current || "";
+  $("#upErr").textContent = c.failed ? `${plural(c.failed, "file")} couldn't be sent. Press Upload to try them again.` : "";
+  if (grid) drawUpGrid();
+}
+function drawUpGrid() {
+  const r = upRun; if (!r || !$("#upGrid")) return;
+  const c = upCounts(r);
+  const chips = [["missing", `Not backed up (${nf(c.missing + c.failed)})`], ["on_drive", `On hard disk (${nf(c.on_drive)})`], ["backed_up", `Backed up (${nf(c.backed_up)})`], ["all", `All (${nf(r.files.length)})`]];
+  $("#upChips").hidden = false;
+  $("#upChips").innerHTML = chips.map(([k, l]) => `<button class="chip ${r.filter === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("");
+  $("#upChips").onclick = e => { const ch = e.target.closest(".chip"); if (ch) { r.filter = ch.dataset.f; r.shown = 120; drawUpGrid(); } };
+  const want = k => r.filter === "all" || r.st[k] === r.filter || (r.filter === "missing" && ["failed", "uploading"].includes(r.st[k]));
+  const idx = r.files.map((_, k) => k).filter(want);
+  r.urls.forEach(u => URL.revokeObjectURL(u)); r.urls = [];
+  $("#upGrid").innerHTML = idx.slice(0, r.shown).map(k => {
+    const f = r.files[k], isImg = f.type.startsWith("image/") && !/hei[cf]/i.test(f.type), st = r.st[k];
+    let inner = `<span class="fname">${esc(f.name)}</span>`;
+    if (isImg) { const u = URL.createObjectURL(f); r.urls.push(u); inner = `<img loading="lazy" src="${u}" alt="" onerror="this.remove()">` + inner; }
+    if (f.type.startsWith("video/")) inner += `<span class="dur">${ico("play")}</span>`;
+    return `<div class="up-tile ${st}" data-k="${k}">${inner}<span class="up-badge">${UP_LABEL[st] || "Checking…"}</span></div>`;
+  }).join("") || `<div class="muted">Nothing here.</div>`;
+  $("#upMore").innerHTML = idx.length > r.shown ? `<button class="txt-btn" id="upMoreBtn">Show more (${nf(idx.length - r.shown)} left)</button>` : "";
+  $("#upMoreBtn") && ($("#upMoreBtn").onclick = () => { r.shown += 240; drawUpGrid(); });
+}
+function setUpTile(k) {
+  const t = document.querySelector(`.up-tile[data-k="${k}"]`); if (!t) return;
+  t.className = `up-tile ${upRun.st[k]}`; t.querySelector(".up-badge").textContent = UP_LABEL[upRun.st[k]];
 }
 function putFile(f, r) {
   return new Promise((ok, bad) => {
@@ -1267,40 +1337,33 @@ function putFile(f, r) {
     x.send(f);
   });
 }
-async function startUpload(files) {
-  if (upRun && !upRun.finished) return toast("An upload is already running");
-  const r = upRun = {files, done: 0, skipped: 0, failed: [], total: 0, sentBytes: 0, curBytes: 0, t0: Date.now(), finished: false};
+async function uploadMissing() {
+  const r = upRun; if (!r || r.sending) return;
+  const todo = r.files.map((f, k) => k).filter(k => ["missing", "failed"].includes(r.st[k]));
+  Object.assign(r, {sending: true, stopped: false, total: todo.reduce((a, k) => a + r.files[k].size, 0), sentBytes: 0, curBytes: 0, t0: Date.now()});
   let lock = null;
-  try { lock = await navigator.wakeLock?.request("screen"); } catch {}   // keep the screen on while sending
-  document.addEventListener("visibilitychange", async () => { if (!r.finished && document.visibilityState === "visible") try { lock = await navigator.wakeLock?.request("screen"); } catch {} });
-  const todo = [];
-  for (const f of files) {   // ask first: skip what's already backed up without sending it
+  const relock = async () => { try { lock = await navigator.wakeLock?.request("screen"); } catch {} };   // keep the screen on
+  await relock(); document.addEventListener("visibilitychange", relock);
+  let sent = 0;
+  for (const k of todo) {
     if (r.stopped) break;
-    r.current = `Checking ${f.name}`;
-    try { const c = await api(`/api/upload/check?${new URLSearchParams({name: f.name, size: f.size})}`); c.exists ? r.skipped++ : todo.push(f); }
-    catch { todo.push(f); }
-    if ((r.skipped + todo.length) % 25 === 0) drawUpload();
-  }
-  r.total = todo.reduce((a, f) => a + f.size, 0); r.t0 = Date.now(); drawUpload();
-  for (const f of todo) {
-    if (r.stopped) break;
-    r.current = f.name; r.curBytes = 0;
-    let tries = 0;
-    while (true) {
-      try { const res = await putFile(f, r); res.skipped ? r.skipped++ : r.done++; break; }
+    const f = r.files[k];
+    r.st[k] = "uploading"; setUpTile(k); r.current = f.name; r.curBytes = 0; drawUpload();
+    for (let tries = 1; ; tries++) {
+      try { await putFile(f, r); r.st[k] = "on_drive"; sent++; break; }
       catch (e) {
-        if (++tries >= 4 || e.message !== "network") { r.failed.push(f.name); break; }
+        if (tries >= 4 || e.message !== "network") { r.st[k] = "failed"; break; }
         r.current = `Connection lost, retrying ${f.name}…`; drawUpload();
         await new Promise(w => setTimeout(w, 3000 * tries));
       }
     }
-    r.sentBytes += f.size; r.curBytes = 0; drawUpload();
+    setUpTile(k); r.sentBytes += f.size; r.curBytes = 0; drawUpload();
   }
-  r.finished = true;
+  r.sending = false; r.current = r.stopped ? "Stopped." : `Done: ${plural(sent, "file")} sent to the hard disk. They go to Telegram within about 30 minutes; press Refresh later to see them turn ✅.`;
+  document.removeEventListener("visibilitychange", relock);
   try { await post("/api/upload/done"); } catch {}
   try { await lock?.release(); } catch {}
-  drawUpload();
-  toast(r.stopped ? "Upload stopped" : `Upload finished: ${plural(r.done, "new file")}${r.skipped ? `, ${nf(r.skipped)} already backed up` : ""}`);
+  drawUpload(true);
 }
 
 // ---------- trash ----------
