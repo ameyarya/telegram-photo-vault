@@ -10,9 +10,10 @@ CONFIG="${VAULT_CONFIG:-$ROOT/config.env}"
 [[ -f "$CONFIG" ]] && { set -a; source "$CONFIG"; set +a; }
 STATE=${AUTOBACKUP_STATE:-${STATE_DIR:-$ROOT/state}}; STATE="${STATE/#\~/$HOME}"
 DRIVE=${AUTOBACKUP_DRIVE:-$DRIVE}
-UPLOAD=(${(z)AUTOBACKUP_UPLOAD:-zsh $ROOT/backup/upload.sh})
+# Python + your bots: in the background macOS lets Homebrew's Python read the drive, but not zsh, find or tdl
+UPLOAD=(${(z)AUTOBACKUP_UPLOAD:-$ROOT/.venv/bin/python $ROOT/backup/auto_upload.py})
 INDEX=(${(z)AUTOBACKUP_INDEX:-$ROOT/.venv/bin/python $ROOT/gallery/build_index.py})
-RUNNING_PATTERN=${AUTOBACKUP_RUNNING_PATTERN:-backup/upload.sh}
+RUNNING_PATTERN=${AUTOBACKUP_RUNNING_PATTERN:-backup/upload.sh|bot_upload.py run|auto_upload.py}
 INDEX_PATTERN=${AUTOBACKUP_INDEX_PATTERN:-build_index.py}
 ML=(${(z)AUTOBACKUP_ML:-$ROOT/.venv/bin/python $ROOT/gallery/ml.py run})
 MODELS=${GALLERY_MODELS:-$ROOT/gallery/models}
