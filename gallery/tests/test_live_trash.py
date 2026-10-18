@@ -184,7 +184,7 @@ def test_merging_people_survives_reanalysis(lapi, liveworld):
 
 
 def test_maybe_same_suggestions_and_not_same(lapi, liveworld):
-    assert lapi.get("/api/people/suggestions").json() == []              # fake faces: nobody looks alike
+    assert lapi.get("/api/people/suggestions").json() == {"total": 0, "pairs": []}  # fake faces: nobody looks alike
     groups = people_by_face(lapi)
     ab = next(p for p, w in groups.items() if "alice" in w)
     dave = next(p for p, w in groups.items() if w == {"dave"})
@@ -193,16 +193,19 @@ def test_maybe_same_suggestions_and_not_same(lapi, liveworld):
     saved = con.execute("SELECT id, emb FROM faces WHERE person = ?", (dave,)).fetchall()
     for f in saved:   # make dave look somewhat like alice: the model isn't sure
         d = np.frombuffer(f["emb"], np.float32)
-        v = 0.75 * a_vec + 0.66 * d
+        v = 0.85 * a_vec + 0.53 * d
         con.execute("UPDATE faces SET emb = ? WHERE id = ?", ((v / np.linalg.norm(v)).astype(np.float32).tobytes(), f["id"]))
     con.commit()
     try:
-        s = lapi.get("/api/people/suggestions").json()
-        assert len(s) == 1 and {s[0]["a"]["id"], s[0]["b"]["id"]} == {ab, dave} and 0.45 <= s[0]["similarity"] < 0.7
+        r = lapi.get("/api/people/suggestions").json()
+        s = r["pairs"]
+        assert r["total"] == 1 and len(s) == 1 and {s[0]["a"]["id"], s[0]["b"]["id"]} == {ab, dave}
+        assert 0.55 <= s[0]["similarity"] < 0.7
+        assert len(s[0]["a"]["faces"]) == 3 and s[0]["a"]["cover_face"] not in s[0]["a"]["faces"]  # more faces to judge by
         mine = lapi.get("/api/people/suggestions", params={"person": dave}).json()
-        assert [x["b"]["id"] for x in mine] == [ab]
+        assert [x["b"]["id"] for x in mine["pairs"]] == [ab]
         assert lapi.post("/api/people/not-same", json={"a": dave, "b": ab}).status_code == 200
-        assert lapi.get("/api/people/suggestions").json() == []
+        assert lapi.get("/api/people/suggestions").json()["total"] == 0
         assert lapi.post("/api/people/not-same", json={"a": dave, "b": dave}).status_code == 400
     finally:
         con.executemany("UPDATE faces SET emb = ? WHERE id = ?", [(f["emb"], f["id"]) for f in saved])

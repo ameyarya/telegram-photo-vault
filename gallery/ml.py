@@ -39,7 +39,8 @@ PEOPLE_MERGE = 0.70       # tight groups whose average faces are this similar ar
 MIN_FACE_FRACTION = 0.06  # faces narrower than this share of the photo are too small to identify reliably
 MIN_FACE_SCORE = 0.85     # detector confidence needed to use a face for grouping
 MIN_FACES_PER_PERSON = 3  # smaller groups aren't shown as people
-MAYBE_SAME = 0.45         # people whose average faces are this similar are suggested as "maybe the same person?"
+MAYBE_SAME = 0.55         # suggested as "maybe the same person?" (on a real library: mostly right above 0.55,
+                          # about half wrong at 0.50, mostly different people at 0.45)
 SIMILAR_COS = 0.93        # CLIP similarity for "near-identical shot"
 SIMILAR_WINDOW_S = 120    # ... taken within two minutes of each other
 
@@ -386,7 +387,7 @@ def maybe_same(cents, not_same=(), person=None, threshold=MAYBE_SAME, limit=60):
                 continue
             if float(s) >= threshold and (min(a, b), max(a, b)) not in not_same:
                 out.append((a, b, float(s)))
-    return sorted(out, key=lambda t: -t[2])[:limit]
+    return sorted(out, key=lambda t: -t[2])[:limit]  # limit=None: all of them
 
 
 def group_similar(con):
@@ -477,8 +478,14 @@ def people_suggestions(person: int | None = None):
     not_same = {(r["a"], r["b"]) for r in con.execute("SELECT a, b FROM people_not_same")}
     info = {r["id"]: dict(r) for r in con.execute("SELECT id, name, n, cover_face FROM people WHERE n >= 1")}
     cents = {p: v for p, v in person_centroids(con).items() if p in info}
+    total = len(maybe_same(cents, not_same, person, limit=None))
     pairs = maybe_same(cents, not_same, person)
-    return [{"a": info[a], "b": info[b], "similarity": round(s, 3)} for a, b, s in pairs]
+    faces = {}
+    for pid in {p for a, b, _ in pairs for p in (a, b)}:   # a few clear faces each: one cover is often too little to judge
+        faces[pid] = [r[0] for r in con.execute("""SELECT id FROM faces WHERE person = ? AND id != coalesce(?, -1)
+                                                   ORDER BY score DESC, w DESC LIMIT 3""", (pid, info[pid]["cover_face"]))]
+    return {"total": total, "pairs": [{"a": {**info[a], "faces": faces[a]}, "b": {**info[b], "faces": faces[b]},
+                                       "similarity": round(s, 3)} for a, b, s in pairs]}
 
 
 class Pair(BaseModel):
