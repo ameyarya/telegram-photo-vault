@@ -111,3 +111,29 @@ def remove_from_album(album_id: int, body: Ids):
                     [(album_id, i) for i in body.ids])
     con.commit()
     return {"ok": True}
+
+
+# ---------- folder names: what the gallery calls a folder (the folder on the drive keeps its name) ----------
+@router.get("/api/folder-names")
+def folder_names():
+    return dict(connect().execute("SELECT path, name FROM folder_names").fetchall())
+
+
+class FolderName(BaseModel):
+    path: str
+    name: str
+
+
+@router.post("/api/folder-names")
+def set_folder_name(body: FolderName):
+    """Rename a folder in the gallery only. An empty name goes back to the folder's own name."""
+    path, name = body.path.strip("/"), body.name.strip()[:100]
+    con = connect()
+    if not con.execute("SELECT 1 FROM media WHERE album = ? OR album LIKE ? LIMIT 1", (path, path + "/%")).fetchone():
+        raise HTTPException(404, "No such folder")
+    if name:
+        con.execute("INSERT OR REPLACE INTO folder_names(path, name) VALUES (?, ?)", (path, name))
+    else:
+        con.execute("DELETE FROM folder_names WHERE path = ?", (path,))
+    con.commit()
+    return {"path": path, "name": name or None}

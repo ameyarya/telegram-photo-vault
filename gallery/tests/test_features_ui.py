@@ -353,3 +353,18 @@ def test_mobile_hides_scrubber_and_shows_selection_bar(page):
     t.locator(".sel").click(force=True)
     expect(page.locator("#selbar")).to_be_visible()
     shot(page, "mobile-selection")
+
+
+# ---------- folder names (gallery only) ----------
+def test_rename_folder_in_the_gallery_only(page, api, world):
+    go(page, "#/album/vacation")
+    page.click("#renameFolder")
+    page.fill("#dlgIn", "Beach trip 2024")
+    page.click(".dialog [data-x='1']")
+    expect(page.locator(".page-head h1")).to_have_text("Beach trip 2024")
+    expect(page.locator(".side a[data-folder='vacation']")).to_contain_text("Beach trip 2024")
+    assert (world["drive"] / "vacation").is_dir() and not (world["drive"] / "Beach trip 2024").exists()  # drive untouched
+    assert api.get("/api/folder-names").json() == {"vacation": "Beach trip 2024"}
+    assert api.post("/api/folder-names", json={"path": "vacation", "name": ""}).json()["name"] is None
+    assert api.get("/api/folder-names").json() == {}
+    assert api.post("/api/folder-names", json={"path": "no/such", "name": "x"}).status_code == 404
