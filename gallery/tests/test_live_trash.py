@@ -289,3 +289,95 @@ def test_ui_people_select_and_merge(page, lapi, liveworld):
     assert len(lapi.get("/api/people").json()) == 1
     page.goto(page.base + "/#/people/review")
     page.locator("text=No more suggestions").wait_for()
+
+
+# ---------------------------------------------------------------- fixing dates
+def test_dates_from_file_names():
+    import dates
+    cases = {"20220513_152109_441~2.MOV": "2022-05-13T15:21:09", "IMG-20210305-WA0001.jpg": "2021-03-05T12:00:00",
+             "Screenshot 2023-01-02 at 10.11.12.png": "2023-01-02T10:11:12", "PXL_20220101_101112345.jpg": "2022-01-01T10:11:12",
+             "photo_2023-07-01_12-30-45.jpg": "2023-07-01T12:30:45", "IMG_1234.JPG": None, "DSC09618.jpg": None,
+             "20221399_x.jpg": None, "21000101.jpg": None}
+    assert {n: dates.date_from_name(n) for n in cases} == cases
+    assert dates.base_name("_DSC1291-2.jpg") == dates.base_name("_DSC1291 copy.JPG") == "_dsc1291"
+    assert dates.base_name("IMG_0018 1.JPG") == "img_0018"
+
+
+def test_edit_shift_suggest_and_undo_dates(lapi, liveworld):
+    con = db(liveworld)
+    still = item(lapi, "IMG_0100.JPG")
+    clip = still["live_id"]
+    r = lapi.post("/api/dates", json={"ids": [still["id"]], "set": "2019-07-04T09:30"})
+    assert r.json() == {"changed": 1}
+    after = item(lapi, "IMG_0100.JPG")
+    assert after["taken_at"] == "2019-07-04T09:30:00" and after["date_src"] == "user"
+    assert con.execute("SELECT taken_at FROM media WHERE id = ?", (clip,)).fetchone()[0] == "2019-07-04T09:30:00"  # motion follows
+    info = lapi.get(f"/api/item/{still['id']}").json()
+    assert info["date_original"]["orig_taken_at"].startswith("2023-03-01")
+    # survives re-indexing
+    subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+    assert item(lapi, "IMG_0100.JPG")["taken_at"] == "2019-07-04T09:30:00"
+    # shifting keeps order and spacing
+    b = {n: item(lapi, n) for n in ("b_0.jpg", "b_2.jpg")}
+    lapi.post("/api/dates", json={"ids": [b["b_0.jpg"]["id"], b["b_2.jpg"]["id"]], "first": "2023-04-02T12:00:00"})
+    assert item(lapi, "b_0.jpg")["taken_at"] == "2023-04-02T12:00:00" and item(lapi, "b_2.jpg")["taken_at"] == "2023-04-02T12:00:20"
+    assert lapi.post("/api/dates", json={"ids": [still["id"]], "set": "nonsense"}).status_code == 400
+    assert lapi.post("/api/dates", json={"ids": [999999], "set": "2020-01-01T00:00"}).status_code == 404
+    assert lapi.post("/api/dates", json={"ids": [still["id"]]}).status_code == 400
+    # undo, twice over: back to the very first date
+    lapi.post("/api/dates", json={"ids": [still["id"]], "set": "2018-01-01T00:00"})
+    assert lapi.post("/api/dates/reset", json={"ids": [still["id"], b["b_0.jpg"]["id"], b["b_2.jpg"]["id"]]}).json()["reset"] == 4
+    assert item(lapi, "IMG_0100.JPG")["taken_at"].startswith("2023-03-01") and item(lapi, "IMG_0100.JPG")["date_src"] == "exif"
+    assert item(lapi, "b_2.jpg")["taken_at"] == "2023-04-01T12:00:20"
+
+
+def test_suggested_dates_from_the_same_photo(lapi, liveworld):
+    """An edited copy without a camera date gets its date from the original, if they look alike and it's earlier."""
+    import shutil
+    drive = liveworld["drive"]
+    (drive / "edits").mkdir(exist_ok=True)
+    shutil.copyfile(drive / "burst/b_0.jpg", drive / "edits/b_0-edited.jpg")
+    subprocess.run(["exiftool", "-q", "-overwrite_original", "-all=", str(drive / "edits/b_0-edited.jpg")], check=True)
+    shutil.copyfile(drive / "phone/plain.jpg", drive / "edits/b_2.jpg")             # same name, different picture
+    subprocess.run(["exiftool", "-q", "-overwrite_original", "-all=", str(drive / "edits/b_2.jpg")], check=True)
+    subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+    subprocess.run([PY, "ml.py", "run", "clip"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+    s = {i["name"]: i for i in lapi.get("/api/dates/suggestions").json()["items"]}
+    assert s["b_0-edited.jpg"]["suggested"] == "2023-04-01T12:00:00" and "burst/b_0.jpg" in s["b_0-edited.jpg"]["why"]
+    assert "b_2.jpg" not in s                                                       # looks different: no suggestion
+    ed = s["b_0-edited.jpg"]["id"]
+    assert lapi.get(f"/api/item/{ed}").json()["date_suggestion"]["suggested"] == "2023-04-01T12:00:00"
+    assert lapi.post("/api/dates", json={"ids": [ed], "use_suggested": True}).json() == {"changed": 1}
+    assert item(lapi, "b_0-edited.jpg")["taken_at"] == "2023-04-01T12:00:00"
+    assert "b_0-edited.jpg" not in {i["name"] for i in lapi.get("/api/dates/suggestions").json()["items"]}
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_edit_date_from_viewer_and_selection(page, lapi):
+    page.goto(page.base + "/#/album/phone")
+    page.locator("#days .tile").first.wait_for()
+    page.locator("#days .tile").first.click()
+    page.keyboard.press("i")
+    page.locator("#vEditDate").click()
+    page.locator("#dIn").fill("2021-12-25T08:15")
+    shot(page, "edit-date")
+    page.click(".date-dlg [data-x='1']")
+    page.locator("#vInfo", has_text="date edited").wait_for()
+    first = page.locator("#days .tile").first.get_attribute("data-id")
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+    assert any(i["taken_at"] == "2021-12-25T08:15:00" for i in lapi.get("/api/items").json()["items"])
+    lapi.post("/api/dates/reset", json={"ids": [int(first)]})
+    # select two and shift them
+    page.goto(page.base + "/#/album/burst")
+    tiles = page.locator("#days .tile")
+    tiles.first.wait_for()
+    tiles.nth(0).locator(".sel").click()
+    tiles.nth(1).locator(".sel").click()
+    page.click("#selDate")
+    page.locator("#dIn").fill("2020-01-01T10:00")
+    page.click(".date-dlg [data-x='1']")
+    page.wait_for_function("document.querySelector('#selbar').hidden")
+    got = sorted(i["taken_at"] for i in lapi.get("/api/items", params={"album": "burst"}).json()["items"])
+    assert got[:2] == ["2020-01-01T10:00:00", "2020-01-01T10:00:10"]
+    lapi.post("/api/dates/reset", json={"ids": [i["id"] for i in lapi.get("/api/items", params={"album": "burst"}).json()["items"]]})

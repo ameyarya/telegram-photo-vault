@@ -31,7 +31,7 @@ def backup_status():
     con = connect()
     total = dict(con.execute("""SELECT count(*) files, coalesce(sum(size), 0) bytes, sum(msg_id IS NOT NULL) backed_up,
                                        coalesce(sum(CASE WHEN msg_id IS NOT NULL THEN size END), 0) backed_up_bytes,
-                                       sum(kind = 'video') videos, sum(date_src = 'file') undated
+                                       sum(kind = 'video') videos, sum(date_src = 'file' AND live_of IS NULL) undated
                                 FROM media""").fetchone())
     by_folder = [dict(r) for r in con.execute("""
         SELECT CASE WHEN instr(album, '/') > 0 THEN substr(album, 1, instr(album, '/') - 1) ELSE album END folder,
