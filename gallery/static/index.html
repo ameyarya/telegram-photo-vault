@@ -210,6 +210,9 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .pair .who,.pair .who *{text-decoration:none;color:inherit}
 .pair .who{display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}
 .pair .who img,.pair .who .ph{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--tile);flex:none}
+.pair .who img.more{width:40px;height:40px;margin-left:-14px;border:2px solid var(--surface)}
+.pair .who > span{margin-left:4px}
+.review{max-width:980px}
 .pair .who b{display:block;font-weight:500}
 .pair .who span{color:var(--ink2);font-size:12px}
 .pair .q{color:var(--ink2);font-size:13px;margin:0 4px}
@@ -588,7 +591,7 @@ function openUserAlbum(id) {
 
 const faceImg = p => p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`;
 async function openPerson(id) {
-  const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).catch(() => [])]);
+  const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).then(r => r.pairs).catch(() => [])]);
   const p = people.find(x => x.id === id);
   if (!p) { $("#page").innerHTML = `<div class="empty">This person isn't in the list any more (people are regrouped as photos are analysed).</div>`; return; }
   const pre = maybe.length ? `<div class="maybe owner-only" id="maybe"><span class="muted">Maybe also ${esc(p.name || "this person")}?</span>${maybe.map(m => `
@@ -979,13 +982,13 @@ async function renderPeople() {
   $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1><div class="head-actions">
       <button class="txt-btn owner-only" id="pSelect" hidden>${ico("check")}Select to merge</button><button class="fill-btn" id="pMergeSel" hidden></button></div></div>
     <div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
-  const [people, st, sugg] = await Promise.all([api("/api/people"), api("/api/ml/status"), api("/api/people/suggestions").catch(() => [])]);
+  const [people, st, sugg] = await Promise.all([api("/api/people"), api("/api/ml/status"), api("/api/people/suggestions").then(r => r.total).catch(() => 0)]);
   const box = $("#peopleBox");
   if (!people.length) {
     box.innerHTML = `<div class="note">${st.faces ? "Not enough faces grouped yet." : "No faces analysed yet."} ${mlNote(st)}</div>`; return;
   }
   $("#pSelect").hidden = people.length < 2;
-  box.innerHTML = (sugg.length ? `<div class="note owner-only" id="reviewNote">${ico("people")} ${sugg.length === 1 ? "1 possible match" : nf(sugg.length) + " possible matches"} — the face model thinks some of these might be the same person.
+  box.innerHTML = (sugg ? `<div class="note owner-only" id="reviewNote">${ico("people")} ${sugg === 1 ? "1 possible match" : nf(sugg) + " possible matches"}: the face model thinks some of these might be the same person.
       <a href="#/people/review" class="all-link" id="reviewLink">Review</a></div>` : "") +
     `<div class="people" id="peopleGrid">` + people.map(p => `<div class="person" data-id="${p.id}">${faceImg(p)}
       <b class="${p.name ? "" : "unnamed"}">${esc(p.name || "Add a name")}</b><span>${plural(p.n, "photo")}</span></div>`).join("") + `</div>`;
@@ -1012,11 +1015,13 @@ async function renderPeople() {
 async function renderPeopleReview() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button><h1>Same person?</h1></div>
-    <div class="page-sub">The face model wasn't sure enough to group these itself. Your answers are kept when photos are analysed again.</div><div id="reviewBox"></div>`;
+    <div class="page-sub">The face model wasn't sure enough to group these itself. Your answers are kept when photos are analysed again. <span id="pgSub2"></span></div><div id="reviewBox"></div>`;
   $("#pgBack").onclick = () => location.hash = "#/people";
   const draw = async () => {
-    const pairs = await api("/api/people/suggestions");
-    const who = p => `<a class="who" href="#/person/${p.id}">${faceImg(p)}<span><b>${esc(p.name || "Unnamed")}</b><span>${plural(p.n, "photo")}</span></span></a>`;
+    const r = await api("/api/people/suggestions"), pairs = r.pairs;
+    const who = p => `<a class="who" href="#/person/${p.id}">${faceImg(p)}${p.faces.map(f => `<img class="more" loading="lazy" src="/face/${f}" alt="">`).join("")}
+      <span><b>${esc(p.name || "Unnamed")}</b><span>${plural(p.n, "photo")}</span></span></a>`;
+    $("#pgSub2").textContent = pairs.length ? `${nf(r.total)} to go, most likely first.` : "";
     $("#reviewBox").innerHTML = pairs.length ? `<div class="review">${pairs.map(x => `<div class="pair" data-a="${x.a.id}" data-b="${x.b.id}">
         ${who(x.a)}<span class="q">and</span>${who(x.b)}
         <span class="acts"><button class="fill-btn" data-same>Same person</button><button class="txt-btn" data-diff>Different</button></span></div>`).join("")}</div>`
