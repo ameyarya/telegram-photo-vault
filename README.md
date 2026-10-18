@@ -31,10 +31,11 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ Viewer with **zoom & pan**, camera details (lens, exposure, ISO, GPS), **favorites**, **your own albums**, multi-select | ✅ |
 | ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
 | ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |
+| ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
 | **Auto-backup** (`backup/autobackup.sh`) — plugging in the drive backs up new photos and updates the gallery | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
-Not built: encryption before upload, Windows/Linux support, viewing from a phone.
+Not built: encryption before upload, Windows/Linux support, access from outside your home network.
 
 ## Caveats
 
@@ -98,11 +99,23 @@ run it again later. Add `--rescan` after adding new photos.
    zsh install_service.sh         # starts at login; `zsh install_service.sh --remove` to undo
    ```
 
-Only this Mac can open the gallery: it refuses every other device. It never changes your Telegram channel. On the drive
+Only this Mac can open the gallery unless you share it (below); every other device is refused. It never changes your Telegram channel. On the drive
 it only moves files you trash into `.photo-vault-trash` (and back), and deletes them only when you press "Empty trash";
 everything else it writes is local (favorites, your albums, restored copies).
 Photos come from the drive when it's plugged in, otherwise from Telegram; anything not uploaded yet shows a
 crossed-out cloud.
+
+### Optional: family on their phones (home Wi-Fi)
+
+Open the gallery on the Mac → **Sharing**: add an account for each person (view-only, or full access), then switch on
+**Share on home Wi-Fi**. On the phone, open `http://photo-vault.local/setup` once: it walks through trusting this Mac's
+certificate (so passwords and photos are encrypted on the Wi-Fi), then sign in at `https://photo-vault.local`.
+
+- Only devices on your home network that sign in get in; everything else is refused. Switch it off any time.
+- Accounts are managed only on the Mac. "Sign out" a lost phone, or change a password to sign out all their devices.
+- View-only accounts can browse, favorite, add to albums and name people; trash, restore and merging are full access only.
+- Passwords are stored as scrypt hashes; wrong passwords are rate-limited. Works while the Mac is awake and on the same Wi-Fi.
+- Trusting the certificate means the phone trusts this Mac's mkcert authority; remove it in the phone's settings to undo.
 
 ### Optional: smart search, people, similar shots
 

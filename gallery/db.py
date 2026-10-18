@@ -37,6 +37,11 @@ CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY, name TEXT, cover_face
 CREATE TABLE IF NOT EXISTS similar (group_id INTEGER NOT NULL, media_id INTEGER NOT NULL, PRIMARY KEY (group_id, media_id));
 CREATE TABLE IF NOT EXISTS ml_done (media_id INTEGER NOT NULL, task TEXT NOT NULL, PRIMARY KEY (media_id, task));
 -- Similar-shots "trash": hidden in the gallery and moved to <drive>/.photo-vault-trash (Telegram copy kept)
+CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member',
+  pw TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP,
+  last_seen TEXT DEFAULT CURRENT_TIMESTAMP, ip TEXT, device TEXT);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS trash (media_id INTEGER PRIMARY KEY, trashed_at TEXT DEFAULT CURRENT_TIMESTAMP,
   moved INTEGER DEFAULT 0, emptied INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS similar_dismissed (group_key TEXT PRIMARY KEY);         -- "these aren't duplicates"
