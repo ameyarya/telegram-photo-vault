@@ -35,6 +35,7 @@ state = {"client": None, "cfg": load_env(), "msgs": {}, "last_sync": None, "tg_e
 async def sync_loop():
     while True:
         try:
+            await asyncio.to_thread(upload.move_waiting)   # phone uploads made while the drive was unplugged
             await tg.sync(state["client"], state["cfg"])
             state["last_sync"], state["tg_error"] = time.time(), None
         except Exception as e:  # keep serving; show the error in /api/status
@@ -70,8 +71,8 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-import auth, backup, dates, library, ml, restore, trash  # noqa: E402  (they import helpers defined in this module)
-for _mod in (auth, dates, library, ml, restore, backup, trash):
+import auth, backup, dates, library, ml, restore, trash, upload  # noqa: E402  (they import helpers defined in this module)
+for _mod in (auth, dates, library, ml, restore, backup, trash, upload):
     app.include_router(_mod.router)
 
 

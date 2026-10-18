@@ -258,6 +258,15 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .fix .what{flex:1;min-width:200px;font-size:13px;color:var(--ink2)}
 .fix .what b{color:var(--ink);font-weight:500;font-size:14px}
 .fix .arrow{color:var(--ink2)}
+.up-box{max-width:640px;display:grid;gap:14px;margin-top:12px}
+.up-pick{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--line);border-radius:16px;text-align:center}
+.up-pick .fill-btn{height:48px;padding:0 24px;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.up-pick .fill-btn.disabled{opacity:.5;pointer-events:none}
+.up-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.up-stats b{display:block;font-size:22px;font-weight:400}
+.up-stats span{font-size:12px;color:var(--ink2)}
+.up-now{font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-err{font-size:13px;color:#d93025}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
@@ -327,6 +336,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-star-o" viewBox="0 0 24 24"><path d="M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8 3 3 3-3a4.237 4.237 0 0 0-6 0zm-4-4 2 2a7.074 7.074 0 0 1 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></symbol>
   <symbol id="i-cal-edit" viewBox="0 0 24 24"><path d="M5 10h14v2h2V6c0-1.1-.9-2-2-2h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 0 0 2 2h7v-2H5V10zm0-4h14v2H5V6zm17.84 10.28-.71.71-2.12-2.12.71-.71a.5.5 0 0 1 .71 0l1.41 1.41a.5.5 0 0 1 0 .71zm-3.54-.71 2.12 2.12-5.3 5.31H14v-2.12l5.3-5.31z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></symbol>
   <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 8.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" opacity=".9"/><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm0 17.6a8.1 8.1 0 1 1 0-16.2 8.1 8.1 0 0 1 0 16.2z" opacity=".6"/></symbol>
   <symbol id="i-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
   <symbol id="i-untrash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12 1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
@@ -375,6 +385,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
+  <a href="#/upload" data-route="upload"><svg><use href="#i-upload"/></svg>Upload from phone</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
   <a href="#/sharing" data-route="sharing" class="mac-only"><svg><use href="#i-share"/></svg>Sharing</a>
@@ -455,7 +466,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup", "/upload": "upload"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -479,6 +490,7 @@ function route() {
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
   if (h === "/dates") return renderDates();
+  if (h === "/upload") return renderUpload();
   if (h === "/similar") return renderSimilar();
   if (h === "/backup") return renderBackup();
   if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites", noBack: true});
@@ -1100,7 +1112,7 @@ async function renderSharing() {
   const draw = async () => {
     const [u, sh] = await Promise.all([api("/api/users"), api("/api/sharing")]);
     const acct = a => `<div class="acct" data-id="${a.id}"><div class="row"><b>${esc(a.name)}</b>
-        <span class="muted">${a.role === "owner" ? "Full access" : "View, favorite, albums"}</span><span class="spacer" style="flex:1"></span>
+        <span class="muted">${a.role === "owner" ? "Full access" : "View, favorite, albums"} · phone uploads go to <code>${esc(a.folder)}/</code></span><span class="spacer" style="flex:1"></span>
         <button class="txt-btn" data-pw>Change password</button><button class="txt-btn" data-del>Remove</button></div>
       ${a.sessions.length ? a.sessions.map(s => `<div class="dev"><span>${deviceName(s.device)} ${browserName(s.device)}
         · last used ${since(s.last_seen)}${s.ip ? " · " + esc(s.ip) : ""}</span><button class="txt-btn" data-revoke="${s.id}">Sign out</button></div>`).join("")
@@ -1201,6 +1213,83 @@ async function renderDates() {
     const x = await post("/api/dates", {ids: r.items.map(i => i.id), use_suggested: true});
     toast(`Fixed ${plural(x.changed, "date")}`); renderDates();
   };
+}
+
+// ---------- upload from a phone ----------
+let upRun = null;   // the running upload, kept while you look at other pages
+async function renderUpload() {
+  feed = null;
+  const inf = await api("/api/upload/info");
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Upload from phone</h1></div>
+    <div class="page-sub">Backs up photos and videos from this phone to the hard disk, in the folder <b>${esc(inf.folder)}</b>, then to Telegram.
+      ${inf.drive ? "" : "The hard disk isn't plugged in: they wait on the Mac and move to it when it's plugged in."}</div>
+    <div class="up-box">
+      <div class="up-pick"><label class="fill-btn" id="upPickBtn">${ico("upload")}Choose photos &amp; videos<input type="file" id="upFiles" multiple accept="image/*,video/*" hidden></label>
+        <span class="muted">Pick as many as you like, even everything: ones already backed up are skipped.<br>Keep this page open and the phone charging until it says done.</span></div>
+      <div class="panel" id="upPanel" hidden><div class="up-stats"><div><b id="upDone">0</b><span>uploaded</span></div><div><b id="upSkip">0</b><span>already backed up</span></div><div><b id="upLeft">0</b><span>to go</span></div></div>
+        <div class="bar" style="margin:12px 0 6px"><i id="upBar" style="width:0%"></i></div><div class="up-now" id="upNow"></div><div class="up-err" id="upErr"></div>
+        <button class="txt-btn" id="upStop">Stop</button></div></div>`;
+  $("#upFiles").onchange = e => { if (e.target.files.length) startUpload([...e.target.files]); e.target.value = ""; };
+  $("#upStop").onclick = () => { if (upRun) upRun.stopped = true; };
+  if (upRun) drawUpload();
+}
+function drawUpload() {
+  const r = upRun; if (!r || !$("#upPanel")) return;
+  $("#upPanel").hidden = false; $("#upPickBtn").classList.toggle("disabled", !r.finished);
+  $("#upDone").textContent = nf(r.done); $("#upSkip").textContent = nf(r.skipped); $("#upLeft").textContent = nf(r.files.length - r.done - r.skipped - r.failed.length);
+  const pct = r.total ? 100 * (r.sentBytes + r.curBytes) / r.total : 100;
+  $("#upBar").style.width = Math.min(100, pct) + "%";
+  const secs = (Date.now() - r.t0) / 1000, rate = (r.sentBytes + r.curBytes) / Math.max(1, secs);
+  const eta = rate > 0 ? (r.total - r.sentBytes - r.curBytes) / rate : 0;
+  $("#upNow").textContent = r.finished ? (r.stopped ? "Stopped." : `Done: ${plural(r.done, "new file")} backed up.`)
+    : `${r.current || "Checking…"} · ${size(rate)}/s${eta > 5 ? ` · about ${eta > 5400 ? Math.round(eta / 3600) + " h" : Math.max(1, Math.round(eta / 60)) + " min"} left` : ""}`;
+  $("#upErr").textContent = r.failed.length ? `${plural(r.failed.length, "file")} couldn't be sent (e.g. ${r.failed[0]}). Choose them again to retry.` : "";
+  $("#upStop").hidden = r.finished;
+}
+function putFile(f, r) {
+  return new Promise((ok, bad) => {
+    const x = new XMLHttpRequest();
+    x.open("PUT", `/api/upload?${new URLSearchParams({name: f.name, size: f.size, modified: f.lastModified || 0})}`);
+    x.upload.onprogress = e => { r.curBytes = e.loaded; drawUpload(); };
+    x.onload = () => x.status < 300 ? ok(JSON.parse(x.responseText)) : bad(new Error((JSON.parse(x.responseText || "{}").detail) || x.statusText));
+    x.onerror = () => bad(new Error("network"));
+    x.send(f);
+  });
+}
+async function startUpload(files) {
+  if (upRun && !upRun.finished) return toast("An upload is already running");
+  const r = upRun = {files, done: 0, skipped: 0, failed: [], total: 0, sentBytes: 0, curBytes: 0, t0: Date.now(), finished: false};
+  let lock = null;
+  try { lock = await navigator.wakeLock?.request("screen"); } catch {}   // keep the screen on while sending
+  document.addEventListener("visibilitychange", async () => { if (!r.finished && document.visibilityState === "visible") try { lock = await navigator.wakeLock?.request("screen"); } catch {} });
+  const todo = [];
+  for (const f of files) {   // ask first: skip what's already backed up without sending it
+    if (r.stopped) break;
+    r.current = `Checking ${f.name}`;
+    try { const c = await api(`/api/upload/check?${new URLSearchParams({name: f.name, size: f.size})}`); c.exists ? r.skipped++ : todo.push(f); }
+    catch { todo.push(f); }
+    if ((r.skipped + todo.length) % 25 === 0) drawUpload();
+  }
+  r.total = todo.reduce((a, f) => a + f.size, 0); r.t0 = Date.now(); drawUpload();
+  for (const f of todo) {
+    if (r.stopped) break;
+    r.current = f.name; r.curBytes = 0;
+    let tries = 0;
+    while (true) {
+      try { const res = await putFile(f, r); res.skipped ? r.skipped++ : r.done++; break; }
+      catch (e) {
+        if (++tries >= 4 || e.message !== "network") { r.failed.push(f.name); break; }
+        r.current = `Connection lost, retrying ${f.name}…`; drawUpload();
+        await new Promise(w => setTimeout(w, 3000 * tries));
+      }
+    }
+    r.sentBytes += f.size; r.curBytes = 0; drawUpload();
+  }
+  r.finished = true;
+  try { await post("/api/upload/done"); } catch {}
+  try { await lock?.release(); } catch {}
+  drawUpload();
+  toast(r.stopped ? "Upload stopped" : `Upload finished: ${plural(r.done, "new file")}${r.skipped ? `, ${nf(r.skipped)} already backed up` : ""}`);
 }
 
 // ---------- trash ----------

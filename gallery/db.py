@@ -72,6 +72,9 @@ def connect(timeout=30):
         pcols = {r["name"] for r in con.execute("PRAGMA table_info(people)")}
         if "confirmed" not in pcols:  # 1 = you named or merged them: regrouping keeps all their faces together
             con.execute("ALTER TABLE people ADD COLUMN confirmed INTEGER DEFAULT 0")
+        ucols = {r["name"] for r in con.execute("PRAGMA table_info(users)")}
+        if "folder" not in ucols:  # where their phone uploads go on the drive (upload.py)
+            con.execute("ALTER TABLE users ADD COLUMN folder TEXT")
         cols = {r["name"] for r in con.execute("PRAGMA table_info(media)")}
         # orient: 1 = stored sideways (EXIF orientation 5-8 / video rotation 90/270): swap w/h for display
         for col, typ in EXTRA_COLUMNS.items():
