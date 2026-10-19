@@ -117,8 +117,14 @@ def test_empty_trash_deletes_from_the_drive_only(lapi, liveworld):
     drive = liveworld["drive"]
     pid = item(lapi, "IMG_0200.JPG")["id"]
     lapi.post("/api/trash", json={"ids": [pid]})
+    stray = drive / TRASH / "$RECYCLE.BIN/old.mp4"                       # a file put there by hand: emptied too
+    stray.parent.mkdir(parents=True, exist_ok=True)
+    stray.write_bytes(b"x" * 10)
+    t = lapi.get("/api/trash").json()
+    assert t["other_files"] == 1 and len(t["items"]) == 1
     r = lapi.post("/api/trash/empty").json()
-    assert r["deleted"] == 1 and r["bytes"] > 0
+    assert r["deleted"] == 1 and r["bytes"] > 10 and not stray.exists()
+    assert not (drive / TRASH / "$RECYCLE.BIN").exists()
     assert not (drive / TRASH / "phone/IMG_0200.JPG").exists() and not (drive / "phone/IMG_0200.JPG").exists()
     assert not (drive / TRASH / "phone").exists()                         # empty folders tidied
     assert lapi.get("/api/trash").json()["items"] == [] and "IMG_0200.JPG" not in names(lapi)

@@ -6,6 +6,7 @@ A Live Photo's motion clip always goes (and comes back) with its photo. If the d
 right away and their files are moved the next time the drive is plugged in.
 """
 import os
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -73,7 +74,26 @@ def list_trash():
                            WHERE t.emptied = 0 AND media.live_of IS NULL ORDER BY t.trashed_at DESC, media.id""").fetchall()
     size = con.execute("""SELECT coalesce(sum(m.size), 0) FROM trash t JOIN media m ON m.id = t.media_id
                           WHERE t.emptied = 0""").fetchone()[0]
-    return {"items": [dict(r) for r in rows], "bytes": size, "drive": DRIVE.is_dir()}
+    tracked = {r[0] for r in con.execute("SELECT m.path FROM trash t JOIN media m ON m.id = t.media_id WHERE t.emptied = 0")}
+    others, other_bytes = _other_files(tracked)
+    return {"items": [dict(r) for r in rows], "bytes": size + other_bytes, "other_files": len(others),
+            "drive": DRIVE.is_dir()}
+
+
+def _other_files(tracked):
+    """Files in the trash folder that aren't gallery items (e.g. duplicates the gallery doesn't show): emptied too."""
+    root, out, total = DRIVE / TRASH, [], 0
+    if not root.is_dir():
+        return out, 0
+    for d, _, files in os.walk(root):
+        for f in files:
+            p = Path(d) / f
+            rel = str(p.relative_to(root))
+            if f.startswith("._") or f == ".DS_Store" or rel in tracked:
+                continue
+            out.append(p)
+            total += p.stat().st_size
+    return out, total
 
 
 @router.post("/api/trash/restore")
@@ -115,6 +135,10 @@ def empty_trash():
             f.unlink()
         con.execute("UPDATE trash SET emptied = 1 WHERE media_id = ?", (r["media_id"],))
     con.commit()
+    others, _ = _other_files(set())
+    for f in others:
+        freed += f.stat().st_size
+        f.unlink()
     root = DRIVE / TRASH
     for d, _, _ in sorted(os.walk(root), key=lambda x: -len(x[0])) if root.is_dir() else []:
         if d != str(root) and not os.listdir(d):

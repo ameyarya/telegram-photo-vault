@@ -1376,7 +1376,7 @@ async function renderTrash() {
     <div class="page-sub" id="pgSub"></div><div id="trashBox"></div>`;
   const r = await api("/api/trash");
   $("#pgSub").textContent = r.items.length
-    ? `${plural(r.items.length, "item")} · ${size(r.bytes)} on the drive (in its .photo-vault-trash folder). Hidden from the gallery; still backed up in Telegram.${r.drive ? "" : " The drive is unplugged: files move to its trash folder when it's plugged in."}`
+    ? `${plural(r.items.length, "item")}${r.other_files ? ` and ${plural(r.other_files, "other file")}` : ""} · ${size(r.bytes)} on the drive (in its .photo-vault-trash folder). Hidden from the gallery; still backed up in Telegram.${r.drive ? "" : " The drive is unplugged: files move to its trash folder when it's plugged in."}`
     : "";
   if (!r.items.length) { $("#trashBox").innerHTML = `<div class="note">Trash is empty. Photos you trash (for example extra shots in Similar shots) show up here until you empty it.</div>`; return; }
   $("#trRestoreAll").hidden = $("#trEmpty").hidden = false;
