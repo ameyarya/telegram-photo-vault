@@ -7,7 +7,8 @@ gallery modelled on Google Photos: a timeline with a date scrubber, albums, sear
 favorites, Live Photos, similar shots and a trash. Photos stream from Telegram, so it works even with the drive unplugged.
 Everything runs on your Mac; nothing is sent anywhere except your own Telegram channel.
 
-*Not affiliated with Google or Telegram.*
+*Unofficial: not affiliated with Google or Telegram. It uses the Telegram API with your own api_id
+(see [Telegram's rules](#telegrams-rules-checked-2026-10-19)).*
 
 Built on macOS for one person's ~700 GB / 70,000-file photo drive. It works, it has tests, and it is
 still a personal project: read the [caveats](#caveats) before trusting it with anything.
@@ -206,3 +207,23 @@ Nothing touches your drive or Telegram.
 ## License
 
 MIT
+
+
+## Telegram's rules (checked 2026-10-19)
+
+From Telegram's [Terms of Service](https://telegram.org/tos), [API Terms](https://core.telegram.org/api/terms)
+and [FAQ](https://telegram.org/faq):
+
+- **Storage:** free accounts get unlimited cloud storage, with files up to 2 GB each (4 GB with Premium). Bigger files are
+  uploaded in parts (`backup/split_large.sh`).
+- **No guarantee:** Telegram doesn't promise to keep your data, and it won't compensate for losses. A ban for breaking
+  the rules can cut off access. **Keep the drive as your main copy, and Telegram as the off-site one.**
+- **Inactive accounts are deleted, by default after 18 months offline (Settings → Privacy → "If away for"), with all
+  their media.** Set it to the longest option, keep using the account, and add a second person as an admin of the
+  backup channel.
+- **API use:** use your own api_id (this app never ships one). Say clearly that the app uses the Telegram API, and
+  don't put "Telegram" in an app's name unless it starts with "Unofficial".
+- **No AI training on Telegram data:** the optional smart search and face analysis run ready-made models on the photos
+  on your drive. They don't train anything, and they don't read data from Telegram.
+- **Content:** only back up your own, legal content. Illegal content gets accounts banned.
+- **Pace:** the uploaders respect Telegram's flood-wait replies (they slow down when told to), so they don't spam.
