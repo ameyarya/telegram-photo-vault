@@ -35,7 +35,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
 | ↳ **Download** a selection — one file, or a streamed .zip (Live Photo clips included), from the drive or Telegram | ✅ tested |
 | ↳ **Upload from phone** — family back up their phone from the gallery's Upload page (home Wi-Fi), into their own folder on the drive; resumable, never overwrites | ✅ tested |
-| **Auto-backup** (`backup/autobackup.py`) — when the drive is plugged in and every 30 min: backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
+| **Auto-backup** (`backup/autobackup.py`) — once a day (3 AM, or when the drive is plugged in): backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
 Not built: encryption before upload, Windows/Linux support, access from outside your home network.
@@ -138,10 +138,11 @@ Later runs only process new photos; the Backup page has an "Analyse new photos" 
 zsh backup/install_autobackup.sh            # on  (zsh backup/install_autobackup.sh --remove  to turn off)
 ```
 
-Whenever a drive is mounted, and every 30 minutes while it is, if it's `DRIVE`: it rescans for new files, uploads them,
+Once a day at 3 AM (or as soon as the Mac wakes, if it was asleep), and when `DRIVE` is plugged in if it hasn't run that
+day: it rescans for new files, uploads them,
 updates the gallery index, analyses new photos (if the optional models are installed) and shows a notification when
-something was backed up. If files are still being copied onto the drive (say, an Image Capture import), it waits for
-the next check, so a half-copied file is never uploaded. It won't run twice at once and skips if an upload is running.
+something was backed up. If files are still being copied onto the drive (say, an Image Capture import or a phone
+syncing), it checks again every 5 minutes for up to 2 hours, so a half-copied file is never uploaded. It won't run twice at once and skips if an upload is running.
 Leave `FOLDERS` empty in `config.env` to include new top-level folders automatically.
 
 **It uploads with your bot(s), so set up the bot uploader below first.** macOS doesn't let background jobs read an

@@ -1254,7 +1254,7 @@ async function renderUpload() {
       <div class="up-pick"><label class="fill-btn" id="upPickBtn">${ico("upload")}Choose photos &amp; videos<input type="file" id="upFiles" multiple accept="image/*,video/*" hidden></label>
         <span class="muted">Pick as many as you like, even everything. You'll see which are already backed up before anything is sent.</span></div>
       <div class="panel" id="upPanel" hidden>
-        <div class="up-stats"><div><b id="upB">0</b><span>✅ backed up</span></div><div><b id="upD">0</b><span>🕓 on hard disk, Telegram soon</span></div><div><b id="upM">0</b><span>⬜ not backed up</span></div></div>
+        <div class="up-stats"><div><b id="upB">0</b><span>✅ backed up</span></div><div><b id="upD">0</b><span>🕓 on hard disk, Telegram tonight</span></div><div><b id="upM">0</b><span>⬜ not backed up</span></div></div>
         <div id="upAct" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
         <div class="bar" id="upBarBox" style="margin:12px 0 6px" hidden><i id="upBar" style="width:0%"></i></div><div class="up-now" id="upNow"></div><div class="up-err" id="upErr"></div></div>
       <div class="chips" id="upChips" hidden></div><div class="up-grid" id="upGrid"></div><div id="upMore"></div></div>`;
@@ -1361,7 +1361,7 @@ async function uploadMissing() {
     }
     setUpTile(k); r.sentBytes += f.size; r.curBytes = 0; drawUpload();
   }
-  r.sending = false; r.current = r.stopped ? "Stopped." : `Done: ${plural(sent, "file")} sent to the hard disk. They go to Telegram within about 30 minutes; press Refresh later to see them turn ✅.`;
+  r.sending = false; r.current = r.stopped ? "Stopped." : `Done: ${plural(sent, "file")} sent to the hard disk. They go to Telegram with the daily backup (3 AM); they show ✅ after that.`;
   document.removeEventListener("visibilitychange", relock);
   try { await post("/api/upload/done"); } catch {}
   try { await lock?.release(); } catch {}
