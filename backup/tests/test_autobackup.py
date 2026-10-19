@@ -1,4 +1,4 @@
-"""autobackup.py (runs when a drive is mounted and every 30 min) with a fake uploader, indexer and analysis."""
+"""autobackup.py (runs daily and when a drive is mounted) with a fake uploader, indexer and analysis."""
 import os
 import subprocess
 import time
@@ -30,7 +30,7 @@ def ab(tmp_path):
            "AUTOBACKUP_DELAY": "0", "AUTOBACKUP_RUNNING_PATTERN": "no-such-process-xyz",
            "AUTOBACKUP_INDEX_PATTERN": "no-such-indexer-xyz", "STATE_DIR": str(state),
            "AUTOBACKUP_ML": f"zsh {ml}", "AUTOBACKUP_ML_PATTERN": "no-such-analysis-xyz",
-           "AUTOBACKUP_SETTLE": "0", "AUTOBACKUP_USED": "echo 1000"}
+           "AUTOBACKUP_SETTLE": "0", "AUTOBACKUP_USED": "echo 1000", "AUTOBACKUP_MAX_WAIT": "0"}
 
     def run(**extra):
         r = subprocess.run([sys.executable, str(SCRIPT)], env={**env, **extra}, capture_output=True, text=True, timeout=60)
@@ -57,7 +57,7 @@ def test_cooldown_prevents_repeat_runs(ab):
     ab["run"]()
     (ab["state"] / "upload_args").unlink()
     log = ab["run"]()
-    assert "skipped: last auto-backup was less than 10 min ago" in log
+    assert "skipped: already backed up in the last 20 h" in log                # once a day
     assert not (ab["state"] / "upload_args").exists()
     ab["run"](AUTOBACKUP_COOLDOWN="0")
     assert (ab["state"] / "upload_args").exists()
@@ -147,6 +147,19 @@ def test_doesnt_start_a_second_analysis(ab):
     assert not (ab["state"] / "analysed").exists() and "photo analysis already running" in log
 
 
-def test_runs_every_30_minutes_too():
+def test_runs_daily_and_when_plugged_in():
     plist = (SCRIPT.parent / "install_autobackup.sh").read_text()
-    assert "<key>StartOnMount</key><true/>" in plist and "<key>StartInterval</key><integer>1800</integer>" in plist
+    assert "<key>StartOnMount</key><true/>" in plist and "<key>Hour</key><integer>3</integer>" in plist
+    assert "StartInterval" not in plist                                          # not every 30 minutes any more
+
+
+def test_keeps_checking_while_copying_then_backs_up(ab, tmp_path):
+    """Copying still going when the daily run starts: it checks again a few times instead of waiting a whole day."""
+    counter = tmp_path / "used"
+    counter.write_text("1000")
+    # grows on the first two checks, then stays put (the copy finished)
+    script = f'n=$(cat {counter}); c=$(cat {counter}.calls 2>/dev/null || echo 0); echo $((c + 1)) > {counter}.calls; ' \
+             f'[ $c -lt 2 ] && echo $((n + 50000)) > {counter}; echo $n'
+    log = ab["run"](AUTOBACKUP_USED=script, AUTOBACKUP_MAX_WAIT="10", AUTOBACKUP_RECHECK="0")
+    assert "checking again every few minutes" in log and "looking for new photos" in log
+    assert (ab["state"] / "upload_args").exists()

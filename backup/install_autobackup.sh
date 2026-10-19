@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Turn auto-backup on (runs autobackup.py whenever a drive is mounted, and every 30 minutes) or off.
+# Turn auto-backup on (runs autobackup.py daily at 3 AM, and when the drive is plugged in) or off.
 #   zsh install_autobackup.sh            # on
 #   zsh install_autobackup.sh --remove   # off
 LABEL=local.photo-vault.autobackup
@@ -23,11 +23,11 @@ cat > "$PLIST" <<EOF
   <key>ProgramArguments</key><array><string>$PY</string><string>$DIR/autobackup.py</string></array>
   <key>EnvironmentVariables</key><dict><key>PYTHONPATH</key><string>$SITE</string></dict>
   <key>StartOnMount</key><true/>
-  <key>StartInterval</key><integer>1800</integer>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
   <key>StandardOutPath</key><string>$LOGS/autobackup.out</string>
   <key>StandardErrorPath</key><string>$LOGS/autobackup.out</string>
 </dict>
 </plist>
 EOF
 launchctl bootstrap "gui/$UID" "$PLIST" 2>/dev/null || launchctl bootstrap "gui/$UID" "$PLIST"
-echo "Auto-backup is on: new photos on the drive are backed up when it is plugged in and every 30 minutes"
+echo "Auto-backup is on: new photos on the drive are backed up once a day (3 AM, or when the drive is plugged in)"

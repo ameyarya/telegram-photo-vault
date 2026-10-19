@@ -1,4 +1,5 @@
-"""Auto-backup: runs whenever a drive is mounted, and every 30 minutes (launchd; turn on with install_autobackup.sh).
+"""Auto-backup: runs once a day at 3 AM (or when the Mac wakes, if it slept through it), and when the drive is plugged in
+if it hasn't run that day (launchd; turn on with install_autobackup.sh).
 
 If it's your photo drive (DRIVE in config.env), nothing is still being copied onto it (e.g. an Image Capture import), and no backup is
 already running: rescan for new files, upload them, update the gallery index, analyse the new photos (faces, smart
@@ -34,8 +35,10 @@ ML = shlex.split(env("ML", f"{shlex.quote(PY)} {shlex.quote(str(ROOT / 'gallery'
 RUNNING_PATTERN = env("RUNNING_PATTERN", "upload.sh|bot_upload.py run|auto_upload.py")
 INDEX_PATTERN = env("INDEX_PATTERN", "build_index.py")
 ML_PATTERN = env("ML_PATTERN", "ml.py run")
-COOLDOWN = int(env("COOLDOWN", 600))   # seconds; other drives mounting shouldn't trigger repeated rescans
+COOLDOWN = int(env("COOLDOWN", 20 * 3600))  # at most once a day: plugging drives in doesn't trigger extra runs
 SETTLE = int(env("SETTLE", 60))        # seconds the drive must stay unchanged: never upload a half-copied file
+MAX_WAIT = int(env("MAX_WAIT", 2 * 3600))  # while files are still being copied, keep checking for up to this long
+RECHECK = int(env("RECHECK", 300))         # ... every 5 minutes
 DELAY = int(env("DELAY", 20))          # let the drive finish mounting
 LOG, LOCK, LAST = STATE / "autobackup.log", STATE / ".autobackup.lock", STATE / ".autobackup.last"
 
@@ -101,7 +104,8 @@ def main():
     STATE.mkdir(parents=True, exist_ok=True)
     try:
         if time.time() - int(LAST.read_text()) < COOLDOWN:
-            log(f"skipped: last auto-backup was less than {COOLDOWN // 60} min ago")
+            log(f"skipped: already backed up in the last {COOLDOWN // 3600} h" if COOLDOWN >= 3600
+                else f"skipped: last auto-backup was less than {COOLDOWN // 60} min ago")
             return
     except (OSError, ValueError):
         pass
@@ -118,11 +122,19 @@ def backup():
     if running(RUNNING_PATTERN):
         log("skipped: an upload is already running")
         return
-    a = used_kb()
-    time.sleep(SETTLE)
-    if abs(used_kb() - a) > 1024:                     # over 1 MB written or freed meanwhile
-        log("waiting: files are still being copied to the drive; will look again in 30 min")
-        return
+    waited = 0
+    while True:
+        a = used_kb()
+        time.sleep(SETTLE)
+        if abs(used_kb() - a) <= 1024:                # under 1 MB written or freed meanwhile: copying has stopped
+            break
+        if waited >= MAX_WAIT:
+            log("waiting: files are still being copied to the drive; will try again at the next run")
+            return
+        if not waited:
+            log("files are still being copied to the drive; checking again every few minutes")
+        time.sleep(RECHECK)
+        waited += RECHECK + SETTLE
     before = lines(STATE / "done.log")
     log("looking for new photos to back up")
     with open(STATE / "upload.log", "a") as out:
