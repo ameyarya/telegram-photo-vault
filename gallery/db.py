@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS media_album ON media(album, taken_at);
 CREATE INDEX IF NOT EXISTS media_taken ON media(taken_at);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS tg_msgs (path TEXT PRIMARY KEY, msg_id INTEGER NOT NULL);  -- every upload seen in the channel
+CREATE TABLE IF NOT EXISTS path_moves (old TEXT PRIMARY KEY, new TEXT NOT NULL);  -- files moved on the drive after upload
 -- everything below lives only on this Mac; nothing here changes the drive or Telegram
 CREATE TABLE IF NOT EXISTS favorites (media_id INTEGER PRIMARY KEY, added TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS user_albums (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);

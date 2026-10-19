@@ -58,5 +58,5 @@ def test_never_empties_the_list(tmp_path, drive):
 
 
 def test_background_backup_uses_it():
-    script = (SCRIPT.parent / "autobackup.sh").read_text()
+    script = (SCRIPT.parent / "autobackup.py").read_text()
     assert "auto_upload.py" in script and "bot_upload.py run" in script

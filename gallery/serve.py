@@ -59,6 +59,7 @@ async def announce():
 
 
 async def main():
+    os.chdir(BASE)  # launchd can't start us inside ~/Documents, so it doesn't set the working folder
     # macOS lets normal users bind ports below 1024 only on the wildcard address
     https = uvicorn.Server(uvicorn.Config("server:app", host="0.0.0.0", port=HTTPS_PORT,
                                           ssl_certfile=CERT, ssl_keyfile=KEY, log_level="info"))

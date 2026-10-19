@@ -35,7 +35,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
 | ↳ **Download** a selection — one file, or a streamed .zip (Live Photo clips included), from the drive or Telegram | ✅ tested |
 | ↳ **Upload from phone** — family back up their phone from the gallery's Upload page (home Wi-Fi), into their own folder on the drive; resumable, never overwrites | ✅ tested |
-| **Auto-backup** (`backup/autobackup.sh`) — when the drive is plugged in and every 30 min: backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
+| **Auto-backup** (`backup/autobackup.py`) — when the drive is plugged in and every 30 min: backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
 Not built: encryption before upload, Windows/Linux support, access from outside your home network.
@@ -148,6 +148,25 @@ Leave `FOLDERS` empty in `config.env` to include new top-level folders automatic
 external drive with `zsh`, `find` or `tdl` ("Operation not permitted"), so the background backup lists the drive and
 uploads in Python (`backup/auto_upload.py`), which macOS asks you to allow once. Running `upload.sh` yourself in
 Terminal still uses tdl as before.
+
+The gallery service and auto-backup are started with Python directly (not shell scripts), so they also work when this
+folder is inside `~/Documents`, which macOS keeps background shell scripts out of. Their logs are in
+`~/Library/Logs/PhotoVault`.
+
+### Optional: back up an Android phone automatically (Syncthing)
+
+The gallery's **Upload from phone** page works on any phone, but the page has to stay open. For automatic background
+backup of an Android phone, use [Syncthing](https://syncthing.net) (free, open source):
+
+1. Mac: `brew install syncthing && brew services start syncthing`, then open http://127.0.0.1:8384. In Settings,
+   turn off global discovery and relaying if both devices are always on the same Wi-Fi.
+2. Phone: install **Syncthing-Fork** from the Play Store, add the Mac (Actions → Show ID on the Mac shows a QR code), and
+   add a folder for `DCIM/Camera` as **Send Only**, shared with the Mac.
+3. Mac: accept the phone and its folder, with the path set to a folder on your drive (e.g. `<drive>/her-phone`), and
+   Folder type **Receive Only**. Under Advanced, turn on **Ignore Delete**, so deleting photos on the phone never deletes
+   them from the drive. Never press "Revert Local Changes" on it, because that deletes files the phone doesn't have.
+
+Auto-backup then picks the photos up like anything else copied onto the drive.
 
 ### Optional: bot uploader (experimental)
 

@@ -1,4 +1,4 @@
-"""Upload new files without a Terminal: what autobackup.sh runs in the background.
+"""Upload new files without a Terminal: what autobackup.py runs in the background.
 
 macOS only lets programs it has been given access to read an external drive. In the background (launchd), Python
 from Homebrew usually has it, but zsh, find and tdl don't, and get "Operation not permitted". So this lists the drive
