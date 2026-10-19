@@ -95,7 +95,8 @@ def status(request: Request):
     r = con.execute("""SELECT count(*) total, sum(msg_id IS NOT NULL) uploaded, sum(thumb=1) thumbs,
                        sum(date_src='file') undated FROM media""").fetchone()
     return {**dict(r), "drive": DRIVE.is_dir(), "telegram": state["client"] is not None,
-            "telegram_error": state["tg_error"], "last_sync": state["last_sync"]}
+            "telegram_error": state["tg_error"], "last_sync": state["last_sync"],
+            "user": getattr(request.state, "user", None)}
 
 
 @app.get("/api/albums")

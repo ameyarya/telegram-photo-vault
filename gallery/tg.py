@@ -41,6 +41,8 @@ def _read_last():
 
 def _save(pairs, last):
     con = connect()
+    moved = dict(con.execute("SELECT old, new FROM path_moves").fetchall())  # captions keep the path at upload time
+    pairs = [(moved.get(p, p), m) for p, m in pairs]
     con.executemany("INSERT OR REPLACE INTO tg_msgs(path, msg_id) VALUES(?, ?)", pairs)
     con.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('last_msg_id', ?)", (str(last),))
     con.commit()
