@@ -163,3 +163,16 @@ def test_keeps_checking_while_copying_then_backs_up(ab, tmp_path):
     log = ab["run"](AUTOBACKUP_USED=script, AUTOBACKUP_MAX_WAIT="10", AUTOBACKUP_RECHECK="0")
     assert "checking again every few minutes" in log and "looking for new photos" in log
     assert (ab["state"] / "upload_args").exists()
+
+
+def test_icloud_export_runs_first_when_configured(ab, tmp_path):
+    fake = tmp_path / "fake_icloud.sh"
+    fake.write_text('#!/bin/zsh\ntouch "$STATE_DIR/icloud_exported"\n')
+    log = ab["run"](AUTOBACKUP_ICLOUD=f"zsh {fake}")
+    assert (ab["state"] / "icloud_exported").exists() and "from iCloud Photos" in log
+    assert (ab["state"] / "upload_args").exists()                                # then the normal backup
+
+
+def test_no_icloud_export_unless_configured(ab):
+    ab["run"]()
+    assert not (ab["state"] / "icloud_exported").exists()

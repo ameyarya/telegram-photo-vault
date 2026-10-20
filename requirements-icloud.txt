@@ -1,0 +1,2 @@
+# optional: bring iPhone photos from iCloud Photos onto the drive (backup/icloud_export.py)
+osxphotos
