@@ -209,6 +209,25 @@ Nothing touches your drive or Telegram.
 MIT
 
 
+### Optional: back up an iPhone automatically through iCloud Photos
+
+If your iPhone uses iCloud Photos, the Mac can pick up new photos from iCloud each night, with nothing to do on the phone:
+
+1. Mac: open **Photos** → Settings → iCloud → turn on **iCloud Photos**, with **Optimize Mac Storage**. Missing originals
+   are downloaded when they're exported. The library must be on the Mac's own disk, because iCloud Photos doesn't work
+   on exFAT drives.
+2. `.venv/bin/pip install -r requirements-icloud.txt` (osxphotos).
+3. Give the Python that runs auto-backup **Full Disk Access** (System Settings → Privacy & Security), because macOS
+   protects the Photos library. Allow it to access Photos if asked.
+4. In `config.env`: `ICLOUD_EXPORT_FOLDER="iphone"`, plus `ICLOUD_EXPORT_SINCE="<date of the newest photo already on
+   the drive>"`, so photos you already copied aren't exported again.
+
+Auto-backup then starts by running `backup/icloud_export.py`: new photos (full quality, Live Photo videos included,
+edited copies and photos shared by others skipped) go into that folder, dated when they were taken, and then on to
+Telegram. A name already in the folder gets " (2)", because iPhone numbers wrap around. Nothing is ever overwritten,
+and deleting a photo in Photos never deletes it from the drive. Try it with `.venv/bin/python backup/icloud_export.py
+--dry-run`.
+
 ## Telegram's rules (checked 2026-10-19)
 
 From Telegram's [Terms of Service](https://telegram.org/tos), [API Terms](https://core.telegram.org/api/terms)

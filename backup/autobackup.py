@@ -35,6 +35,8 @@ ML = shlex.split(env("ML", f"{shlex.quote(PY)} {shlex.quote(str(ROOT / 'gallery'
 RUNNING_PATTERN = env("RUNNING_PATTERN", "upload.sh|bot_upload.py run|auto_upload.py")
 INDEX_PATTERN = env("INDEX_PATTERN", "build_index.py")
 ML_PATTERN = env("ML_PATTERN", "ml.py run")
+ICLOUD = shlex.split(env("ICLOUD", f"{shlex.quote(PY)} {shlex.quote(str(HERE / 'icloud_export.py'))}"))
+ICLOUD_ON = bool(os.environ.get("ICLOUD_EXPORT_FOLDER", "").strip()) or bool(os.environ.get("AUTOBACKUP_ICLOUD"))
 COOLDOWN = int(env("COOLDOWN", 20 * 3600))  # at most once a day: plugging drives in doesn't trigger extra runs
 SETTLE = int(env("SETTLE", 60))        # seconds the drive must stay unchanged: never upload a half-copied file
 MAX_WAIT = int(env("MAX_WAIT", 2 * 3600))  # while files are still being copied, keep checking for up to this long
@@ -122,6 +124,11 @@ def backup():
     if running(RUNNING_PATTERN):
         log("skipped: an upload is already running")
         return
+    if ICLOUD_ON:                                     # first bring new iPhone photos from iCloud Photos onto the drive
+        log("bringing new photos from iCloud Photos onto the drive")
+        with open(STATE / "icloud-export.log", "a") as out:
+            if subprocess.run(caffeinated(ICLOUD), stdout=out, stderr=subprocess.STDOUT).returncode:
+                log("iCloud Photos export failed (see icloud-export.log); backing up the rest anyway")
     waited = 0
     while True:
         a = used_kb()
