@@ -106,3 +106,14 @@ def test_big_video_waits_quietly_while_the_drive_is_unplugged(w):
     w["drive"].rmdir()
     log = w["once"](SPLIT_LIMIT="1000")
     assert "backing up" not in log and (w["state"] / "inbox/her-phone/big.mp4").exists()
+
+
+def test_unreadable_photos_library_is_reported_once(w):
+    lib = w["tmp"] / "Photos Library.photoslibrary"
+    (lib / "database").mkdir(parents=True)
+    (lib / "database" / "Photos.sqlite").write_bytes(b"not a database")
+    w["drive"].rmdir()
+    log = w["once"](WATCH_ICLOUD="true", PHOTOS_LIBRARY=str(lib))
+    assert "can't read the Photos library" in log and "Give Python Full Disk Access" in log
+    log = w["once"](WATCH_ICLOUD="true", PHOTOS_LIBRARY=str(lib))
+    assert log.count("Give Python Full Disk Access") == 1                         # not every minute

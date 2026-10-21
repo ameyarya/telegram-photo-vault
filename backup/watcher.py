@@ -94,6 +94,11 @@ def photos_marker():
         return f"{row[0]}:{row[1]}"
     except Exception as e:                                          # e.g. no Full Disk Access
         log(f"can't read the Photos library ({e.__class__.__name__}: {e})")
+        stamp = STATE / ".photos-unreadable-notified"
+        if not stamp.exists() or time.time() - stamp.stat().st_mtime > 86400:   # tell you, at most once a day
+            stamp.touch()
+            notify("Can't read the Photos library, so iPhone photos aren't being backed up. Give Python Full Disk "
+                   "Access again (System Settings > Privacy & Security), e.g. after a Python update")
         return None
 
 
