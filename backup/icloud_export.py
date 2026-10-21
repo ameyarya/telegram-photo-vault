@@ -12,7 +12,8 @@ ICLOUD_EXPORT_FOLDER is set in config.env:
 Needs:   pip install osxphotos   (in requirements-icloud.txt)
          Full Disk Access for the Python that runs auto-backup (System Settings -> Privacy & Security), because macOS
          protects the Photos library; and "Optimize Mac Storage" is fine: missing originals are downloaded.
-By hand: .venv/bin/python backup/icloud_export.py [--dry-run]
+By hand: .venv/bin/python backup/icloud_export.py [--dry-run] [--uuids FILE]   (FILE: Photos ids to backfill, one per
+         line, e.g. photos taken before ICLOUD_EXPORT_SINCE that never reached the drive; see find_missing_icloud.py)
 
 It remembers what it exported (icloud-export.db in the state folder), so each photo goes out once. It sets the file
 date to when the photo was taken, includes Live Photo videos, and skips edited copies and photos shared with you by
@@ -37,14 +38,16 @@ LIBRARY = Path(os.environ.get("PHOTOS_LIBRARY") or "~/Pictures/Photos Library.ph
 STAGE = INBOX / ".icloud-export-staging"   # on the Mac, hidden: the gallery and uploader skip it
 
 
-def command(dry_run=False):
+def command(dry_run=False, uuids=None):
     cmd = [sys.executable, "-m", "osxphotos", "export", str(STAGE),
            "--library", str(LIBRARY),
            "--update", "--only-new", "--exportdb", str(STATE / "icloud-export.db"), "--ramdb",
            "--download-missing", "--use-photokit", "--retry", "3",   # PhotoKit: no need to drive the Photos app
            "--touch-file", "--skip-edited", "--not-shared",
            "--no-progress", "--verbose", "--timestamp"]
-    if SINCE:
+    if uuids:                                              # a backfill of exactly these photos (--uuids FILE)
+        cmd += ["--uuid-from-file", str(uuids)]
+    elif SINCE:
         cmd += ["--from-date", SINCE]
     if dry_run:
         cmd.append("--dry-run")
@@ -106,7 +109,8 @@ def main():
     dry = "--dry-run" in sys.argv
     (INBOX / FOLDER).mkdir(parents=True, exist_ok=True)
     STAGE.mkdir(parents=True, exist_ok=True)
-    code = subprocess.run(command(dry)).returncode
+    uuids = sys.argv[sys.argv.index("--uuids") + 1] if "--uuids" in sys.argv else None
+    code = subprocess.run(command(dry, uuids)).returncode
     if not dry:
         moved = move_in(STAGE, INBOX / FOLDER, names_in_use(FOLDER))   # also what an interrupted run left behind
         print(f"moved {len(moved)} files into {FOLDER}/" + (f", e.g. {moved[:3]}" if moved else ""), flush=True)

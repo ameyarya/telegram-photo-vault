@@ -85,3 +85,24 @@ def test_unfinished_files_are_left_alone(w):
     w["drive"].rmdir()
     log = w["once"]()
     assert "backing up" not in log
+
+
+def test_video_too_big_for_telegram_moves_to_the_drive_and_is_split(w):
+    """Regression: 3-4 GB DJI videos stayed in the Mac's inbox (never uploadable whole), filling the Mac's disk."""
+    v = w["state"] / "inbox/iphone/dji_video.mp4"
+    v.parent.mkdir(parents=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=6:size=320x240:rate=25",
+                    "-c:v", "libx264", "-g", "25", str(v)], check=True)
+    size = v.stat().st_size
+    log = w["once"](SPLIT_LIMIT=str(size // 2), WATCH_SPLIT_TARGET=str(size // 3))       # "too big", parts of a third
+    assert (w["drive"] / "iphone/dji_video.mp4").stat().st_size == size and not v.exists()
+    parts = sorted(os.listdir(w["drive"] / "_split/iphone"))
+    assert len(parts) >= 2 and parts[0] == "dji_video_part00.mp4" and "split iphone/dji_video.mp4" in log
+    assert (w["drive"] / "_split/.complete").exists()
+
+
+def test_big_video_waits_quietly_while_the_drive_is_unplugged(w):
+    (w["state"] / "inbox/her-phone/big.mp4").write_bytes(b"x" * 5000)
+    w["drive"].rmdir()
+    log = w["once"](SPLIT_LIMIT="1000")
+    assert "backing up" not in log and (w["state"] / "inbox/her-phone/big.mp4").exists()

@@ -48,6 +48,7 @@ RESCAN = int(env("RESCAN", 3600))          # full drive rescan every hour while 
 SETTLE = int(env("SETTLE", 60))            # the drive must stay unchanged this long before a rescan
 LOW_GB = float(env("LOW_GB", 10))
 LOG = STATE / "watcher.log"
+SPLIT_TARGET = int(env("SPLIT_TARGET", 1800000000))   # parts of ~1.8 GB, under Telegram's 2 GB limit
 
 
 def log(msg):
@@ -103,6 +104,41 @@ def drive_used_kb():
     return (st.f_blocks - st.f_bfree) * st.f_frsize // 1024
 
 
+def split_video(rel):
+    """Cut a video too big for Telegram into parts that each play on their own (stream copy: no quality loss), in
+    <drive>/_split/<same folder>/, like split_large.sh. Written to a hidden folder first, so no half part is uploaded."""
+    src = config.DRIVE / rel
+    folder, name = os.path.split(rel)
+    base, ext = name.rsplit(".", 1)
+    out = config.DRIVE / "_split" / folder
+    if out.is_dir() and any(n.startswith(base + "_part") for n in os.listdir(out)):
+        return 0                                                    # already split
+    dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(src)],
+                               capture_output=True, text=True).stdout.strip() or 0)
+    if not dur:
+        log(f"can't read {rel} to split it")
+        return 0
+    seg = max(1, int(dur * SPLIT_TARGET / src.stat().st_size))
+    tmp = out / f".{base}.splitting"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    r = subprocess.run(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", str(src),
+                        "-map", "0:v", "-map", "0:a?", "-c", "copy", "-map_metadata", "0",
+                        "-f", "segment", "-segment_time", str(seg), "-reset_timestamps", "1",
+                        str(tmp / f"{base}_part%02d.{ext}")], capture_output=True, text=True)
+    if r.returncode:
+        shutil.rmtree(tmp, ignore_errors=True)
+        log(f"splitting {rel} failed: {r.stderr.strip()[-200:]}")
+        return 0
+    parts = sorted(os.listdir(tmp))
+    for p in parts:
+        os.rename(tmp / p, out / p)
+    tmp.rmdir()
+    (config.DRIVE / "_split" / ".complete").touch()                 # the uploader and gallery include _split/
+    log(f"split {rel} into {len(parts)} parts")
+    return len(parts)
+
+
 def backup_new(reason):
     """Upload what's new, add it to the gallery, analyse it."""
     if subprocess.run(["pgrep", "-f", BUSY], capture_output=True).returncode == 0:
@@ -149,15 +185,20 @@ class Watcher:
                 scan = False
         self.was_mounted = mounted
         done = inbox.backed_up()
-        waiting = [f for f in inbox.files() if f not in done]
+        waiting = [f for f in inbox.files() if f not in done
+                   and (config.INBOX / f).stat().st_size <= inbox.MAX]   # too big for Telegram: split on the drive
         if scan or waiting:
             backup_new("drive plugged in or hourly rescan" if scan else f"{len(waiting)} new in the inbox")
             if scan:
                 self.last_scan = time.time()
         if mounted:
+            big = [f for f in inbox.files() if (config.INBOX / f).stat().st_size > inbox.MAX]
             moved = inbox.move_to_drive(log)
             if moved:
-                log(f"moved {moved} backed-up files from the inbox onto the drive")
+                log(f"moved {moved} files from the inbox onto the drive")
+            split = [f for f in big if (config.DRIVE / f).exists() and f.rsplit(".", 1)[-1].lower() in config.VIDEO_EXT]
+            if split and sum(split_video(f) for f in split):
+                backup_new(f"{len(split)} big video{'' if len(split) == 1 else 's'} split into parts")
         free = inbox.mac_free_gb()
         if free < LOW_GB and time.time() - self.warned > 86400:
             self.warned = time.time()
