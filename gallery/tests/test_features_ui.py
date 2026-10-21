@@ -32,6 +32,8 @@ def open_photo(page, album, name):
 # ---------- filter chips ----------
 def test_filter_chips(page):
     go(page)
+    expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
+    page.click(".chip[data-f='']")
     expect(page.locator("#days .tile")).to_have_count(10)
     page.click(".chip[data-f=videos]")
     expect(page.locator("#days .tile")).to_have_count(3)
@@ -45,7 +47,8 @@ def test_filter_chips(page):
     expect(page.locator("#days .empty")).to_contain_text("Nothing matches this filter")
     page.click(".side a[data-route=albums]")                    # chips belong to a page
     page.click(".side a[data-route=photos]")
-    expect(page.locator(".chip.on")).to_have_text("All")
+    expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
+    page.click(".chip[data-f='']")
     expect(page.locator("#days .tile")).to_have_count(10)
 
 
@@ -107,6 +110,7 @@ def test_select_add_to_new_album_remove_rename_delete(page):
     expect(page).to_have_url(page.base + "/#/albums")
     expect(page.locator(".card.ua")).to_have_count(0)
     page.click(".side a[data-route=photos]")
+    page.click(".chip[data-f='']")                                # All: the timeline opens on Photos
     expect(page.locator("#days .tile")).to_have_count(10)         # nothing deleted
 
 

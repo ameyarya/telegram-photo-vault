@@ -439,7 +439,8 @@ let albums = [], userAlbums = [], status = null, me = null;
 let feed = null;          // current timeline (see openFeed)
 let viewerIdx = -1, infoOpen = false;
 let newestFirst = false;  // timeline order; remembered in this browser
-let filterChip = "";      // active filter chip on the current page
+const DEFAULT_CHIP = "photos";  // pages with chips open on Photos, not All
+let filterChip = null;    // active filter chip on the current page (null: not picked yet, the page's default)
 const picked = new Set(); // selected item ids
 try { newestFirst = localStorage.getItem("pv-order") === "desc"; } catch {}
 
@@ -488,7 +489,7 @@ function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
   closeSide();
   clearPicked();
-  if (h !== lastPath) filterChip = "";   // chips belong to a page
+  if (h !== lastPath) filterChip = null;   // chips belong to a page
   lastPath = h;
   const inPath = h.replace(/^\/(album|all)\//, "");
   const folder = /^\/(album|all)\//.test(h) &&
@@ -690,6 +691,8 @@ async function openSearch(q) {
 // so the date scrubber can jump to any month of a 70,000-photo library.
 function openFeed(o) {
   const params = {...o.params};
+  // A page with chips and no filter of its own starts on DEFAULT_CHIP; one without chips shows everything.
+  if (filterChip === null) filterChip = o.chips === false || params.filter ? "" : DEFAULT_CHIP;
   feed = {o, params, base: 0, items: [], total: null, loading: false, loadingPrev: false, months: null};
   const chips = o.chips === false ? "" : `<div class="chips" id="chips">${[["", "All"], ["photos", "Photos"], ["videos", "Videos"],
     ["favorites", "Favorites"], ["live", "Live photos"], ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
