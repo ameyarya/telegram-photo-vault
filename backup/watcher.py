@@ -130,10 +130,10 @@ def split_video(rel):
         shutil.rmtree(tmp, ignore_errors=True)
         log(f"splitting {rel} failed: {r.stderr.strip()[-200:]}")
         return 0
-    parts = sorted(os.listdir(tmp))
+    parts = sorted(p for p in os.listdir(tmp) if not p.startswith("."))   # not macOS's ._ companions (exFAT)
     for p in parts:
         os.rename(tmp / p, out / p)
-    tmp.rmdir()
+    shutil.rmtree(tmp, ignore_errors=True)
     (config.DRIVE / "_split" / ".complete").touch()                 # the uploader and gallery include _split/
     log(f"split {rel} into {len(parts)} parts")
     return len(parts)
