@@ -4,11 +4,15 @@ selection(...) returns a SQL WHERE clause plus its arguments, used by every list
 """
 import re
 
+# A screenshot: a PNG with no camera (iPhone/Android screenshots), or "screenshot" in the name. PNGs a camera made keep
+# their camera make/model, so they still count as photos.
+SCREENSHOT = "((ext = 'png' AND make IS NULL) OR lower(name) LIKE '%screenshot%')"
+
 FILTERS = {
-    "photos": "kind = 'image'",
+    "photos": f"kind = 'image' AND NOT {SCREENSHOT}",
     "videos": "kind = 'video'",
     "raw": "ext IN ('arw','cr2','cr3','nef','dng','raf','orf','rw2')",
-    "screenshots": "(ext = 'png' OR lower(name) LIKE '%screenshot%')",
+    "screenshots": SCREENSHOT,
     "backedup": "msg_id IS NOT NULL",
     "notbackedup": "msg_id IS NULL",
     "undated": "date_src = 'file'",

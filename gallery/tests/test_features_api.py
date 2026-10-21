@@ -55,9 +55,10 @@ def test_filters(api, f, expected):
         assert got == expected
 
 
-def test_photos_filter_excludes_videos(api):
+def test_photos_filter_excludes_videos_and_screenshots(api):
     got = names(api, filter="photos")
-    assert len(got) == 7 and not any(n.endswith(".mp4") or "part" in n for n in got)
+    assert len(got) == 6 and not any(n.endswith(".mp4") or "part" in n for n in got)
+    assert "screenshot.png" not in got                                   # under Screenshots (and All), not Photos
 
 
 def test_filters_combine_with_folder_and_search(api):
