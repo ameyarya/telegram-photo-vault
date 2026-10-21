@@ -11,6 +11,8 @@ from pathlib import Path
 
 from config import DRIVE, INBOX, STATE
 
+MAX = int(os.environ.get("SPLIT_LIMIT") or 2 * 1024**3)   # Telegram's per-file limit: bigger videos are split on the drive
+
 
 def backed_up():
     """Drive paths that are in Telegram (or skipped on purpose)."""
@@ -41,9 +43,10 @@ def move_to_drive(log=print):
         return 0
     done, moved = backed_up(), 0
     for rel in files():
-        if rel not in done:
-            continue                                   # not in Telegram yet: the uploader may be reading it
         src, dst = INBOX / rel, DRIVE / rel
+        if rel not in done and src.stat().st_size <= MAX:
+            continue                                   # not in Telegram yet: the uploader may be reading it
+                                                       # (too big to upload whole: moves now, split on the drive)
         if dst.exists():
             if dst.stat().st_size == src.stat().st_size:
                 src.unlink()                           # already there
