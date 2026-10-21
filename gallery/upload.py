@@ -6,7 +6,8 @@
 * Already there (same name and size in their folder): skipped, so picking everything again only sends what's new.
 * Written to a .part file and renamed when complete: a half-sent file never shows up. Never overwrites: a different
   file with a taken name becomes "name (2).ext". The file keeps the phone's modified time.
-* Drive unplugged: files wait on this Mac (DATA/uploads-waiting/) and move to the drive when it's plugged in.
+* Drive unplugged: files wait in the Mac's inbox (INBOX/<folder>/), are backed up from there, and move to the drive
+  when it's plugged in.
 After a batch the gallery indexes the new files; auto-backup then sends them to Telegram like anything else.
 """
 import asyncio
@@ -21,11 +22,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from config import BASE, DATA, DRIVE, IMAGE_EXT, VIDEO_EXT
+from config import BASE, DRIVE, IMAGE_EXT, INBOX, VIDEO_EXT
 from db import connect
 
 router = APIRouter()
-WAITING = Path(DATA) / "uploads-waiting"
+WAITING = INBOX   # drive unplugged: uploads wait in the inbox (inbox.py moves them over once they're backed up)
 MAX = 2 * 1024**3  # Telegram's limit; bigger files would need splitting (split_large.sh)
 
 
@@ -138,40 +139,20 @@ _index = {"proc": None}
 
 @router.post("/api/upload/done")
 def batch_done():
-    """A batch finished: add the new files to the gallery now (auto-backup sends them to Telegram)."""
-    move_waiting()
+    """A batch finished: add the new files to the gallery now (the watcher sends them to Telegram)."""
+    from config import roots
     p = _index["proc"]
-    if DRIVE.is_dir() and (p is None or p.poll() is not None):
+    if p is None or p.poll() is not None:
         log = open(BASE / "index.log", "a")
         _index["proc"] = subprocess.Popen([sys.executable, str(BASE / "build_index.py")], cwd=BASE,
                                           stdout=log, stderr=log, start_new_session=True)
-    return {"indexing": DRIVE.is_dir()}
+    return {"indexing": bool(roots())}
 
 
 def move_waiting():
-    """Files uploaded while the drive was unplugged: onto the drive now (never overwriting)."""
-    if not DRIVE.is_dir() or not WAITING.is_dir():
-        return 0
-    moved = 0
-    for folder in os.listdir(WAITING):
-        src_dir = WAITING / folder
-        if not src_dir.is_dir():
-            continue
-        (DRIVE / folder).mkdir(exist_ok=True)
-        for fn in os.listdir(src_dir):
-            if fn.startswith("."):
-                continue
-            src, dst = src_dir / fn, DRIVE / folder / fn
-            if dst.exists() and dst.stat().st_size == src.stat().st_size:
-                src.unlink()                          # already on the drive
-                continue
-            k, stem, ext = 1, *fn.rsplit(".", 1)
-            while dst.exists():
-                k += 1
-                dst = DRIVE / folder / f"{stem} ({k}).{ext}"
-            shutil.move(src, dst)                     # different disk: copied (dates kept), then removed from the Mac
-            moved += 1
-    return moved
+    """Files that waited in the inbox: onto the drive once they're backed up (see inbox.py)."""
+    import inbox
+    return inbox.move_to_drive()
 
 
 @router.get("/api/upload/info")

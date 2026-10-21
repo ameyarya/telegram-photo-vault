@@ -36,7 +36,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
 | ↳ **Download** a selection — one file, or a streamed .zip (Live Photo clips included), from the drive or Telegram | ✅ tested |
 | ↳ **Upload from phone** — family back up their phone from the gallery's Upload page (home Wi-Fi), into their own folder on the drive; resumable, never overwrites | ✅ tested |
-| **Auto-backup** (`backup/autobackup.py`) — once a day (3 AM, or when the drive is plugged in): backs up new photos, updates the gallery, analyses them; waits while files are still being copied | ✅ tested |
+| **Real-time backup** (`backup/watcher.py`): new photos from phones, iCloud or the drive reach Telegram and the gallery within minutes, even with the drive unplugged (they wait in an inbox on the Mac, then move onto the drive) | ✅ tested |
 | **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
 
 Not built: encryption before upload, Windows/Linux support, access from outside your home network.
@@ -133,17 +133,22 @@ cd gallery && ../.venv/bin/python ml.py download    # ~650 MB, once: OpenCLIP Vi
 
 Later runs only process new photos; the Backup page has an "Analyse new photos" button.
 
-### Optional: auto-backup when the drive is plugged in
+### Optional: real-time backup
 
 ```sh
 zsh backup/install_autobackup.sh            # on  (zsh backup/install_autobackup.sh --remove  to turn off)
 ```
 
-Once a day at 3 AM (or as soon as the Mac wakes, if it was asleep), and when `DRIVE` is plugged in if it hasn't run that
-day: it rescans for new files, uploads them,
-updates the gallery index, analyses new photos (if the optional models are installed) and shows a notification when
-something was backed up. If files are still being copied onto the drive (say, an Image Capture import or a phone
-syncing), it checks again every 5 minutes for up to 2 hours, so a half-copied file is never uploaded. It won't run twice at once and skips if an upload is running.
+A small service (`backup/watcher.py`) runs all the time and checks every minute. New photos are uploaded to Telegram,
+added to the gallery and analysed within minutes, and you get a notification. The photos can come from:
+- the **inbox** on the Mac (`<state>/inbox/<folder>/`, set with `INBOX_DIR`), where phones (Syncthing), the gallery's
+  upload page and the iCloud export put them;
+- the **drive**, rescanned when it's plugged in and hourly after that, once copying has stopped (e.g. an Image Capture
+  import).
+
+**The drive doesn't need to be plugged in.** Inbox files are backed up and shown in the gallery straight away, and move
+onto the drive under the same path once it's plugged in (only after they're in Telegram). If the Mac gets low on space
+while the drive stays unplugged, you get a notification. `backup/autobackup.py` still works for a one-off run by hand.
 Leave `FOLDERS` empty in `config.env` to include new top-level folders automatically.
 
 **It uploads with your bot(s), so set up the bot uploader below first.** macOS doesn't let background jobs read an
@@ -164,7 +169,8 @@ backup of an Android phone, use [Syncthing](https://syncthing.net) (free, open s
    turn off global discovery and relaying if both devices are always on the same Wi-Fi.
 2. Phone: install **Syncthing-Fork** from the Play Store, add the Mac (Actions → Show ID on the Mac shows a QR code), and
    add a folder for `DCIM/Camera` as **Send Only**, shared with the Mac.
-3. Mac: accept the phone and its folder, with the path set to a folder on your drive (e.g. `<drive>/her-phone`), and
+3. Mac: accept the phone and its folder, with the path set to a folder in the inbox (e.g. `<state>/inbox/her-phone`, so
+   it syncs even with the drive unplugged; the watcher moves backed-up files onto the drive), and
    Folder type **Receive Only**. Under Advanced, turn on **Ignore Delete**, so deleting photos on the phone never deletes
    them from the drive. Never press "Revert Local Changes" on it, because that deletes files the phone doesn't have.
 
@@ -222,8 +228,8 @@ If your iPhone uses iCloud Photos, the Mac can pick up new photos from iCloud ea
 4. In `config.env`: `ICLOUD_EXPORT_FOLDER="iphone"`, plus `ICLOUD_EXPORT_SINCE="<date of the newest photo already on
    the drive>"`, so photos you already copied aren't exported again.
 
-Auto-backup then starts by running `backup/icloud_export.py`: new photos (full quality, Live Photo videos included,
-edited copies and photos shared by others skipped) go into that folder, dated when they were taken, and then on to
+Whenever iCloud brings new photos to the Mac, the watcher runs `backup/icloud_export.py`: new photos (full quality, Live Photo videos included,
+edited copies and photos shared by others skipped) go into that folder in the inbox, dated when they were taken, then on to
 Telegram. A name already in the folder gets " (2)", because iPhone numbers wrap around. Nothing is ever overwritten,
 and deleting a photo in Photos never deletes it from the drive. Try it with `.venv/bin/python backup/icloud_export.py
 --dry-run`.

@@ -1,13 +1,15 @@
 #!/bin/zsh
-# Turn auto-backup on (runs autobackup.py daily at 3 AM, and when the drive is plugged in) or off.
+# Turn real-time backup on (watcher.py runs all the time: new photos reach Telegram within minutes) or off.
 #   zsh install_autobackup.sh            # on
 #   zsh install_autobackup.sh --remove   # off
-LABEL=local.photo-vault.autobackup
+LABEL=local.photo-vault.watcher
+OLD=local.photo-vault.autobackup   # the daily job it replaces
 DIR="${0:A:h}"
 VENV="${DIR:h}/.venv"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 launchctl bootout "gui/$UID/$LABEL" 2>/dev/null
-if [[ "$1" == "--remove" ]]; then rm -f "$PLIST"; echo "Auto-backup turned off"; exit 0; fi
+launchctl bootout "gui/$UID/$OLD" 2>/dev/null; rm -f "$HOME/Library/LaunchAgents/$OLD.plist"
+if [[ "$1" == "--remove" ]]; then rm -f "$PLIST"; echo "Real-time backup turned off"; exit 0; fi
 # launchd can't start programs, open logs or change into folders inside ~/Documents (or Desktop, Downloads), so it
 # starts Homebrew's Python (outside them) with the project's packages on PYTHONPATH; logs go to ~/Library/Logs/PhotoVault.
 read PY SITE <<< "$("$VENV/bin/python" -c 'import os, site, sys
@@ -20,14 +22,15 @@ cat > "$PLIST" <<EOF
 <plist version="1.0">
 <dict>
   <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key><array><string>$PY</string><string>$DIR/autobackup.py</string></array>
+  <key>ProgramArguments</key><array><string>$PY</string><string>$DIR/watcher.py</string></array>
   <key>EnvironmentVariables</key><dict><key>PYTHONPATH</key><string>$SITE</string></dict>
-  <key>StartOnMount</key><true/>
-  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
-  <key>StandardOutPath</key><string>$LOGS/autobackup.out</string>
-  <key>StandardErrorPath</key><string>$LOGS/autobackup.out</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
+  <key>StandardOutPath</key><string>$LOGS/watcher.out</string>
+  <key>StandardErrorPath</key><string>$LOGS/watcher.out</string>
 </dict>
 </plist>
 EOF
 launchctl bootstrap "gui/$UID" "$PLIST" 2>/dev/null || launchctl bootstrap "gui/$UID" "$PLIST"
-echo "Auto-backup is on: new photos on the drive are backed up once a day (3 AM, or when the drive is plugged in)"
+echo "Real-time backup is on: new photos reach Telegram and the gallery within minutes"

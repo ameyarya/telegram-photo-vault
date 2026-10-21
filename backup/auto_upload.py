@@ -24,14 +24,14 @@ MAX = 2 * 1024**3  # bigger files are split into playable parts in _split/ (spli
 
 
 def list_files():
-    """Relative paths to back up, in folder order, like upload.sh's find."""
-    out = []
-    for top in config.folders():
-        if not (DRIVE / top).is_dir() or (top == "_split" and not (DRIVE / "_split/.complete").exists()):
+    """Relative paths to back up (on the drive and in the Mac's inbox), in folder order, like upload.sh's find."""
+    out, seen = [], set()
+    for root, top in ((r, t) for t in config.folders() for r in config.roots()):
+        if not (root / top).is_dir() or (top == "_split" and not (root / "_split/.complete").exists()):
             continue  # missing, or parts still being written
         found = []
-        for dirpath, dirnames, filenames in os.walk(DRIVE / top):
-            rel_dir = os.path.relpath(dirpath, DRIVE)
+        for dirpath, dirnames, filenames in os.walk(root / top):
+            rel_dir = os.path.relpath(dirpath, root)
             dirnames[:] = sorted(d for d in dirnames if not d.startswith("."))
             if ".photoslibrary" in rel_dir and ".photoslibrary/originals" not in rel_dir:
                 continue  # a macOS Photos library: only its originals are photos
@@ -42,8 +42,10 @@ def list_files():
                     size = os.stat(os.path.join(dirpath, fn)).st_size
                 except OSError:
                     continue
-                if 0 < size <= MAX:
-                    found.append(os.path.join(rel_dir, fn))
+                rel = os.path.join(rel_dir, fn)
+                if 0 < size <= MAX and rel not in seen:
+                    seen.add(rel)
+                    found.append(rel)
         out += sorted(found)
     return out
 
@@ -68,11 +70,14 @@ def log(msg):
 
 
 def main():
-    if not DRIVE.is_dir():
-        log("drive not plugged in")
+    if not config.roots():
+        log("drive not plugged in, and nothing in the inbox")
         return 1
     files = list_files()
     if not files:
+        if not DRIVE.is_dir():
+            log("drive not plugged in, and nothing new in the inbox")
+            return 0
         log("found no files on the drive: not touching the list (no access to the drive?)")
         return 1
     STATE.mkdir(parents=True, exist_ok=True)
@@ -80,7 +85,7 @@ def main():
     tmp.write_text("".join(f + "\n" for f in files))
     tmp.replace(STATE / "all.txt")
     todo = remaining(files)
-    log(f"{len(files)} files on the drive, {len(todo)} to upload")
+    log(f"{len(files)} files on the drive{'' if DRIVE.is_dir() else ' (unplugged: inbox only)'}, {len(todo)} to upload")
     if "--list" in sys.argv or not todo:
         return 0
     bots = bot_numbers()

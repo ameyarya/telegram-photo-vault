@@ -25,7 +25,7 @@ from telethon.tl.functions.upload import SaveBigFilePartRequest
 from telethon.tl.types import InputFileBig, PeerChannel
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "gallery"))
-from config import DRIVE, STATE, load_env  # noqa: E402
+from config import DRIVE, STATE, load_env, local_path, roots  # noqa: E402
 
 PART = 512 * 1024  # Telegram's maximum part size
 
@@ -160,15 +160,17 @@ async def run(workers=8, idx=1):
     channel = await client.get_entity(PeerChannel(cfg["channel_id"]))
     failed, n, sent_bytes, t0 = set(), 0, 0, time.time()
     while True:
-        if not DRIVE.is_dir():
-            log("drive disconnected; stopping")
+        if not roots():
+            log("drive disconnected and the inbox is gone; stopping")
             break
         rel, left = claim(failed)
         if rel is None:
             log(f"met the account uploader ({left} left for it); stopping")
             break
         try:
-            f = await upload_parallel(client, DRIVE / rel, workers)
+            if not local_path(rel).exists():
+                raise FileNotFoundError(f"{rel} isn't on the drive or in the inbox (drive unplugged?)")
+            f = await upload_parallel(client, local_path(rel), workers)
             msg = await client.send_file(channel, f, caption=rel, force_document=True)
         except FloodWaitError as e:
             release(rel)
@@ -187,7 +189,7 @@ async def run(workers=8, idx=1):
             d.write(rel + "\n")
         release(rel)
         n += 1
-        sent_bytes += os.path.getsize(DRIVE / rel)
+        sent_bytes += os.path.getsize(local_path(rel))
         if n % 20 == 0:
             log(f"bot {idx} uploaded {n} files, {sent_bytes / 1e9:.1f} GB, {sent_bytes / 1e6 / (time.time() - t0):.1f} MB/s")
     await client.disconnect()

@@ -160,8 +160,8 @@ def test_doesnt_start_a_second_analysis(ab):
 
 def test_runs_daily_and_when_plugged_in():
     plist = (SCRIPT.parent / "install_autobackup.sh").read_text()
-    assert "<key>StartOnMount</key><true/>" in plist and "<key>Hour</key><integer>3</integer>" in plist
-    assert "StartInterval" not in plist                                          # not every 30 minutes any more
+    assert "watcher.py" in plist and "<key>KeepAlive</key><true/>" in plist      # real time, not a schedule
+    assert "StartCalendarInterval" not in plist and "StartInterval" not in plist
 
 
 def test_keeps_checking_while_copying_then_backs_up(ab, tmp_path):
