@@ -37,7 +37,7 @@ INDEX_PATTERN = env("INDEX_PATTERN", "build_index.py")
 ML_PATTERN = env("ML_PATTERN", "ml.py run")
 ICLOUD = shlex.split(env("ICLOUD", f"{shlex.quote(PY)} {shlex.quote(str(HERE / 'icloud_export.py'))}"))
 ICLOUD_ON = bool(os.environ.get("ICLOUD_EXPORT_FOLDER", "").strip()) or bool(os.environ.get("AUTOBACKUP_ICLOUD"))
-COOLDOWN = int(env("COOLDOWN", 20 * 3600))  # at most once a day: plugging drives in doesn't trigger extra runs
+DAY_START = int(env("DAY_START", 3))   # a backup "day" starts at 3 AM, when the scheduled run happens
 SETTLE = int(env("SETTLE", 60))        # seconds the drive must stay unchanged: never upload a half-copied file
 MAX_WAIT = int(env("MAX_WAIT", 2 * 3600))  # while files are still being copied, keep checking for up to this long
 RECHECK = int(env("RECHECK", 300))         # ... every 5 minutes
@@ -99,15 +99,21 @@ def caffeinated(cmd):
     return ["caffeinate", "-is", *cmd] if shutil.which("caffeinate") else cmd
 
 
+def day_start(now=None):
+    """When the current backup day began: the latest DAY_START o'clock (today's, or yesterday's if it's earlier)."""
+    t = time.localtime(now or time.time())
+    start = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, DAY_START, 0, 0, 0, 0, -1))
+    return start if start <= (now or time.time()) else start - 86400
+
+
 def main():
     time.sleep(DELAY)
     if not DRIVE.is_dir():
         return                                        # some other drive, or not plugged in
     STATE.mkdir(parents=True, exist_ok=True)
     try:
-        if time.time() - int(LAST.read_text()) < COOLDOWN:
-            log(f"skipped: already backed up in the last {COOLDOWN // 3600} h" if COOLDOWN >= 3600
-                else f"skipped: last auto-backup was less than {COOLDOWN // 60} min ago")
+        if int(LAST.read_text()) >= day_start():         # once a day: the 3 AM run always goes ahead, and plugging
+            log(f"skipped: already backed up today (since {DAY_START} AM)")   # the drive in later doesn't add runs
             return
     except (OSError, ValueError):
         pass

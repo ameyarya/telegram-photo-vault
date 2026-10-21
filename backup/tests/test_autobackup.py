@@ -8,6 +8,7 @@ import pytest
 
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 SCRIPT = Path(__file__).resolve().parent.parent / "autobackup.py"
 
 
@@ -53,13 +54,23 @@ def test_photo_drive_triggers_upload_then_index(ab):
     assert not (ab["state"] / ".autobackup.lock").exists()          # lock released
 
 
-def test_cooldown_prevents_repeat_runs(ab):
+def test_once_per_backup_day(ab):
     ab["run"]()
     (ab["state"] / "upload_args").unlink()
     log = ab["run"]()
-    assert "skipped: already backed up in the last 20 h" in log                # once a day
+    assert "skipped: already backed up today (since 3 AM)" in log                # plugging the drive in again: no rerun
     assert not (ab["state"] / "upload_args").exists()
-    ab["run"](AUTOBACKUP_COOLDOWN="0")
+
+
+def test_the_3am_run_goes_ahead_after_an_evening_run(ab):
+    """Regression: a backup at 8:37 PM made the 3 AM run skip itself (it counted 20 hours instead of days)."""
+    import autobackup
+    t = time.mktime((2026, 10, 20, 3, 0, 24, 0, 0, -1))                       # 3:00 AM
+    evening = time.mktime((2026, 10, 19, 20, 37, 0, 0, 0, -1))
+    assert evening < autobackup.day_start(t)                                    # yesterday evening: a new day began
+    assert autobackup.day_start(time.mktime((2026, 10, 20, 2, 59, 0, 0, 0, -1))) < evening   # 2:59 AM: same day
+    (ab["state"] / ".autobackup.last").write_text(str(int(time.time()) - 86400 * 2))
+    ab["run"]()
     assert (ab["state"] / "upload_args").exists()
 
 
