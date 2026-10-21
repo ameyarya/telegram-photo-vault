@@ -317,3 +317,15 @@ def shot(page, name):
     SHOTS.mkdir(exist_ok=True)
     page.wait_for_timeout(400)  # let fade-ins and drawer slides finish
     page.screenshot(path=str(SHOTS / f"{name}.png"))
+
+
+def all_oldest_first(page):
+    """Pages open on Photos, newest first; most UI tests were written for everything, oldest first."""
+    page.wait_for_selector("#chips, .tile, .empty, .cards")
+    if page.locator(".chip.on").count() and page.locator(".chip.on").first.get_attribute("data-f") != "":
+        page.click(".chip[data-f='']")
+        page.wait_for_selector(".chip.on[data-f='']")
+    if page.locator("#sortBtn").count() and "Newest" in page.locator("#sortBtn").inner_text():
+        page.click("#sortBtn")
+        page.wait_for_function("document.querySelector('#sortBtn')?.innerText.includes('Oldest')")
+    page.wait_for_load_state("networkidle")              # the page has reloaded its photos
