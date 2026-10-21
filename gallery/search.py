@@ -4,9 +4,12 @@ selection(...) returns a SQL WHERE clause plus its arguments, used by every list
 """
 import re
 
-# A screenshot: a PNG with no camera (iPhone/Android screenshots), or "screenshot" in the name. PNGs a camera made keep
-# their camera make/model, so they still count as photos.
-SCREENSHOT = "((ext = 'png' AND make IS NULL) OR lower(name) LIKE '%screenshot%')"
+# A screenshot: no camera recorded and either a PNG (iPhone/Android screenshots) or phone-screen shaped (taller than
+# about 2:1, or an older iPhone's exact 16:9 screen size: screenshots saved or shared as JPG/HEIC), or "screenshot" in
+# the name. Anything a camera made keeps its camera make/model, so tall camera photos and panoramas stay photos.
+PHONE_SCREEN = ("(width > 0 AND height > 0 AND (MAX(width, height) * 1.0 / MIN(width, height) >= 1.95"
+                " OR (MIN(width, height), MAX(width, height)) IN (VALUES (640, 1136), (750, 1334), (1242, 2208))))")
+SCREENSHOT = f"((make IS NULL AND (ext = 'png' OR {PHONE_SCREEN})) OR lower(name) LIKE '%screenshot%')"
 
 FILTERS = {
     "photos": f"kind = 'image' AND NOT {SCREENSHOT}",

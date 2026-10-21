@@ -26,7 +26,8 @@ svg{width:24px;height:24px;fill:currentColor;flex:none}
 /* ---------- shell ---------- */
 .topbar{position:fixed;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:8px;padding:0 16px 0 8px;background:var(--bg);z-index:20}
 .topbar.scrolled{box-shadow:0 1px 3px rgb(0 0 0/.12)}
-.logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);padding-right:24px;white-space:nowrap}
+/* wide screens: the logo fills up to the page content, so the search box lines up with it (8 + 40 + 8 + 208 = 264, + the page's 8) */
+.logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);width:208px;flex:none;white-space:nowrap}
 .logo svg{width:30px;height:30px;color:var(--accent)}
 .search{flex:1;max-width:720px;height:48px;border-radius:24px;background:var(--search);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px}
 .search input{flex:1;border:0;background:none;outline:0;font:inherit;font-size:16px;color:var(--ink);min-width:0}
@@ -48,6 +49,7 @@ svg{width:24px;height:24px;fill:currentColor;flex:none}
 .bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--accent)}
 main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflow-x:hidden}
+@media (min-width:901px){body.side-closed .side{display:none}body.side-closed main{left:0}}
 .page{padding:8px 32px 80px 16px}
 .page-head{display:flex;align-items:center;gap:8px;margin:8px 0 4px}
 .page-head h1{margin:0;font-size:28px;font-weight:400;line-height:1.25}
@@ -314,7 +316,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   .side .side-brand{display:flex}
   .scrim.open{display:block;position:fixed;inset:0;background:rgb(0 0 0/.32);z-index:30}
   main{left:0}
-  .logo span{display:none}.logo{padding-right:4px}
+  .logo span{display:none}.logo{width:auto;padding-right:4px}
   .page{padding:4px 8px 80px}
   .cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px 8px}
   .v-info{position:absolute;inset:auto 0 0 0;width:auto;max-height:60%;border:0;border-top:1px solid #333;z-index:4}
@@ -374,7 +376,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <div class="logo"><svg><use href="#i-photo"/></svg><span>Photo Vault</span></div>
   <form class="search" id="searchForm" role="search">
     <span class="icon-btn"><svg><use href="#i-search"/></svg></span>
-    <input id="q" placeholder="Search: beach, wedding cake, Feb 2024, Sony…" autocomplete="off" enterkeyhint="search">
+    <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
     <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
   </form>
   <div class="spacer"></div>
@@ -1702,7 +1704,16 @@ $("#vMain").addEventListener("touchend", e => {
 
 // ---------- side nav / search ----------
 function closeSide() { $("#side").classList.remove("open"); $("#scrim").classList.remove("open"); }
-$("#menuBtn").onclick = () => { if (innerWidth >= 900) return; $("#side").classList.toggle("open"); $("#scrim").classList.toggle("open"); };
+// Narrow screens: the menu slides in over the page. Wide screens: the sidebar hides and shows (remembered).
+$("#menuBtn").onclick = () => {
+  if (innerWidth > 900) {
+    const closed = document.body.classList.toggle("side-closed");
+    try { localStorage.setItem("pv-side", closed ? "closed" : "open"); } catch {}
+    return;
+  }
+  $("#side").classList.toggle("open"); $("#scrim").classList.toggle("open");
+};
+try { if (localStorage.getItem("pv-side") === "closed") document.body.classList.add("side-closed"); } catch {}
 $("#scrim").onclick = closeSide;
 $("#searchForm").onsubmit = e => { e.preventDefault(); const q = $("#q").value.trim(); if (q) location.hash = "#/search/" + encodeURIComponent(q); };
 $("#q").addEventListener("input", () => { $("#qClear").hidden = !$("#q").value; });
