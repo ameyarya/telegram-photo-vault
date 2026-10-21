@@ -20,7 +20,7 @@ from telethon.errors import FileReferenceExpiredError
 
 import tg
 from build_index import make_thumb, thumb_path
-from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, TELEGRAM, load_env
+from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, TELEGRAM, load_env, local_path
 from db import connect
 from search import VISIBLE, parse_query, selection
 
@@ -35,7 +35,6 @@ state = {"client": None, "cfg": load_env(), "msgs": {}, "last_sync": None, "tg_e
 async def sync_loop():
     while True:
         try:
-            await asyncio.to_thread(upload.move_waiting)   # phone uploads made while the drive was unplugged
             await tg.sync(state["client"], state["cfg"])
             state["last_sync"], state["tg_error"] = time.time(), None
         except Exception as e:  # keep serving; show the error in /api/status
@@ -199,7 +198,7 @@ async def thumb(media_id: int):
 
 # --- originals: drive first, Telegram otherwise ---
 def local_file(row):
-    for p in (DRIVE / row["path"], DRIVE / ".photo-vault-trash" / row["path"]):  # trashed files can still be viewed
+    for p in (local_path(row["path"]), DRIVE / ".photo-vault-trash" / row["path"]):  # trashed files can still be viewed
         if p.is_file():
             return p
     return None

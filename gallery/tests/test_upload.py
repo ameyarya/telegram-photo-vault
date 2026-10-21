@@ -83,13 +83,27 @@ def test_drive_unplugged_files_wait_on_the_mac(upworld):
         with httpx.Client(base_url=url, timeout=60) as c:
             r = put(c, "late.jpg", b"while unplugged").json()
             assert r["waiting"] is True
-        waiting = upworld["data"] / "uploads-waiting/mac-uploads/late.jpg"
+        waiting = upworld["state"] / "inbox/mac-uploads/late.jpg"
         assert waiting.read_bytes() == b"while unplugged"
+        with httpx.Client(base_url=url, timeout=60) as c:
+            assert c.post("/api/upload/done").json() == {"indexing": True}              # shown even while unplugged
+            for _ in range(100):
+                items = c.get("/api/items", params={"album": "mac-uploads"}).json()["items"]
+                if any(i["name"] == "late.jpg" for i in items):
+                    break
+                time.sleep(0.2)
+            else:
+                raise AssertionError("not in the gallery")
     finally:
         proc.terminate()
     import subprocess, sys
-    subprocess.run([sys.executable, "-c", "import upload; print(upload.move_waiting())"],
-                   cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), env=upworld["env"], check=True)
+    move = [sys.executable, "-c", "import upload; print(upload.move_waiting())"]
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    subprocess.run(move, cwd=here, env=upworld["env"], check=True)
+    assert waiting.exists()                                    # not in Telegram yet: stays in the inbox
+    with open(upworld["state"] / "done.log", "a") as d:
+        d.write("mac-uploads/late.jpg\n")
+    subprocess.run(move, cwd=here, env=upworld["env"], check=True)
     assert (upworld["drive"] / "mac-uploads/late.jpg").read_bytes() == b"while unplugged" and not waiting.exists()
 
 

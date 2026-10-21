@@ -23,3 +23,12 @@ def test_move_in_never_overwrites_and_keeps_pairs_together(tmp_path):
     assert (dest / "IMG_8132 (2).MOV").read_bytes() == b"new clip"                   # pair keeps one number
     assert int((dest / "IMG_9000.HEIC").stat().st_mtime) == 1700000000               # date kept
     assert os.listdir(stage) == []
+
+
+def test_names_known_from_the_gallery_count_even_with_the_drive_unplugged(tmp_path):
+    ie = importlib.import_module("icloud_export")
+    stage, dest = tmp_path / "stage", tmp_path / "inbox-iphone"
+    stage.mkdir(), dest.mkdir()
+    (stage / "IMG_0001.HEIC").write_bytes(b"new")
+    moved = ie.move_in(stage, dest, in_use={"IMG_0001.HEIC", "IMG_0001 (2).MOV"})   # e.g. from the gallery's records
+    assert moved == ["IMG_0001 (3).HEIC"]

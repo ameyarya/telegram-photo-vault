@@ -1,8 +1,9 @@
 """Bring iPhone photos from iCloud Photos onto the drive, so they're backed up like everything else.
 
 The Mac's Photos app syncs your iPhone's photos from iCloud. This exports the new ones (full quality, downloaded from
-iCloud if the Mac keeps only previews) into a folder on the drive; auto-backup then sends them to Telegram.
-It runs as the first step of auto-backup when ICLOUD_EXPORT_FOLDER is set in config.env:
+iCloud if the Mac keeps only previews) into the Mac's inbox under that folder name; the watcher then sends them to
+Telegram and moves them onto the drive whenever it's plugged in. The watcher runs it when iCloud brings new photos, if
+ICLOUD_EXPORT_FOLDER is set in config.env:
 
     ICLOUD_EXPORT_FOLDER="iphone"          # folder on the drive
     ICLOUD_EXPORT_SINCE="2026-01-01"       # optional: skip photos taken before this (e.g. already on the drive)
@@ -28,12 +29,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "gallery"))
-from config import DRIVE, STATE  # noqa: E402  (reads config.env)
+from config import DB_PATH, DRIVE, INBOX, STATE  # noqa: E402  (reads config.env)
 
 FOLDER = os.environ.get("ICLOUD_EXPORT_FOLDER", "").strip().strip("/")
 SINCE = os.environ.get("ICLOUD_EXPORT_SINCE", "").strip()
 LIBRARY = Path(os.environ.get("PHOTOS_LIBRARY") or "~/Pictures/Photos Library.photoslibrary").expanduser()
-STAGE = DRIVE / ".icloud-export-staging"   # hidden: the gallery and uploader skip it
+STAGE = INBOX / ".icloud-export-staging"   # on the Mac, hidden: the gallery and uploader skip it
 
 
 def command(dry_run=False):
@@ -54,9 +55,27 @@ def stem_of(name):
     return (name.rsplit(".", 1)[0] if "." in name else name).lower()
 
 
-def move_in(stage, dest):
-    """Move exported files into dest, never overwriting; files sharing a name (photo + Live video) move together."""
-    taken = {stem_of(n) for n in os.listdir(dest)}          # exFAT ignores upper/lower case
+def names_in_use(folder):
+    """Every name in the folder, wherever it is now: on the drive (even if unplugged: the gallery knows them), in the
+    inbox, or already in Telegram."""
+    names = set()
+    for d in (DRIVE / folder, INBOX / folder):
+        if d.is_dir():
+            names.update(os.listdir(d))
+    if DB_PATH.exists():
+        import sqlite3
+        con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+        names.update(p.rsplit("/", 1)[1] for (p,) in con.execute("SELECT path FROM media WHERE path LIKE ?", (folder + "/%",)))
+        con.close()
+    done = STATE / "done.log"
+    if done.exists():
+        names.update(p.rsplit("/", 1)[1] for p in done.read_text().splitlines() if p.startswith(folder + "/"))
+    return names
+
+
+def move_in(stage, dest, in_use=()):
+    """Move exported files into dest, never reusing a name; files sharing a name (photo + Live video) move together."""
+    taken = {stem_of(n) for n in [*os.listdir(dest), *in_use]}   # exFAT ignores upper/lower case
     groups = {}
     for n in sorted(os.listdir(stage)):
         if not n.startswith(".") and (stage / n).is_file():
@@ -81,18 +100,15 @@ def main():
     if not FOLDER:
         print("ICLOUD_EXPORT_FOLDER isn't set in config.env: nothing to do")
         return 0
-    if not DRIVE.is_dir():
-        print(f"drive not mounted ({DRIVE}): nothing to do")
-        return 0
     if not LIBRARY.exists():
         print(f"no Photos library at {LIBRARY}")
         return 1
     dry = "--dry-run" in sys.argv
-    (DRIVE / FOLDER).mkdir(exist_ok=True)
-    STAGE.mkdir(exist_ok=True)
+    (INBOX / FOLDER).mkdir(parents=True, exist_ok=True)
+    STAGE.mkdir(parents=True, exist_ok=True)
     code = subprocess.run(command(dry)).returncode
     if not dry:
-        moved = move_in(STAGE, DRIVE / FOLDER)             # also what an interrupted earlier run left behind
+        moved = move_in(STAGE, INBOX / FOLDER, names_in_use(FOLDER))   # also what an interrupted run left behind
         print(f"moved {len(moved)} files into {FOLDER}/" + (f", e.g. {moved[:3]}" if moved else ""), flush=True)
     return code
 

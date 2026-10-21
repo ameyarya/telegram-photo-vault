@@ -37,6 +37,9 @@ TIMESTAMPS = Path(os.environ.get("GALLERY_TIMESTAMPS") or STATE / "timestamps.ts
 RESTORE_DIR = Path(os.environ.get("GALLERY_RESTORE_DIR") or Path.home() / "Downloads" / "Photo Vault Restore")
 MODELS = Path(os.environ.get("GALLERY_MODELS") or STATE / "models")                    # ml.py download puts them here
 CACHE_MAX_BYTES = 10 * 1024**3  # trimmed oldest-first when exceeded
+# New photos (phones, iCloud) wait here on the Mac, laid out like the drive (inbox/<folder>/...), so they're backed up
+# and shown right away even with the drive unplugged; they move onto the drive once it's plugged in.
+INBOX = Path(os.environ.get("INBOX_DIR") or STATE / "inbox").expanduser()
 SESSION = str(STATE / "gallery")  # Telethon session file (gallery.session)
 TELEGRAM = os.environ.get("GALLERY_TELEGRAM", "1") != "0"
 # exact duplicates the uploader skips: "dup_path<TAB>kept_path" (written by backup/find_duplicates.py)
@@ -48,12 +51,27 @@ VIDEO_EXT = {"mov", "mp4", "m4v", "avi", "mts", "3gp", "mkv"}
 BROWSER_IMAGE_EXT = {"jpg", "jpeg", "png", "gif", "webp"}  # everything else is converted to JPEG for viewing
 
 
+def roots():
+    """Where photos are right now: the drive (if plugged in) and the Mac's inbox."""
+    return [r for r in (DRIVE, INBOX) if r.is_dir()]
+
+
+def local_path(rel):
+    """The file for a drive path: on the drive, or still in the inbox (the drive path if neither has it)."""
+    for r in (DRIVE, INBOX):
+        p = r / rel
+        if p.exists():
+            return p
+    return DRIVE / rel
+
+
 def folders():
-    """Top-level folders to show: FOLDERS from config.env, else everything on the drive. Plus _split (big videos)."""
+    """Top-level folders to show: FOLDERS from config.env, else every folder on the drive and in the inbox.
+    Plus _split (big videos)."""
     names = [f for f in os.environ.get("FOLDERS", "").split("|") if f.strip()]
-    if not names and DRIVE.is_dir():
-        names = sorted(p.name for p in DRIVE.iterdir()
-                       if p.is_dir() and not p.name.startswith((".", "_")) and p.name not in SYSTEM_DIRS)
+    if not names:
+        names = sorted({p.name for r in roots() for p in r.iterdir()
+                        if p.is_dir() and not p.name.startswith((".", "_")) and p.name not in SYSTEM_DIRS})
     return names + ["_split"]
 
 

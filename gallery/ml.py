@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from build_index import make_thumb, thumb_path
-from config import BASE, CACHE, DRIVE, MODELS
+from config import BASE, CACHE, DRIVE, MODELS, local_path
 from db import connect
 from search import selection
 
@@ -165,7 +165,7 @@ JOB_ID = None
 def _image_for(row):
     """The local thumbnail (made from the drive if missing)."""
     p = thumb_path(row["id"])
-    if not p.exists() and (DRIVE / row["path"]).is_file():
+    if not p.exists() and local_path(row["path"]).is_file():
         make_thumb({"id": row["id"], "path": row["path"], "kind": row["kind"]})
     return p if p.exists() else None
 

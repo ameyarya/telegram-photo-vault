@@ -114,6 +114,7 @@ def test_restore_skips_files_already_there_and_checks_them(tmp_path, cloud, cite
     import restore as R
     import server
     monkeypatch.setattr(R, "DRIVE", cloud["drive"])
+    monkeypatch.setattr(R, "local_path", lambda rel: cloud["drive"] / rel)
     con = sqlite3.connect(cloud["data"] / "index.db"); con.row_factory = sqlite3.Row
     rows = [dict(r) for r in con.execute("SELECT * FROM media WHERE name IN ('beach.jpg', 'sunset.jpg')")]
     dest = tmp_path / "out"

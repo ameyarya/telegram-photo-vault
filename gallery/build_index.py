@@ -13,7 +13,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from config import DRIVE, IMAGE_EXT, THUMBS, VIDEO_EXT, folders
+from config import DRIVE, IMAGE_EXT, INBOX, THUMBS, VIDEO_EXT, folders, local_path, roots
 from db import connect
 
 SKIP_EXT = {"aae", "xml", "srt", "thm"}
@@ -21,13 +21,14 @@ PART_RE = re.compile(r"^(.*)_part(\d+)$")
 
 
 def walk():
-    """Yield (relpath, stat) for every media file, using the same rules as the uploader."""
-    for top in folders():
-        base = DRIVE / top
+    """Yield (relpath, stat) for every media file on the drive and in the inbox, with the same rules as the uploader."""
+    seen = set()
+    for root, top in ((r, t) for r in roots() for t in folders()):
+        base = root / top
         if not base.is_dir() or (top == "_split" and not (base / ".complete").exists()):
             continue
         for dirpath, dirnames, filenames in os.walk(base):
-            rel_dir = os.path.relpath(dirpath, DRIVE)
+            rel_dir = os.path.relpath(dirpath, root)
             if ".photoslibrary" in rel_dir and ".photoslibrary/originals" not in rel_dir:
                 # a macOS Photos library: only its originals are photos; the rest is databases and caches
                 if rel_dir.endswith(".photoslibrary"):
@@ -41,10 +42,12 @@ def walk():
                 if fn.startswith(".") or ext in SKIP_EXT or ext not in IMAGE_EXT | VIDEO_EXT:
                     continue
                 full = os.path.join(dirpath, fn)
+                rel = os.path.join(rel_dir, fn)
                 st = os.stat(full)
-                if st.st_size == 0 or st.st_size > 2 * 1024**3:  # empty, or uploaded as split parts instead
+                if st.st_size == 0 or st.st_size > 2 * 1024**3 or rel in seen:  # empty, or uploaded as split parts
                     continue
-                yield os.path.join(rel_dir, fn), st
+                seen.add(rel)
+                yield rel, st
 
 
 def album_and_name(rel):
@@ -63,7 +66,8 @@ def album_and_name(rel):
 def exif_batch(paths):
     """Return {relpath: exif dict} using one exiftool process per batch."""
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
-        f.write("\n".join(str(DRIVE / p) for p in paths))
+        where = {str(local_path(p)): p for p in paths}
+        f.write("\n".join(where))
         argfile = f.name
     try:
         out = subprocess.run(
@@ -75,8 +79,7 @@ def exif_batch(paths):
         rows = json.loads(out or "[]")
     finally:
         os.unlink(argfile)
-    prefix = str(DRIVE) + "/"
-    return {r["SourceFile"][len(prefix):]: r for r in rows}
+    return {where[r["SourceFile"]]: r for r in rows if r.get("SourceFile") in where}
 
 
 def sideways(e):
@@ -113,7 +116,7 @@ def thumb_path(media_id):
 
 
 def make_thumb(row):
-    src, out = str(DRIVE / row["path"]), thumb_path(row["id"])
+    src, out = str(local_path(row["path"])), thumb_path(row["id"])
     if out.exists():  # already made on demand by the gallery
         return row["id"], 1
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -150,7 +153,7 @@ def prune_missing(con):
         return 0
     rows = con.execute("""SELECT id, path FROM media WHERE msg_id IS NULL
                           AND id NOT IN (SELECT media_id FROM trash)""").fetchall()
-    gone = [r["id"] for r in rows if not (DRIVE / r["path"]).exists()]
+    gone = [r["id"] for r in rows if not (DRIVE / r["path"]).exists() and not (INBOX / r["path"]).exists()]
     if not DRIVE.is_dir():                     # unplugged while checking: don't trust the answers
         return 0
     for i in range(0, len(gone), 500):
@@ -192,8 +195,8 @@ def pair_live_photos(con):
 
 
 def main():
-    if not DRIVE.is_dir():
-        sys.exit(f"Drive not mounted at {DRIVE}")
+    if not roots():
+        sys.exit(f"Drive not mounted at {DRIVE}, and nothing in the inbox ({INBOX})")
     con = connect(timeout=600)  # wait out the gallery writing rather than crash
     known = {r["path"]: (r["size"], r["mtime"]) for r in con.execute("SELECT path, size, mtime FROM media")}
 

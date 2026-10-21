@@ -15,7 +15,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import DRIVE, RESTORE_DIR, TIMESTAMPS
+from config import DRIVE, RESTORE_DIR, TIMESTAMPS, local_path
 from db import connect
 from search import selection
 
@@ -96,7 +96,7 @@ async def _run(job_id, rows, dest, verify):
                     if tmp.stat().st_size != row["size"]:
                         raise RuntimeError(f"size {tmp.stat().st_size} != {row['size']}")
                     tmp.rename(target)
-                original = DRIVE / row["path"]
+                original = local_path(row["path"])
                 if verify and original.is_file():
                     same = await asyncio.to_thread(lambda: _sha256(target) == _sha256(original))
                     if not same:
