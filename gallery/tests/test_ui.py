@@ -329,18 +329,19 @@ def test_viewer_inside_folder_steps_only_through_that_folder(page):
 
 
 # ---------- sort order ----------
-def test_sort_toggle_newest_first_and_remembered(page):
+def test_sort_newest_first_by_default_and_toggle(page):
     go(page)
-    expect(page.locator("#sortBtn")).to_have_text("Oldest first")
-    assert "2023" in page.locator(".day h3").first.inner_text()          # oldest first by default
-    page.click("#sortBtn")
-    expect(page.locator("#sortBtn")).to_have_text("Newest first")
-    expect(page.locator(".day h3").first).to_contain_text("Aug 26")       # the newest day now leads
+    page.click(".chip[data-f='']")                                        # All (pages open on Photos)
+    expect(page.locator("#sortBtn")).to_have_text("Newest first")         # newest first on every visit
+    expect(page.locator(".day h3").first).to_contain_text("Aug 26")       # the newest day leads
     expect(page.locator(".tile")).to_have_count(10)
     expect(page.locator("#pgSub")).to_contain_text("May 1, 2023 – Mon, Aug 26, 2024")  # full range either way
+    page.click("#sortBtn")
+    expect(page.locator("#sortBtn")).to_have_text("Oldest first")
+    assert "2023" in page.locator(".day h3").first.inner_text()          # the oldest day now leads
     page.reload()
     page.wait_for_selector(".tile")
-    expect(page.locator("#sortBtn")).to_have_text("Newest first")         # remembered
+    expect(page.locator("#sortBtn")).to_have_text("Newest first")         # not remembered: back to newest
     shot(page, "photos-newest-first")
 
 

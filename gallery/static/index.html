@@ -440,11 +440,10 @@ const PAGE = 400, GAP = 4;
 let albums = [], userAlbums = [], status = null, me = null;
 let feed = null;          // current timeline (see openFeed)
 let viewerIdx = -1, infoOpen = false;
-let newestFirst = false;  // timeline order; remembered in this browser
+let newestFirst = true;   // timeline order: newest first on every visit; the sort button flips it until a reload
 const DEFAULT_CHIP = "photos";  // pages with chips open on Photos, not All
 let filterChip = null;    // active filter chip on the current page (null: not picked yet, the page's default)
 const picked = new Set(); // selected item ids
-try { newestFirst = localStorage.getItem("pv-order") === "desc"; } catch {}
 
 async function api(url, opts) {
   const r = await fetch(url, opts);
@@ -709,7 +708,6 @@ function openFeed(o) {
   bindCards();
   $("#sortBtn") && ($("#sortBtn").onclick = () => {
     newestFirst = !newestFirst;
-    try { localStorage.setItem("pv-order", newestFirst ? "desc" : "asc"); } catch {}
     route();
   });
   $("#chips")?.addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route(); });
