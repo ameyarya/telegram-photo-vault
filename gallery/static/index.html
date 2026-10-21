@@ -1572,8 +1572,12 @@ function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) 
 let press = null;
 $("#vMain").addEventListener("pointerdown", e => { press = {x: e.clientX, y: e.clientY, mouse: e.pointerType === "mouse"}; });
 $("#vMain").addEventListener("click", e => {
+  if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5) return;   // that was a drag to look around
+  if (!e.target.closest(".v-media, .v-ph, .spinner, .v-msg, .v-top, .v-nav")) {     // the black space around it
+    zoom.s > 1 ? setZoom(1) : closeViewer();
+    return;
+  }
   if (!e.target.closest("img.v-media") || !press?.mouse) return;
-  if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 5) return;   // that was a drag to look around
   zoom.s > 1 ? setZoom(1) : setZoom(2.5, e.clientX, e.clientY);
 });
 $("#vMain").addEventListener("wheel", e => {

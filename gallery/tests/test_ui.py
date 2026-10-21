@@ -134,6 +134,33 @@ def test_viewer_opens_and_back_arrow_closes(page):
     expect(page).to_have_url(page.base + "/#/album/vacation")
 
 
+def black_spot(page):
+    """A point in the viewer's black space, beside or below the photo."""
+    img = page.locator("img.v-media").bounding_box()
+    main = page.locator("#vMain").bounding_box()
+    if img["x"] - main["x"] > 40:
+        return main["x"] + 20, main["y"] + main["height"] / 2
+    return main["x"] + main["width"] / 2, main["y"] + main["height"] - 20
+
+
+def test_click_on_the_black_space_closes_the_viewer(page):
+    page.set_viewport_size({"width": 1400, "height": 700})                # a wide window: black space beside the photo
+    open_first_photo(page)
+    page.locator("img.v-media").wait_for()
+    page.locator("img.v-media").click()                                    # on the photo: zooms, stays open
+    expect(page.locator("#viewer")).to_be_visible()
+    assert page.evaluate("zoom.s") > 1
+    page.mouse.click(*black_spot(page))                                    # zoomed: first click zooms back out
+    expect(page.locator("#viewer")).to_be_visible()
+    assert page.evaluate("zoom.s") == 1
+    page.mouse.click(*black_spot(page))                                    # then: back to the gallery
+    expect(page.locator("#viewer")).to_be_hidden()
+    expect(page).to_have_url(page.base + "/#/album/vacation")
+    open_first_photo(page)
+    page.click("#vNext")                                                   # buttons still just do their job
+    expect(page.locator("#viewer")).to_be_visible()
+
+
 def test_back_arrow_visible_on_huge_photo(page):
     """Regression: the old viewer pushed its close button off-screen for big photos."""
     page.set_viewport_size({"width": 1000, "height": 500})
