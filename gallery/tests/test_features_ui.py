@@ -4,7 +4,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from conftest import shot
+from conftest import all_oldest_first, shot
 
 ML = {"world": "mlworld"}
 BIG = {"world": "bigworld"}
@@ -18,6 +18,7 @@ def go(page, hash_=""):
 
 def open_photo(page, album, name):
     go(page, f"#/album/{album}")
+    all_oldest_first(page)
     page.locator(f"#days .tile:has(img)").first.wait_for()
     tiles = page.locator("#days .tile")
     for i in range(tiles.count()):
@@ -184,6 +185,7 @@ def test_zoom_click_keys_and_button(page):
 
 def test_zoom_hidden_for_videos(page):
     go(page, "#/album/family%2Fwedding%2Fday%201")
+    all_oldest_first(page)
     page.locator(".tile", has=page.locator(".dur")).click()
     expect(page.locator("#vZoom")).to_be_hidden()
 
@@ -192,6 +194,7 @@ def test_zoom_hidden_for_videos(page):
 @pytest.mark.parametrize("page", [BIG], indirect=True)
 def test_scrubber_jumps_and_loads_both_ways(page):
     go(page)
+    all_oldest_first(page)
     expect(page.locator("#pgSub")).to_contain_text("240 items")
     expect(page.locator("#scrubber")).to_be_visible()
     expect(page.locator("#scrubber .yr")).to_have_text(["2022", "2023"])
@@ -217,6 +220,7 @@ def test_scrubber_jumps_and_loads_both_ways(page):
 @pytest.mark.parametrize("page", [BIG], indirect=True)
 def test_scrubber_follows_newest_first(page):
     go(page)
+    all_oldest_first(page)
     page.click("#sortBtn")
     expect(page.locator("#scrubber .yr")).to_have_text(["2023", "2022"])
     sc = page.locator("#scrubber").bounding_box()

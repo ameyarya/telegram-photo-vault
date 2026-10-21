@@ -2,7 +2,7 @@
 import pytest
 from playwright.sync_api import expect
 
-from conftest import shot
+from conftest import all_oldest_first, shot
 
 MOBILE = {"viewport": {"width": 390, "height": 844}}
 
@@ -47,6 +47,7 @@ def test_highlight_follows_clicks(page):
 # ---------- timeline ----------
 def test_photos_timeline(page):
     go(page)
+    all_oldest_first(page)
     expect(page.locator(".tile")).to_have_count(10)
     days = page.locator(".day h3").all_inner_texts()
     assert len(days) == len(set(days)) == 6          # one heading per day, no duplicates
@@ -73,6 +74,7 @@ def test_rows_fill_the_width_and_keep_shapes(page):
 
 def test_video_tile_shows_duration(page):
     go(page, "#/album/family%2Fwedding%2Fday%201")
+    all_oldest_first(page)
     expect(page.locator(".tile .dur")).to_contain_text("0:02")
 
 
@@ -87,6 +89,7 @@ def test_albums_page_and_open_album(page):
     shot(page, "albums-dark")
     page.locator(".card", has_text="Day 1").click()
     expect(page.locator(".page-head h1")).to_have_text("Day 1")
+    all_oldest_first(page)
     expect(page.locator(".tile")).to_have_count(2)
     page.click("#pgBack")                                   # back goes up one folder
     expect(page).to_have_url(page.base + "/#/album/family%2Fwedding")
@@ -118,6 +121,7 @@ def test_search_shows_matching_albums_and_photos(page):
 # ---------- viewer ----------
 def open_first_photo(page, album="vacation"):
     go(page, f"#/album/{album}")
+    all_oldest_first(page)
     page.locator(".tile").first.click()
     expect(page.locator("#viewer")).to_be_visible()
     page.wait_for_function("document.querySelector('#vMain img.v-media')?.naturalWidth > 0")
@@ -228,6 +232,7 @@ def test_heic_photo_displays(page):
 
 def test_video_plays(page):
     go(page, "#/album/family%2Fwedding%2Fday%201")
+    all_oldest_first(page)
     page.locator(".tile", has=page.locator(".dur")).click()
     page.wait_for_function("document.querySelector('video.v-media')?.readyState >= 1")
     assert page.evaluate("Math.round(document.querySelector('video.v-media').duration)") == 2
@@ -313,8 +318,9 @@ def test_drill_down_breadcrumbs_and_back(page):
 def test_view_all_as_one_timeline(page):
     go(page, "#/album/family")
     page.click(".all-link")
+    expect(page.locator(".page-head h1")).to_contain_text("everything")   # the new page is up
+    all_oldest_first(page)
     expect(page.locator(".tile")).to_have_count(6)
-    expect(page.locator(".page-head h1")).to_contain_text("everything")
     page.click("#pgBack")
     expect(page).to_have_url(page.base + "/#/album/family")
     expect(page.locator(".card")).to_have_count(2)
@@ -347,6 +353,7 @@ def test_sort_newest_first_by_default_and_toggle(page):
 
 def test_sort_applies_to_albums_and_viewer(page):
     go(page, "#/album/vacation")
+    all_oldest_first(page)
     page.click("#sortBtn")
     page.locator(".tile").first.click()
     page.click("#vInfoBtn")

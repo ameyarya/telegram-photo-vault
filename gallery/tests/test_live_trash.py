@@ -9,7 +9,7 @@ import httpx
 import numpy as np
 import pytest
 
-from conftest import PY, ROOT, shot
+from conftest import PY, ROOT, all_oldest_first, shot
 
 TRASH = ".photo-vault-trash"
 
@@ -234,6 +234,7 @@ def test_maybe_same_ranking_unit():
 @pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
 def test_ui_live_badge_and_play_button(page):
     page.goto(page.base + "/#/album/phone")
+    all_oldest_first(page)
     tile = page.locator("#days .tile", has=page.locator(".live"))
     tile.first.wait_for()
     assert tile.count() == 1
