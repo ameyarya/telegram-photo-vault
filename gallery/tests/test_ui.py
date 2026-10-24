@@ -366,3 +366,9 @@ def test_no_sort_button_on_folder_with_only_subfolders(page):
     go(page, "#/album/family")
     expect(page.locator(".card")).to_have_count(2)
     expect(page.locator("#sortBtn")).to_have_count(0)
+
+
+def test_sidebar_shows_backed_up_percentage(page):
+    go(page)
+    expect(page.locator(".side")).to_contain_text("Backed up: 0 of 10 (0%)")     # Telegram is off in the test world
+    assert page.evaluate("[backedPct(9999, 10000), backedPct(5, 10), backedPct(10, 10), backedPct(0, 0)]") == [99, 50, 100, 100]
