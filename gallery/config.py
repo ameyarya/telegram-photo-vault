@@ -40,6 +40,9 @@ CACHE_MAX_BYTES = 10 * 1024**3  # trimmed oldest-first when exceeded
 # New photos (phones, iCloud) wait here on the Mac, laid out like the drive (inbox/<folder>/...), so they're backed up
 # and shown right away even with the drive unplugged; they move onto the drive once it's plugged in.
 INBOX = Path(os.environ.get("INBOX_DIR") or STATE / "inbox").expanduser()
+# Folders kept only in Telegram: never copied to the drive, and removed from the Mac once safely uploaded (the gallery
+# shows them from Telegram). E.g. an old account's photos you don't want on the drive. Separate with "|".
+CLOUD_ONLY = {f.strip().strip("/") for f in os.environ.get("CLOUD_ONLY_FOLDERS", "").split("|") if f.strip()}
 SESSION = str(STATE / "gallery")  # Telethon session file (gallery.session)
 TELEGRAM = os.environ.get("GALLERY_TELEGRAM", "1") != "0"
 # exact duplicates the uploader skips: "dup_path<TAB>kept_path" (written by backup/find_duplicates.py)

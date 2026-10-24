@@ -9,7 +9,7 @@ import os
 import shutil
 from pathlib import Path
 
-from config import DRIVE, INBOX, STATE
+from config import CLOUD_ONLY, DB_PATH, DRIVE, INBOX, STATE, THUMBS
 
 MAX = int(os.environ.get("SPLIT_LIMIT") or 2 * 1024**3)   # Telegram's per-file limit: bigger videos are split on the drive
 
@@ -43,6 +43,8 @@ def move_to_drive(log=print):
         return 0
     done, moved = backed_up(), 0
     for rel in files():
+        if rel.split("/", 1)[0] in CLOUD_ONLY:
+            continue                                   # Telegram only: never on the drive
         src, dst = INBOX / rel, DRIVE / rel
         if rel not in done and src.stat().st_size <= MAX:
             continue                                   # not in Telegram yet: the uploader may be reading it
@@ -67,6 +69,29 @@ def move_to_drive(log=print):
         if Path(dirpath) != INBOX and not os.listdir(dirpath) and Path(dirpath).parent != INBOX:
             os.rmdir(dirpath)                          # tidy empty sub-folders (top folders stay: Syncthing uses them)
     return moved
+
+
+def free_cloud_only(log=print):
+    """Delete Telegram-only files from the Mac once they're safe: uploaded, linked in the gallery (so it streams them
+    from Telegram) and with a thumbnail made. Returns how many were removed."""
+    if not CLOUD_ONLY or not DB_PATH.exists():
+        return 0
+    import sqlite3
+    done, removed = backed_up(), 0
+    con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    for rel in files():
+        if rel.split("/", 1)[0] not in CLOUD_ONLY or rel not in done:
+            continue
+        row = con.execute("SELECT id, msg_id FROM media WHERE path = ?", (rel,)).fetchone()
+        if not row or not row[1]:
+            continue                                   # the gallery hasn't linked it to Telegram yet
+        thumb = THUMBS / f"{row[0] % 256:02x}" / f"{row[0]}.jpg"
+        if not thumb.exists():
+            continue
+        (INBOX / rel).unlink()
+        removed += 1
+    con.close()
+    return removed
 
 
 def mac_free_gb():

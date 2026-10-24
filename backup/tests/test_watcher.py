@@ -117,3 +117,25 @@ def test_unreadable_photos_library_is_reported_once(w):
     assert "can't read the Photos library" in log and "Give Python Full Disk Access" in log
     log = w["once"](WATCH_ICLOUD="true", PHOTOS_LIBRARY=str(lib))
     assert log.count("Give Python Full Disk Access") == 1                         # not every minute
+
+
+def test_telegram_only_folder_never_goes_to_the_drive_and_leaves_the_mac_once_safe(w):
+    import sqlite3
+    f = w["state"] / "inbox/old-account/old.jpg"
+    f.parent.mkdir(parents=True)
+    f.write_bytes(b"old google photo")
+    data = w["tmp"] / "data"
+    (data / "thumbs/01").mkdir(parents=True)
+    con = sqlite3.connect(data / "index.db")
+    con.execute("CREATE TABLE media (id INTEGER PRIMARY KEY, path TEXT, msg_id INT)")
+    con.execute("INSERT INTO media VALUES (1, 'old-account/old.jpg', NULL)")
+    con.commit()
+    w["once"](CLOUD_ONLY_FOLDERS="old-account")
+    assert (w["state"] / "uploaded").exists() and not (w["drive"] / "old-account").exists()   # uploaded, not on the drive
+    assert f.exists()                                       # not linked to Telegram in the gallery yet: kept
+    con.execute("UPDATE media SET msg_id = 99"); con.commit()
+    w["once"](CLOUD_ONLY_FOLDERS="old-account")
+    assert f.exists()                                       # no thumbnail yet: kept
+    (data / "thumbs/01/1.jpg").write_bytes(b"thumb")
+    log = w["once"](CLOUD_ONLY_FOLDERS="old-account")
+    assert not f.exists() and not (w["drive"] / "old-account/old.jpg").exists() and "removed 1 Telegram-only" in log

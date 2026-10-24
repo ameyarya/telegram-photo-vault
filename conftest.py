@@ -3,7 +3,7 @@ import os
 
 os.environ["VAULT_CONFIG"] = os.devnull
 for _k in ("DRIVE", "STATE_DIR", "FOLDERS", "GALLERY_DATA", "GALLERY_MODELS", "GALLERY_CERT", "GALLERY_KEY",
-           "TG_API_ID", "TG_API_HASH", "TG_CHANNEL_ID", "ICLOUD_EXPORT_FOLDER", "ICLOUD_EXPORT_SINCE", "PHOTOS_LIBRARY"):
+           "TG_API_ID", "TG_API_HASH", "TG_CHANNEL_ID", "ICLOUD_EXPORT_FOLDER", "ICLOUD_EXPORT_SINCE", "PHOTOS_LIBRARY", "CLOUD_ONLY_FOLDERS"):
     os.environ.pop(_k, None)
 for _k in [k for k in os.environ if k.startswith("TG_BOT_TOKEN")]:
     os.environ.pop(_k)
