@@ -1701,6 +1701,8 @@ $("#vMain").addEventListener("touchend", e => {
 });
 
 // ---------- side nav / search ----------
+// rounded down, so it only says 100% when every item is backed up
+const backedPct = (n, total) => !total ? 100 : n >= total ? 100 : Math.min(99, Math.floor(n * 100 / total));
 function closeSide() { $("#side").classList.remove("open"); $("#scrim").classList.remove("open"); }
 // Narrow screens: the menu slides in over the page. Wide screens: the sidebar hides and shows (remembered).
 $("#menuBtn").onclick = () => {
@@ -1725,7 +1727,7 @@ function renderSide() {
   if (!status) return;
   const pct = status.total ? Math.round(100 * status.uploaded / status.total) : 0;
   $("#stat").innerHTML = `
-    <div>${ico("cloud")} Backed up: ${nf(status.uploaded)} of ${nf(status.total)}</div>
+    <div>${ico("cloud")} Backed up: ${nf(status.uploaded)} of ${nf(status.total)} (${backedPct(status.uploaded, status.total)}%)</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div><span class="status-dot ${status.telegram ? "on" : ""}"></span>Telegram ${status.telegram ? "connected" : "offline"}</div>
     <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
