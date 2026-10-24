@@ -39,3 +39,25 @@ def test_takeout_import(tmp_path):
     assert (dest / "beach.jpg").read_bytes() == b"beach-bytes" and int((dest / "beach.jpg").stat().st_mtime) == 1420000000
     assert "3 added, 1 already in library, 1 same photo in another album" in out
     assert "0 added" in run()                                       # run again: nothing twice
+
+
+def test_all_of_googles_note_names_are_matched():
+    import importlib, io
+    sys.path.insert(0, str(SCRIPT.parent))
+    it = importlib.import_module("import_takeout")
+    buf = io.BytesIO()
+    note = lambda t: json.dumps({"photoTakenTime": {"timestamp": str(t)}})
+    d = "Takeout/Google Photos/Trip 🎪"
+    long = "PXL_20210101_123456789.PORTRAIT.ORIGINAL"                       # cut off in its note's name
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, t in {f"{d}/a.jpg.json": 1, f"{d}/b.jpg.supplemental-metadata.json": 2,
+                        f"{d}/c.jpg.supplemental-metadata(1).json": 3, f"{d}/c.jpg.supplemental-metadata.json": 4,
+                        f"{d}/e.jpg.suppl.json": 5, f"{d}/{long[:38]}.json": 6, f"{d}/metadata.json": 0,
+                        f"{d}/g.mp4.supplemental-metadata.json": 7}.items():
+            zf.writestr(name, note(t) if t else json.dumps({"title": "album"}))
+    taken = it.sidecars(zipfile.ZipFile(buf))
+    assert taken(f"{d}/a.jpg") == 1 and taken(f"{d}/b.jpg") == 2
+    assert taken(f"{d}/c(1).jpg") == 3 and taken(f"{d}/c.jpg") == 4          # numbered copies keep their own date
+    assert taken(f"{d}/b-edited.jpg") == 2                                  # edited: the original's date
+    assert taken(f"{d}/e.jpg") == 5 and taken(f"{d}/{long}.jpg") == 6 and taken(f"{d}/g.mp4") == 7
+    assert taken(f"{d}/nothing.jpg") is None
