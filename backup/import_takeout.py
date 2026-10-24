@@ -46,30 +46,56 @@ def log(msg):
         f.write(line + "\n")
 
 
+NOTE_RE = re.compile(r"^(?P<base>.+?\.[A-Za-z0-9]{2,5})(?:\.[^/]*?)?(?P<num>\(\d+\))?\.json$")
+EDITED = ("-edited", "-bearbeitet", "-modifié", "-editado", "-modificato", "-bewerkt")
+
+
 def sidecars(z):
-    """Google's notes: {photo entry name: photoTakenTime}. Takeout names them '<photo>.json' or, when the name is long,
-    with a cut-down name ('<photo>.supplemental-metadata.json', '<photo>.suppl.json' ...); match by folder + prefix."""
-    notes = {}
+    """Google's notes: a function from a photo's entry name to its photoTakenTime (or None).
+
+    Takeout names a photo's note in several ways; all are handled:
+      IMG.jpg -> IMG.jpg.json / IMG.jpg.supplemental-metadata.json / IMG.jpg.suppl.json (cut short when long)
+      IMG(1).jpg -> IMG.jpg.supplemental-metadata(1).json (or IMG.jpg(1).json)
+      IMG-edited.jpg -> the original's note
+      a very long name -> the note's name is cut off: matched by the start of the name in the same folder"""
+    exact, by_prefix = {}, {}
     for n in z.namelist():
-        if n.endswith(".json"):
-            try:
-                t = json.loads(z.read(n)).get("photoTakenTime", {}).get("timestamp")
-            except (ValueError, KeyError, AttributeError):
-                continue
-            if t:
-                notes[n[:-5]] = int(t)
+        if not n.endswith(".json"):
+            continue
+        folder, fn = n.rsplit("/", 1) if "/" in n else ("", n)
+        try:
+            t = json.loads(z.read(n)).get("photoTakenTime", {}).get("timestamp")
+        except (ValueError, KeyError, AttributeError):
+            continue
+        if not t:
+            continue
+        m = NOTE_RE.match(fn)
+        if m:
+            exact[(folder, m.group("base").lower(), m.group("num") or "")] = int(t)
+        stem = fn[:-5]
+        by_prefix.setdefault(folder, []).append((stem.lower(), int(t)))
+
     def taken(name):
-        if name in notes:
-            return notes[name]
         folder, fn = name.rsplit("/", 1) if "/" in name else ("", name)
-        m = re.match(r"^(.*?)(\(\d+\))(\.\w+)$", fn)                       # IMG(1).jpg -> IMG.jpg(1).json
-        if m and f"{folder}/{m.group(1)}{m.group(3)}{m.group(2)}" in notes:
-            return notes[f"{folder}/{m.group(1)}{m.group(3)}{m.group(2)}"]
-        for k, v in notes.items():                                         # cut-down names
-            kf, kn = k.rsplit("/", 1) if "/" in k else ("", k)
-            if kf == folder and (kn.startswith(fn) or (len(kn) >= 40 and fn.startswith(kn.split(".")[0]))):
-                return v
-        return None
+        stem, ext = (fn.rsplit(".", 1) + [""])[:2]
+        num = ""
+        m = re.match(r"^(.*?)(\(\d+\))$", stem)                              # IMG(1).jpg
+        if m:
+            stem, num = m.group(1), m.group(2)
+        for suffix in EDITED:                                                 # IMG-edited.jpg: the original's note
+            if stem.lower().endswith(suffix):
+                stem = stem[:-len(suffix)]
+        base = f"{stem}.{ext}".lower() if ext else stem.lower()
+        for key in ((folder, base, num), (folder, base, "")):
+            if key in exact:
+                return exact[key]
+        full = f"{stem}{num}.{ext}".lower()
+        best = None
+        for note_stem, t in by_prefix.get(folder, []):                        # cut-off names
+            if len(note_stem) >= 30 and (full.startswith(note_stem.split(".")[0]) or note_stem.startswith(full)):
+                if best is None or len(note_stem) > best[0]:
+                    best = (len(note_stem), t)
+        return best[1] if best else None
     return taken
 
 
