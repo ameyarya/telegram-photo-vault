@@ -204,6 +204,9 @@ class Watcher:
             split = [f for f in big if (config.DRIVE / f).exists() and f.rsplit(".", 1)[-1].lower() in config.VIDEO_EXT]
             if split and sum(split_video(f) for f in split):
                 backup_new(f"{len(split)} big video{'' if len(split) == 1 else 's'} split into parts")
+        freed = inbox.free_cloud_only(log)
+        if freed:
+            log(f"removed {freed} Telegram-only files from the Mac (safely uploaded)")
         free = inbox.mac_free_gb()
         if free < LOW_GB and time.time() - self.warned > 86400:
             self.warned = time.time()
