@@ -159,3 +159,26 @@ def test_timestamp_manifest_parsing(tmp_path):
     assert list(stamps) == ["a/b.jpg"]
     assert stamps["a/b.jpg"] == (datetime(2020, 1, 2, 3, 4, 5).timestamp(), datetime(2021, 2, 3, 4, 5, 6).timestamp())
     assert R.load_timestamps(tmp_path / "missing.tsv") == {}
+
+
+def test_uploads_the_channel_read_missed_are_linked_from_the_uploaders_record(tmp_path):
+    """Regression: with several bots sending at once, reading the channel stepped past one message; it stayed
+    'not backed up' forever although it was in Telegram."""
+    import os, subprocess, sys
+    state, data = tmp_path / "state", tmp_path / "data"
+    state.mkdir(), data.mkdir()
+    (state / "bot_uploads.tsv").write_text("old/IMG_1.jpg\t96927\t3\n")
+    env = {**os.environ, "VAULT_CONFIG": os.devnull, "STATE_DIR": str(state), "GALLERY_DATA": str(data),
+           "GALLERY_TELEGRAM": "0"}
+    code = """
+import db, tg
+con = db.connect()
+con.execute("INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime) VALUES "
+            "('old/IMG_1.jpg', 'old', 'IMG_1.jpg', 'image', 'jpg', '2019-01-18T23:29:06', 'file', 1, 1)")
+con.commit()
+tg._save([], 98377)                      # the channel read went past message 96927 without seeing it
+print(con.execute("SELECT msg_id FROM media WHERE path = 'old/IMG_1.jpg'").fetchone()[0])
+"""
+    out = subprocess.run([sys.executable, "-c", code], cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                         env=env, capture_output=True, text=True, check=True).stdout.strip()
+    assert out == "96927"

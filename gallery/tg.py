@@ -44,6 +44,13 @@ def _save(pairs, last):
     moved = dict(con.execute("SELECT old, new FROM path_moves").fetchall())  # captions keep the path at upload time
     pairs = [(moved.get(p, p), m) for p, m in pairs]
     con.executemany("INSERT OR REPLACE INTO tg_msgs(path, msg_id) VALUES(?, ?)", pairs)
+    # The bot uploaders write down every message they send (path, message id): add any the channel read missed
+    # (with several bots sending at once, reading the channel can step past a message), so none stays unlinked.
+    sent = STATE / "bot_uploads.tsv"
+    if sent.exists():
+        rows = [l.split("\t") for l in sent.read_text().splitlines()]
+        con.executemany("INSERT OR IGNORE INTO tg_msgs(path, msg_id) VALUES(?, ?)",
+                        [(moved.get(r[0], r[0]), int(r[1])) for r in rows if len(r) >= 2 and r[1].isdigit()])
     con.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('last_msg_id', ?)", (str(last),))
     con.commit()
     return link_uploads(con)
