@@ -372,3 +372,13 @@ def test_sidebar_shows_backed_up_percentage(page):
     go(page)
     expect(page.locator(".side")).to_contain_text("Backed up: 0 of 10 (0%)")     # Telegram is off in the test world
     assert page.evaluate("[backedPct(9999, 10000), backedPct(5, 10), backedPct(10, 10), backedPct(0, 0)]") == [99, 50, 100, 100]
+
+
+def test_refresh_button_beside_restore_reloads_in_place(page):
+    go(page, "#/album/vacation")
+    expect(page.locator(".head-actions #restoreBtn + #refreshBtn")).to_be_visible()          # right beside Restore
+    page.click(".chip[data-f='']")
+    with page.expect_response(lambda r: "/api/status" in r.url):
+        page.click("#refreshBtn")
+    expect(page.locator(".chip.on")).to_have_attribute("data-f", "")                          # the filter stays
+    expect(page).to_have_url(page.base + "/#/album/vacation")

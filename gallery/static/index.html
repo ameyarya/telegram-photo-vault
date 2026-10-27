@@ -262,6 +262,9 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .fix .what{flex:1;min-width:200px;font-size:13px;color:var(--ink2)}
 .fix .what b{color:var(--ink);font-weight:500;font-size:14px}
 .fix .arrow{color:var(--ink2)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#refreshBtn.spinning svg{animation:spin .8s linear infinite}
+@media (max-width:600px){.head-actions .txt-btn .lbl{display:none}}  /* phones: Restore and Refresh as icons, so all fit */
 .up-box{max-width:640px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:12px}
 .up-box .chips{flex-wrap:wrap}
 .up-pick{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--line);border-radius:16px;text-align:center}
@@ -361,6 +364,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
   <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
   <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
@@ -701,11 +705,12 @@ function openFeed(o) {
     .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn owner-only" id="restoreBtn" title="Download these from Telegram into a folder">${ico("restore")}Restore</button>` + sortBtn()}</div></div>
+      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn owner-only" id="restoreBtn" aria-label="Restore" title="Download these from Telegram into a folder">${ico("restore")}<span class="lbl">Restore</span></button>`}<button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
     <div class="sentinel" id="topSentinel"></div><div id="days"></div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
   bindCards();
+  $("#refreshBtn").onclick = () => refreshAll();
   $("#sortBtn") && ($("#sortBtn").onclick = () => {
     newestFirst = !newestFirst;
     route();
@@ -1749,6 +1754,17 @@ function showLogin() {
     try { await post("/api/login", {name: $("#lName").value, password: $("#lPw").value}); location.reload(); }
     catch (err) { $("#lErr").textContent = err.message; $("#lPw").select(); }
   };
+}
+
+// Refresh: new photos, folders and the backup status, without reloading the page (filter and order stay)
+async function refreshAll() {
+  const b = $("#refreshBtn"); b?.classList.add("spinning");
+  try {
+    [status, albums, folderNames] = await Promise.all([api("/api/status"), api("/api/albums"), api("/api/folder-names"), loadUserAlbums()]);
+    renderSide();
+    await route();
+  } catch (e) { toast(esc(e.message)); }
+  finally { $("#refreshBtn")?.classList.remove("spinning"); }
 }
 
 async function boot() {
