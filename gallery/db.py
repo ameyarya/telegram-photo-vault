@@ -76,6 +76,8 @@ def connect(timeout=30):
         pcols = {r["name"] for r in con.execute("PRAGMA table_info(people)")}
         if "confirmed" not in pcols:  # 1 = you named or merged them: regrouping keeps all their faces together
             con.execute("ALTER TABLE people ADD COLUMN confirmed INTEGER DEFAULT 0")
+        if "aliases" not in pcols:    # other names search knows them by ("Me" is also "Sam"), comma separated
+            con.execute("ALTER TABLE people ADD COLUMN aliases TEXT")
         ucols = {r["name"] for r in con.execute("PRAGMA table_info(users)")}
         if "folder" not in ucols:  # where their phone uploads go on the drive (upload.py)
             con.execute("ALTER TABLE users ADD COLUMN folder TEXT")

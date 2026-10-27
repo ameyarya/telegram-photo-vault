@@ -378,3 +378,17 @@ def test_rename_folder_in_the_gallery_only(page, api, world):
     assert api.post("/api/folder-names", json={"path": "vacation", "name": ""}).json()["name"] is None
     assert api.get("/api/folder-names").json() == {}
     assert api.post("/api/folder-names", json={"path": "no/such", "name": "x"}).status_code == 404
+
+
+def test_people_page_puts_main_people_first_and_folds_the_rest(page):
+    """A big library: named people and anyone in 10+ photos are shown; strangers in a photo or two behind a link."""
+    many = [{"id": i, "name": "Sam" if i == 1 else None, "aliases": None, "n": 50 - i, "cover_face": None} for i in range(1, 16)]
+    few = [{"id": 100 + i, "name": None, "aliases": None, "n": 2, "cover_face": None} for i in range(5)]
+    page.route("**/api/people", lambda r: r.fulfill(json=many + few))
+    go(page, "#/people")
+    expect(page.locator("#peopleGrid .person")).to_have_count(15)
+    expect(page.locator("#peopleGrid .person").first).to_contain_text("Sam")
+    expect(page.locator("#peopleGrid .person b[data-name]").first).to_have_text("Who's this?")
+    expect(page.locator("#peopleMore")).to_have_text("Show 5 more people (in fewer than 10 photos)")
+    page.click("#peopleMore")
+    expect(page.locator("#peopleGrid .person")).to_have_count(20)

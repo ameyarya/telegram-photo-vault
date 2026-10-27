@@ -558,3 +558,28 @@ def test_files_removed_outside_the_gallery_are_forgotten_unless_backed_up(lapi, 
     import shutil
     shutil.rmtree(drive / "renamed-2")
     subprocess.run([PY, "build_index.py", "--no-thumbs"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_similar_big_groups_fold_and_more_groups_load(page):
+    """A 14-photo group shows 12 and '+2 more'; with 61 groups, 60 load first and 'Show 1 more groups' adds the rest."""
+    import json as _json
+    item = page.request.get(page.base + "/api/items").json()["items"][0]
+    def group(n, k):
+        items = [{**item, "id": 900000 + k * 100 + i} for i in range(n)]
+        return {"group": k, "key": f"k{k}", "best": items[0]["id"], "items": items}
+    first = {"total": 61, "extra": 61 * 13, "extra_bytes": 10**9, "groups": [group(14, k) for k in range(60)]}
+    second = {"total": 61, "extra": 0, "extra_bytes": 0, "groups": [group(3, 60)]}
+    page.route("**/api/similar?limit=60&offset=60", lambda r: r.fulfill(json=second))
+    page.route("**/api/similar?limit=60", lambda r: r.fulfill(json=first))
+    page.goto(page.base + "/#/similar")
+    g = page.locator(".sim-group").first
+    g.wait_for()
+    assert g.locator(".tile").count() == 12
+    g.locator('[data-act="more"]').click()                               # +2 more
+    expect(page.locator(".sim-group").first.locator(".tile")).to_have_count(14)
+    expect(page.locator(".sim-group").first.locator('[data-act="clean"]')).to_have_text("Keep 1, drop 13")
+    expect(page.locator("#simMore")).to_have_text("Show 1 more group")
+    page.click("#simMore")
+    expect(page.locator(".sim-group")).to_have_count(61)
+    expect(page.locator("#simMore")).to_have_count(0)

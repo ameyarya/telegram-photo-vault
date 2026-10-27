@@ -212,3 +212,15 @@ def test_search_understands_names_of_people_and_taught_things(mapi, mlworld):
     mapi.delete(f"/api/subjects/{subs[0]['id']}")
     assert mapi.get("/api/smart-search", params={"q": "rover"}).json().get("understood") is None   # plain search again
     mapi.post(f"/api/people/{alice['id']}/name", json={"name": ""})
+
+
+def test_many_suggestions_are_narrowed_to_main_people():
+    """Thousands of 'same person?' questions (mostly strangers in 1-3 photos) are cut to ones about named or
+    frequently seen people, named first."""
+    import ml
+    info = {1: {"name": "Sam", "n": 500}, 2: {"name": None, "n": 40}}
+    info.update({i: {"name": None, "n": 2} for i in range(3, 200)})
+    pairs = [(1, 3, 0.62), (2, 4, 0.66), (5, 6, 0.9), (2, 7, 0.56)] + [(i, i + 1, 0.58) for i in range(10, 80)]
+    assert ml.narrow_suggestions(pairs, info) == [(1, 3, 0.62), (2, 4, 0.66)]   # strangers and weak pairs gone,
+    assert ml.narrow_suggestions(pairs[:4], info) == [(1, 3, 0.62), (5, 6, 0.9), (2, 4, 0.66), (2, 7, 0.56)]  # named first
+    # (few suggestions: all kept)

@@ -648,13 +648,20 @@ async function openPerson(id) {
       <button class="txt-btn" data-same="${m.b.id}">Same</button><button class="txt-btn" data-diff="${m.b.id}">No</button></span>`).join("")}</div>` : "";
   openFeed({
     title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person", pre,
+    extraSub: p.aliases ? ` · also “${p.aliases}” in search` : "",
     actions: `<button class="txt-btn" id="pName">${ico("edit")}${p.name ? "Rename" : "Add a name"}</button>
+              <button class="txt-btn" id="pAliases" title="Other names search knows them by">${ico("tag")}Other names</button>
               <button class="txt-btn owner-only" id="pMerge">Same person as…</button>`,
   });
   $("#pName").onclick = async () => {
     const name = await promptDialog(p.name ? "Rename" : "Who is this?", "Name", p.name || "");
     if (name === null) return;
     await post(`/api/people/${id}/name`, {name}); route();
+  };
+  $("#pAliases").onclick = async () => {
+    const v = await promptDialog("Other names", `Other names to find ${p.name || "them"} by in search, separated by commas (e.g. their full name or a nickname)`, p.aliases || "");
+    if (v === null) return;
+    await post(`/api/people/${id}/aliases`, {aliases: v}); route();
   };
   $("#pMerge").onclick = async () => {
     const others = people.filter(x => x.id !== id);
@@ -1157,6 +1164,7 @@ async function renderSimilar() {
       sharpest) comes first, marked <b>Keep</b>; tap any photo's badge to keep or drop it. Dropped photos go to the Trash page, where you
       can put them back, and stay backed up in Telegram.</div><div id="simBox"></div>`;
   const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
+  let offset = r.groups.length;
   const box = $("#simBox");
   if (!r.groups.length) { box.innerHTML = `<div class="note">No similar groups ${r.total === 0 && st.similar_groups ? "left to review" : "found yet"}. ${st.similar_groups ? "" : mlNote(st)}</div>`; return; }
   r.groups.forEach(g => g.items.sort((a, b) => (b.id === g.best) - (a.id === g.best)));   // the best shot first
@@ -1177,10 +1185,27 @@ async function renderSimilar() {
     b.disabled = n === r.groups[gi].items.length;
   };
   const left = () => box.querySelectorAll(".sim-group").length;
-  box.innerHTML = `<div class="sim-summary" id="simCount">${plural(r.total, "group")} · ${nf(r.extra)} extra photos you could drop (${size(r.extra_bytes)}) · biggest groups first</div>` + r.groups.map(groupHtml).join("");
+  box.innerHTML = `<div class="sim-summary" id="simCount">${plural(r.total, "group")} · ${nf(r.extra)} extra photos you could drop (${size(r.extra_bytes)}) · biggest groups first</div>` +
+    r.groups.map(groupHtml).join("") + `<div id="simMoreBox"></div>`;
   r.groups.forEach((_, gi) => paint(gi));
+  const moreBtn = () => { $("#simMoreBox").innerHTML = offset < r.total ? `<button class="txt-btn" id="simMore">Show ${(n => n === 1 ? "1 more group" : nf(n) + " more groups")(Math.min(60, r.total - offset))}</button>` : ""; };
+  moreBtn();
+  $("#simMoreBox").onclick = async e => {
+    if (!e.target.closest("#simMore")) return;
+    const more = await api(`/api/similar?limit=60&offset=${offset}`);
+    const start = r.groups.length, shown = new Set(r.groups.map(g => g.key));
+    more.groups = more.groups.filter(g => !shown.has(g.key));                     // never the same group twice
+    for (const g of more.groups) {
+      g.items.sort((a, b) => (b.id === g.best) - (a.id === g.best));
+      r.groups.push(g); drop.push(new Set(g.items.filter(it => it.id !== g.best).map(it => it.id)));
+    }
+    offset += 60;
+    $("#simMoreBox").insertAdjacentHTML("beforebegin", more.groups.map((g, k) => groupHtml(g, start + k)).join(""));
+    more.groups.forEach((_, k) => paint(start + k));
+    moreBtn();
+  };
   $("#simAll").hidden = false;
-  const done = (gi) => { box.querySelector(`.sim-group[data-g="${gi}"]`)?.remove(); r.total -= 1; if (!left()) renderSimilar(); };
+  const done = (gi) => { box.querySelector(`.sim-group[data-g="${gi}"]`)?.remove(); r.total -= 1; offset -= 1; if (!left()) renderSimilar(); };
   box.onclick = async e => {
     const g = e.target.closest(".sim-group"); if (!g) return;
     const gi = +g.dataset.g, grp = r.groups[gi];

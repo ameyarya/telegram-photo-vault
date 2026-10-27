@@ -40,6 +40,8 @@ PEOPLE_MERGE = 0.70       # tight groups whose average faces are this similar ar
 MIN_FACE_FRACTION = 0.06  # faces narrower than this share of the photo are too small to identify reliably
 MIN_FACE_SCORE = 0.85     # detector confidence needed to use a face for grouping
 MIN_FACES_PER_PERSON = 3  # smaller groups aren't shown as people
+SUGGEST_MIN = 0.60        # ... but only pairs at least this similar are offered for review,
+SUGGEST_MAIN_MIN = 10     # ... and only if one of them is named or in this many photos
 MAYBE_SAME = 0.55         # suggested as "maybe the same person?" (on a real library: mostly right above 0.55,
                           # about half wrong at 0.50, mostly different people at 0.45)
 SIMILAR_COS = 0.93        # CLIP similarity for "near-identical shot"
@@ -405,6 +407,16 @@ def person_centroids(con):
     return {p: _norm(v) for p, v in sums.items()}
 
 
+def narrow_suggestions(pairs, info, everyone=True):
+    """Thousands of "same person?" questions (mostly strangers in 1-3 photos) cut to the ones worth answering: one
+    side named or in SUGGEST_MAIN_MIN+ photos and at least SUGGEST_MIN alike; named people first. A small library's
+    few suggestions (60 or fewer) are all kept."""
+    main = lambda p: info[p]["name"] or info[p]["n"] >= SUGGEST_MAIN_MIN
+    if len(pairs) > 60 and everyone:
+        pairs = [t for t in pairs if t[2] >= SUGGEST_MIN and (main(t[0]) or main(t[1]))]
+    return sorted(pairs, key=lambda t: (not (info[t[0]]["name"] or info[t[1]]["name"]), -t[2]))
+
+
 def maybe_same(cents, not_same=(), person=None, threshold=MAYBE_SAME, limit=60):
     """[(a, b, similarity)] pairs of people who might be one person, most likely first."""
     pids = sorted(cents) if person is None else [person]
@@ -553,12 +565,16 @@ def understand(con, q):
     """Split a query into the people and subjects it names and the rest, e.g. "sam and priya on a mountain" ->
     people [Sam, Priya], text "on a mountain". Names match whole words (first names too), any case, "sam's" too."""
     people = {}
-    for r in con.execute("SELECT id, name FROM people WHERE name IS NOT NULL"):
-        people.setdefault(r["name"].lower(), r["id"])
-        people.setdefault(r["name"].lower().split()[0], r["id"])
+    for r in con.execute("SELECT id, name, aliases FROM people WHERE name IS NOT NULL OR aliases IS NOT NULL"):
+        for n in [r["name"] or ""] + (r["aliases"] or "").split(","):
+            n = n.strip().lower()
+            if n:
+                people.setdefault(n, r["id"])
+                people.setdefault(n.split()[0], r["id"])
     subjects = {r["name"].lower(): (r["id"], r["name"], json.loads(r["examples"]))
                 for r in con.execute("SELECT * FROM subjects")}
-    names = {r["id"]: r["name"] for r in con.execute("SELECT id, name FROM people WHERE name IS NOT NULL")}
+    names = {r["id"]: r["name"] or (r["aliases"] or "").split(",")[0].strip()
+             for r in con.execute("SELECT id, name, aliases FROM people WHERE name IS NOT NULL OR aliases IS NOT NULL")}
     words = re.findall(r"[\w&+]+(?:'s)?", q.lower())
     found_p, found_s, rest, i = [], [], [], 0
     while i < len(words):
@@ -566,7 +582,9 @@ def understand(con, q):
         two = f"{w} {words[i + 1]}" if i + 1 < len(words) else None
         if two in subjects or two in people:
             w, i = two, i + 1
-        if w in subjects:
+        if w == "me" and i and words[i - 1] in ("show", "give", "send", "let"):   # "show me ...": not a person
+            rest.append(words[i])
+        elif w in subjects:
             if subjects[w] not in found_s:
                 found_s.append(subjects[w])
         elif w in people:
@@ -620,7 +638,7 @@ def smart_search(q: str, limit: int = 200, album: str = "", filter: str = ""):
             dates = dict(con.execute(f"SELECT id, taken_at FROM media WHERE id IN ({','.join('?' * len(cand))})",
                                      cand).fetchall()) if cand else {}
             ranked = [(m, 0.0) for m in sorted(cand, key=lambda m: dates.get(m, ""), reverse=True)]
-        ranked = ranked[:max(limit, 500)]
+        ranked = ranked[:max(limit, 1000)]
     understood = {"people": [n for _, n in u["people"]], "subjects": [s[1] for s in u["subjects"]],
                   "text": u["text"]} if named else None
     if not ranked:
@@ -633,7 +651,7 @@ def smart_search(q: str, limit: int = 200, album: str = "", filter: str = ""):
 
 @router.get("/api/people")
 def people():
-    rows = connect().execute("""SELECT id, name, n, cover_face FROM people WHERE n >= 1
+    rows = connect().execute("""SELECT id, name, aliases, n, cover_face FROM people WHERE n >= 1
                                 ORDER BY name IS NULL, n DESC, id""").fetchall()
     return [dict(r) for r in rows]
 
@@ -645,8 +663,10 @@ def people_suggestions(person: int | None = None):
     not_same = {(r["a"], r["b"]) for r in con.execute("SELECT a, b FROM people_not_same")}
     info = {r["id"]: dict(r) for r in con.execute("SELECT id, name, n, cover_face FROM people WHERE n >= 1")}
     cents = {p: v for p, v in person_centroids(con).items() if p in info}
-    total = len(maybe_same(cents, not_same, person, limit=None))
-    pairs = maybe_same(cents, not_same, person)
+    # only questions worth your time: one side named or in 10+ photos (strangers in 1-3 photos aren't worth sorting
+    # out), a fairly strong match, and the people you named first ("is this also Sam?")
+    allp = narrow_suggestions(maybe_same(cents, not_same, person, limit=None), info, person is None)
+    total, pairs = len(allp), allp[:60]
     faces = {}
     for pid in {p for a, b, _ in pairs for p in (a, b)}:   # a few clear faces each: one cover is often too little to judge
         faces[pid] = [r[0] for r in con.execute("""SELECT id FROM faces WHERE person = ? AND id != coalesce(?, -1)
@@ -673,6 +693,22 @@ def not_same(body: Pair):
 
 class PersonName(BaseModel):
     name: str
+
+
+class Aliases(BaseModel):
+    aliases: str
+
+
+@router.post("/api/people/{person_id}/aliases")
+def person_aliases(person_id: int, body: Aliases):
+    """Other names search knows someone by, e.g. "Me" is also "Sam"; comma separated."""
+    con = connect()
+    if not con.execute("SELECT 1 FROM people WHERE id = ?", (person_id,)).fetchone():
+        raise HTTPException(404, "no such person")
+    names = ", ".join(dict.fromkeys(a.strip() for a in body.aliases.split(",") if a.strip()))[:300]
+    con.execute("UPDATE people SET aliases = ? WHERE id = ?", (names or None, person_id))
+    con.commit()
+    return {"aliases": names}
 
 
 @router.post("/api/people/{person_id}/name")
