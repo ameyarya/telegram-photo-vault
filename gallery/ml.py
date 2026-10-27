@@ -789,13 +789,17 @@ def similar(offset: int = 0, limit: int = 30):
         members.setdefault(r[0], []).append(r[1])
     groups = sorted(((g, m) for g, m in members.items() if len(m) > 1 and _group_key(m) not in dismissed),
                     key=lambda t: (-len(t[1]), t[0]))
+    # what clearing them all up would free: everything but one photo per group (the biggest kept, to be safe)
+    sizes = dict(con.execute("SELECT id, size FROM media WHERE id IN (SELECT media_id FROM similar)").fetchall())
+    extra = sum(len(m) - 1 for _, m in groups)
+    extra_bytes = sum(sum(sizes.get(i, 0) for i in m) - max(sizes.get(i, 0) for i in m) for _, m in groups)
     out = []
     for g, ids in groups[offset:offset + limit]:
         items = [dict(i) for i in con.execute(
             f"SELECT {server.ITEM_COLS} FROM media WHERE id IN ({','.join('?' * len(ids))}) "
             "ORDER BY taken_at, id", ids)]
         out.append({"group": g, "key": _group_key(ids), "best": best_of(items), "items": items})
-    return {"total": len(groups), "groups": out}
+    return {"total": len(groups), "extra": extra, "extra_bytes": extra_bytes, "groups": out}
 
 
 class GroupKey(BaseModel):

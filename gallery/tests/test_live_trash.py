@@ -8,6 +8,7 @@ import time
 import httpx
 import numpy as np
 import pytest
+from playwright.sync_api import expect
 
 from conftest import PY, ROOT, all_oldest_first, shot
 
@@ -260,10 +261,13 @@ def test_ui_similar_keep_best_then_restore_from_trash(page):
     grp.wait_for()
     assert grp.locator(".tile.keep").count() == 1 and grp.locator(".tile.drop").count() == 2
     assert grp.locator(".tile.keep .best").count() == 1
+    assert grp.locator(".tile").first.locator(".best").count() == 1          # the best shot comes first
     btn = grp.locator('[data-act="clean"]')
-    assert btn.inner_text() == "Trash 2, keep 1"
+    assert btn.inner_text() == "Keep 1, drop 2"
+    expect(grp.locator('[data-act="dismiss"]')).to_have_text("Keep all")
+    expect(page.locator("#simCount")).to_contain_text("1 group · 2 extra photos you could drop")
     grp.locator(".tile.drop .tg").first.click()                           # change my mind about one
-    assert btn.inner_text() == "Trash 1, keep 2"
+    assert btn.inner_text() == "Keep 2, drop 1"
     shot(page, "similar-cleanup")
     btn.click()
     page.locator(".toast").wait_for()

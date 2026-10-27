@@ -210,7 +210,10 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .sim-group .tile .tg svg{width:14px;height:14px}
 .sim-group .tile.keep .tg{background:#1e8e3e}
 .sim-group .tile.drop img{opacity:.4;filter:grayscale(.6)}
-.sim-group .tile.drop .tg{background:#d93025}
+.sim-group .tile.drop .tg{background:rgb(0 0 0/.6);width:24px;padding:0;justify-content:center}
+.sim-group .tile.keep{outline:3px solid #1e8e3e;outline-offset:-3px}
+.sim-summary{color:var(--ink2);margin:4px 0 8px}
+.sim-more{width:150px;height:150px;border-radius:4px;background:var(--tile);color:var(--ink);font-weight:500;cursor:pointer}
 .sim-group .tile .best{position:absolute;bottom:6px;left:6px;z-index:1;font-size:11px;font-weight:600;color:#fff;background:rgb(0 0 0/.55);border-radius:10px;padding:1px 8px}
 .review{display:grid;gap:10px;margin-top:12px;max-width:760px}
 .pair{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);flex-wrap:wrap}
@@ -1158,37 +1161,42 @@ async function renderPeopleReview() {
 
 async function renderSimilar() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn owner-only" id="simAll" hidden>${ico("trash")}Keep best in every group</button></div></div>
-    <div class="page-sub">Near-identical photos taken within a couple of minutes. The best shot (a favorite, else the sharpest) is picked for you; tap Keep / Trash on any photo to change it.
-      Trashed photos go to the Trash page, where you can put them back; they stay backed up in Telegram.</div><div id="simBox"></div>`;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn owner-only" id="simAll" hidden>${ico("trash")}Keep the best in all groups below</button></div></div>
+    <div class="page-sub">Near-identical photos taken within a couple of minutes. In each group the best shot (a favorite, else the
+      sharpest) comes first, marked <b>Keep</b>; tap any photo's badge to keep or drop it. Dropped photos go to the Trash page, where you
+      can put them back, and stay backed up in Telegram.</div><div id="simBox"></div>`;
   const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
   const box = $("#simBox");
   if (!r.groups.length) { box.innerHTML = `<div class="note">No similar groups ${r.total === 0 && st.similar_groups ? "left to review" : "found yet"}. ${st.similar_groups ? "" : mlNote(st)}</div>`; return; }
+  r.groups.forEach(g => g.items.sort((a, b) => (b.id === g.best) - (a.id === g.best)));   // the best shot first
   const drop = r.groups.map(g => new Set(g.items.filter(it => it.id !== g.best).map(it => it.id)));
-  const tg = (on) => on ? `${ico("trash")}Trash` : `${ico("check")}Keep`;
+  const tg = (on) => on ? ico("close") : `${ico("check")}Keep`;
+  const SHOW = 12, open = new Set();
   const groupHtml = (g, gi) => `<div class="sim-group" data-g="${gi}"><div class="head">
       <h3>${dayLabel(g.items[0].taken_at)} · ${timeLabel(g.items[0].taken_at)} · ${plural(g.items.length, "photo")}</h3>
-      <button class="fill-btn owner-only" data-act="clean"></button><button class="txt-btn owner-only" data-act="dismiss" title="Keep them all and stop showing this group">Not duplicates</button></div>
-      <div class="sim-row">${g.items.map((it, i) => tileHtml(it, 150, 150, i).replace('<span class="sel"',
-        `${it.id === g.best ? `<span class="best">Best</span>` : ""}<button class="tg owner-only" data-tg="${it.id}" title="Keep or trash this one">${tg(drop[gi].has(it.id))}</button><span class="sel"`)).join("")}</div></div>`;
+      <button class="fill-btn owner-only" data-act="clean"></button><button class="txt-btn owner-only" data-act="dismiss" title="They're all worth keeping: stop showing this group">Keep all</button></div>
+      <div class="sim-row">${g.items.slice(0, open.has(gi) ? g.items.length : SHOW).map((it, i) => tileHtml(it, 150, 150, i).replace('<span class="sel"',
+        `${it.id === g.best ? `<span class="best">Best</span>` : ""}<button class="tg owner-only" data-tg="${it.id}" title="Keep or drop this one">${tg(drop[gi].has(it.id))}</button><span class="sel"`)).join("")}
+        ${g.items.length > SHOW && !open.has(gi) ? `<button class="sim-more" data-act="more">+${nf(g.items.length - SHOW)} more</button>` : ""}</div></div>`;
   const paint = gi => {
     const el = box.querySelector(`.sim-group[data-g="${gi}"]`); if (!el) return;
     el.querySelectorAll(".tile").forEach(t => { const d = drop[gi].has(+t.dataset.id); t.classList.toggle("drop", d); t.classList.toggle("keep", !d); t.querySelector(".tg").innerHTML = tg(d); });
     const n = drop[gi].size, b = el.querySelector('[data-act="clean"]');
-    b.textContent = n === r.groups[gi].items.length ? "Keep at least one" : n ? `Trash ${n}, keep ${r.groups[gi].items.length - n}` : "Keep all";
+    b.textContent = n === r.groups[gi].items.length ? "Keep at least one" : n ? `Keep ${r.groups[gi].items.length - n}, drop ${n}` : "Keep all";
     b.disabled = n === r.groups[gi].items.length;
   };
   const left = () => box.querySelectorAll(".sim-group").length;
-  box.innerHTML = `<div class="muted" id="simCount">${plural(r.total, "group")}</div>` + r.groups.map(groupHtml).join("");
+  box.innerHTML = `<div class="sim-summary" id="simCount">${plural(r.total, "group")} · ${nf(r.extra)} extra photos you could drop (${size(r.extra_bytes)}) · biggest groups first</div>` + r.groups.map(groupHtml).join("");
   r.groups.forEach((_, gi) => paint(gi));
   $("#simAll").hidden = false;
-  const done = (gi) => { box.querySelector(`.sim-group[data-g="${gi}"]`)?.remove(); $("#simCount").textContent = plural(r.total -= 1, "group"); if (!left()) renderSimilar(); };
+  const done = (gi) => { box.querySelector(`.sim-group[data-g="${gi}"]`)?.remove(); r.total -= 1; if (!left()) renderSimilar(); };
   box.onclick = async e => {
     const g = e.target.closest(".sim-group"); if (!g) return;
     const gi = +g.dataset.g, grp = r.groups[gi];
     const t = e.target.closest("[data-tg]");
     if (t) { const id = +t.dataset.tg; drop[gi].has(id) ? drop[gi].delete(id) : drop[gi].add(id); paint(gi); return; }
     const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "more") { open.add(gi); g.outerHTML = groupHtml(grp, gi); paint(gi); return; }
     if (act === "dismiss" || (act === "clean" && !drop[gi].size)) { await post("/api/similar/dismiss", {key: grp.key}); done(gi); return; }
     if (act === "clean") {
       const kept = grp.items.map(it => it.id).filter(id => !drop[gi].has(id));
