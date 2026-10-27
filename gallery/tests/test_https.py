@@ -52,7 +52,7 @@ def test_certificate_is_valid_for_photo_vault_local(tls):
 
 def test_https_serves_the_gallery(tls):
     r = httpx.get(f"https://127.0.0.1:{tls['https']}/", verify=ssl.create_default_context(cafile=str(tls["ca"])))
-    assert r.status_code == 200 and "Photo Vault" in r.text
+    assert r.status_code == 200 and "<title>Photos</title>" in r.text
 
 
 def test_http_redirects_to_https_keeping_the_path(tls):

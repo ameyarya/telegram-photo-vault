@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Photo Vault</title>
+<title>Photos</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='2' y='3' width='20' height='18' rx='4' fill='%230b57d0'/><path d='M6 17l3.5-4.5 2.5 3 3.5-4.5 4.5 6z' fill='white'/></svg>">
 <style>
 :root{
@@ -43,6 +43,10 @@ svg{width:24px;height:24px;fill:currentColor;flex:none}
 .side a.active svg{color:var(--pill-ink)}
 .side .side-brand{display:none;height:64px;align-items:center;padding-left:20px;margin-bottom:8px}
 .side h4{margin:18px 24px 6px;font-size:12px;font-weight:500;color:var(--ink2);letter-spacing:.02em}
+.fold-btn{display:flex;align-items:center;gap:4px;background:none;border:0;padding:0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
+.fold-btn svg{width:18px;height:18px;transition:transform .15s}
+.side.folders-closed .fold-btn svg{transform:rotate(-90deg)}
+.side.folders-closed #topFolders{display:none}
 .side .sub-link{height:40px;font-weight:400;font-size:14px}
 .side .stat{margin:auto 24px 0;padding-top:16px;color:var(--ink2);font-size:12px;display:grid;gap:8px}
 .side .stat div{display:flex;align-items:center;gap:8px}
@@ -273,6 +277,18 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 @keyframes spin{to{transform:rotate(360deg)}}
 #refreshBtn.spinning svg{animation:spin .8s linear infinite}
 @media (max-width:600px){.head-actions .txt-btn .lbl{display:none}}  /* phones: Restore and Refresh as icons, so all fit */
+.loading{display:flex;align-items:center;gap:10px;color:var(--ink2);padding:24px 0}
+.spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+.spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
+.view-wrap{position:relative}
+.view-menu{position:absolute;right:0;top:44px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;
+  box-shadow:0 6px 24px rgb(0 0 0/.35);display:grid;gap:10px;min-width:300px}
+.vm-row{display:flex;align-items:center;gap:6px}
+.vm-row>span{width:64px;color:var(--ink2);font-size:13px}
+.seg{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);color:var(--ink);background:none;cursor:pointer;font:inherit;font-size:13px}
+.seg.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
+#days.continuous .day{padding-top:0}
+#days.continuous .day + .day{margin-top:0}
 .restore-panel{max-width:860px;margin:12px 0}
 .restore-panel h3{display:flex;align-items:center;gap:8px;margin:0 0 6px}
 .restore-panel .muted svg{width:1.25em;height:1.25em;vertical-align:-.3em}
@@ -379,6 +395,8 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
+  <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
   <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
@@ -393,7 +411,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 
 <header class="topbar" id="topbar">
   <button class="icon-btn" id="menuBtn" aria-label="Main menu"><svg><use href="#i-menu"/></svg></button>
-  <div class="logo"><svg><use href="#i-photo"/></svg><span>Photo Vault</span></div>
+  <div class="logo"><svg><use href="#i-photo"/></svg><span>Photos</span></div>
   <form class="search" id="searchForm" role="search">
     <span class="icon-btn"><svg><use href="#i-search"/></svg></span>
     <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
@@ -416,7 +434,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 
 <div class="scrim" id="scrim"></div>
 <nav class="side" id="side">
-  <div class="logo side-brand"><svg><use href="#i-photo"/></svg><span style="display:inline">Photo Vault</span></div>
+  <div class="logo side-brand"><svg><use href="#i-photo"/></svg><span style="display:inline">Photos</span></div>
   <a href="#/photos" data-route="photos"><svg><use href="#i-photo"/></svg>Photos</a>
   <a href="#/albums" data-route="albums"><svg><use href="#i-albums"/></svg>Albums</a>
   <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
@@ -425,7 +443,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
   <a href="#/sharing" data-route="sharing" class="mac-only"><svg><use href="#i-share"/></svg>Sharing</a>
-  <h4>FOLDERS</h4>
+  <h4><button class="fold-btn" id="foldersToggle" aria-expanded="true" aria-controls="topFolders">FOLDERS<svg><use href="#i-chevron"/></svg></button></h4>
   <div id="topFolders"></div>
   <div class="stat" id="stat"></div>
   <div class="me" id="me"></div>
@@ -687,7 +705,7 @@ async function openSearch(q) {
       ua.map(a => cardHtml("#/ualbum/" + a.id, a.name, plural(a.n, "item"), a.cover, "ua")).join("") +
       fa.slice(0, 24).map(a => cardHtml("#/album/" + encodeURIComponent(a.album), albumTitle(a.album), plural(a.n, "item"), a.cover)).join("") + `</div>`;
   }
-  pre += `<div id="smart"></div><h2 class="sec" id="metaHead">Matching names, dates & cameras</h2>`;
+  pre += `<div id="smart">${loadingHtml("Searching…")}</div><h2 class="sec" id="metaHead">Matching names, dates & cameras</h2>`;
   openFeed({title: `Results for “${q}”`, params: {q}, back: "#/photos", pre, restoreLabel: q, emptyText: "No names, dates or cameras match."});
   const box = $("#smart");
   try {
@@ -709,6 +727,7 @@ async function openSearch(q) {
       $("#smartRow").onclick = e => { const t = e.target.closest(".tile"); if (t && !e.target.closest(".sel")) openViewerOn(r.items, +t.dataset.i.slice(1)); };
     }
   } catch {}
+  if (feed?.params.q === q && box.querySelector(".loading")) box.innerHTML = "";   // nothing found: no spinner left behind
 }
 
 // ---------- the timeline engine ----------
@@ -725,12 +744,13 @@ function openFeed(o) {
     .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.actions || ""}<button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+      <div class="head-actions">${o.actions || ""}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
-    <div class="sentinel" id="topSentinel"></div><div id="days"></div>`;
+    <div class="sentinel" id="topSentinel"></div><div id="days">${loadingHtml()}</div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
   bindCards();
   $("#refreshBtn").onclick = () => refreshAll();
+  bindViewMenu();
   $("#sortBtn") && ($("#sortBtn").onclick = () => {
     newestFirst = !newestFirst;
     route();
@@ -811,20 +831,47 @@ async function jumpTo(offset) {
   loadPrev();   // the top marker is already in view, so it won't signal: start filling in earlier months now
 }
 
-function rowHeight() { return innerWidth < 600 ? 112 : innerWidth < 1200 ? 180 : 220; }
+// How timelines look (remembered in this browser): grouped by day or one continuous grid, tile size, square or true shape
+const loadingHtml = (text = "Loading…") => `<div class="loading"><span class="spin"></span>${text}</div>`;
+const VIEW = {group: "day", size: "m", shape: "actual"};
+try { Object.assign(VIEW, JSON.parse(localStorage.getItem("pv-view") || "{}")); } catch {}
+const SIZES = {s: .6, m: 1, l: 1.5};
+function rowHeight() { return Math.round((innerWidth < 600 ? 112 : innerWidth < 1200 ? 180 : 220) * (SIZES[VIEW.size] || 1)); }
+function viewMenu() {
+  const opt = (k, v, label) => `<button class="seg ${VIEW[k] === v ? "on" : ""}" data-k="${k}" data-v="${v}">${label}</button>`;
+  return `<div class="view-menu" id="viewMenu" hidden>
+    <div class="vm-row"><span>Layout</span>${opt("group", "day", "By date")}${opt("group", "none", "Continuous")}</div>
+    <div class="vm-row"><span>Size</span>${opt("size", "s", "Small")}${opt("size", "m", "Medium")}${opt("size", "l", "Large")}</div>
+    <div class="vm-row"><span>Shape</span>${opt("shape", "square", "Square")}${opt("shape", "actual", "Actual")}</div></div>`;
+}
+function bindViewMenu() {
+  const btn = $("#viewBtn"), menu = $("#viewMenu"); if (!btn || !menu) return;
+  btn.onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; };
+  menu.onclick = e => {
+    e.stopPropagation();
+    const b = e.target.closest(".seg"); if (!b) return;
+    VIEW[b.dataset.k] = b.dataset.v;
+    try { localStorage.setItem("pv-view", JSON.stringify(VIEW)); } catch {}
+    menu.querySelectorAll(`.seg[data-k="${b.dataset.k}"]`).forEach(x => x.classList.toggle("on", x === b));
+    renderSections();
+  };
+  document.addEventListener("click", () => { if ($("#viewMenu")) $("#viewMenu").hidden = true; });
+}
 
 function renderSections(all = true) {
   const days = $("#days"); if (!days || !feed) return;
   const W = days.clientWidth, H = rowHeight();
   const sections = [];
+  const byDay = VIEW.group !== "none";
   feed.items.forEach((it, i) => {
-    const d = it.taken_at.slice(0, 10), s = sections[sections.length - 1];
+    const d = byDay ? it.taken_at.slice(0, 10) : "all", s = sections[sections.length - 1];
     if (!s || s.day !== d) sections.push({day: d, items: [[it, i]]}); else s.items.push([it, i]);
   });
+  days.classList.toggle("continuous", !byDay);
   let html = "";
   for (const s of sections) {
     const allPicked = s.items.every(([it]) => picked.has(it.id));
-    html += `<section class="day"><h3><span class="day-sel ${allPicked && picked.size ? "on" : ""}" data-day="${s.day}" title="Select all from this day" role="button" aria-label="Select all from this day">${ico("check")}</span>${dayLabel(s.items[0][0].taken_at)}</h3>`;
+    html += !byDay ? `<section class="day">` : `<section class="day"><h3><span class="day-sel ${allPicked && picked.size ? "on" : ""}" data-day="${s.day}" title="Select all from this day" role="button" aria-label="Select all from this day">${ico("check")}</span>${dayLabel(s.items[0][0].taken_at)}</h3>`;
     let row = [], sumA = 0;
     const flush = fill => {
       if (!row.length) return;
@@ -833,7 +880,7 @@ function renderSections(all = true) {
       row = []; sumA = 0;
     };
     for (const [it, i] of s.items) {
-      const a = it.width && it.height ? Math.min(3, Math.max(.4, it.width / it.height)) : 1;
+      const a = VIEW.shape === "square" ? 1 : it.width && it.height ? Math.min(3, Math.max(.4, it.width / it.height)) : 1;
       row.push([it, i, a]); sumA += a;
       if (sumA * H + GAP * (row.length - 1) >= W) flush(true);
     }
@@ -1087,7 +1134,7 @@ async function renderPeople() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1><div class="head-actions">
       <button class="txt-btn owner-only" id="pSelect" hidden>${ico("check")}Select to merge</button><button class="fill-btn" id="pMergeSel" hidden></button></div></div>
-    <div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox"></div>`;
+    <div class="page-sub" id="pgSub">Faces are grouped on this Mac; nothing is sent anywhere.</div><div id="peopleBox">${loadingHtml()}</div>`;
   const [people, st, sugg] = await Promise.all([api("/api/people"), api("/api/ml/status"), api("/api/people/suggestions").then(r => r.total).catch(() => 0)]);
   const box = $("#peopleBox");
   if (!people.length) {
@@ -1162,7 +1209,7 @@ async function renderSimilar() {
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn owner-only" id="simAll" hidden>${ico("trash")}Keep the best in all groups below</button></div></div>
     <div class="page-sub">Near-identical photos taken within a couple of minutes. In each group the best shot (a favorite, else the
       sharpest) comes first, marked <b>Keep</b>; tap any photo's badge to keep or drop it. Dropped photos go to the Trash page, where you
-      can put them back, and stay backed up in Telegram.</div><div id="simBox"></div>`;
+      can put them back, and stay backed up in Telegram.</div><div id="simBox">${loadingHtml("Finding similar shots…")}</div>`;
   const [r, st] = await Promise.all([api("/api/similar?limit=60"), api("/api/ml/status")]);
   let offset = r.groups.length;
   const box = $("#simBox");
@@ -1409,7 +1456,7 @@ function drawUpload(grid = false) {
     const secs = (Date.now() - r.t0) / 1000, sent = r.sentBytes + r.curBytes, rate = sent / Math.max(1, secs), eta = rate ? (r.total - sent) / rate : 0;
     $("#upBar").style.width = Math.min(100, 100 * sent / Math.max(1, r.total)) + "%";
     $("#upNow").textContent = `${r.current} · ${size(rate)}/s${eta > 5 ? ` · about ${eta > 5400 ? Math.round(eta / 3600) + " h" : Math.max(1, Math.round(eta / 60)) + " min"} left` : ""}`;
-  } else $("#upNow").textContent = r.current || "";
+  } else $("#upNow").innerHTML = r.current ? (r.current.startsWith("Checking") ? `<span class="spin inline"></span>` : "") + esc(r.current) : "";
   $("#upErr").textContent = c.failed ? `${plural(c.failed, "file")} couldn't be sent. Press Upload to try them again.` : "";
   if (grid) drawUpGrid();
 }
@@ -1523,7 +1570,7 @@ async function renderBackup() {
         and use ${ico("restore")} in the selection bar.)</div>
       <div class="restore-row"><select id="restoreWhat" aria-label="What to restore"><option value="all">Everything</option></select>
         <button class="fill-btn" id="restoreGo">Restore</button></div></div>
-    <div id="dashBox"><div class="empty">Loading…</div></div>`;
+    <div id="dashBox">${loadingHtml()}</div>`;
   fillRestoreChoices();
   clearInterval(backupTimer);
   const draw = async () => {
@@ -1565,7 +1612,7 @@ async function renderBackup() {
       <div class="panel owner-only" id="dashJobs"><h3>Restores</h3>${jobs.length ? jobs.map(j => `<div class="job">
         <b>${esc(j.detail.dest?.split("/").pop() || "Restore")}</b><span class="muted">${esc(j.status)} · ${nf(j.done)} / ${nf(j.total)} files${j.detail.verified ? ` · ${nf(j.detail.verified)} checked against the drive` : ""}${j.detail.errors?.length ? ` · ${j.detail.errors.length} problems` : ""}</span>
         ${bar(j.done, j.total)}<span>${j.status === "running" ? `<button class="txt-btn" data-cancel="${j.id}">Cancel</button>` : `<button class="txt-btn" data-reveal="${j.id}">Show in Finder</button>`}</span></div>`).join("")
-        : `<div class="muted">Restore any album, folder, search or selection with its Restore button. Files go to Downloads › Photo Vault Restore with their original dates.</div>`}</div>
+        : `<div class="muted">Restore everything, a folder, an album or a person above, or a selection of photos from the selection bar. Files go to Downloads › Photo Vault Restore with their original dates.</div>`}</div>
     </div>`;
     $("#runMl")?.addEventListener("click", async () => { try { await post("/api/ml/run"); toast("Analysis started"); draw(); } catch (e) { toast(esc(e.message)); } });
     $("#seeMissing")?.addEventListener("click", () => { filterChip = "notbackedup"; lastPath = "/photos"; });
@@ -1832,6 +1879,13 @@ $("#menuBtn").onclick = () => {
 };
 try { if (localStorage.getItem("pv-side") === "closed") document.body.classList.add("side-closed"); } catch {}
 $("#scrim").onclick = closeSide;
+// Folders in the sidebar fold away (remembered)
+try { if (localStorage.getItem("pv-folders") === "closed") $("#side").classList.add("folders-closed"); } catch {}
+$("#foldersToggle").onclick = () => {
+  const closed = $("#side").classList.toggle("folders-closed");
+  $("#foldersToggle").setAttribute("aria-expanded", String(!closed));
+  try { localStorage.setItem("pv-folders", closed ? "closed" : "open"); } catch {}
+};
 $("#searchForm").onsubmit = e => { e.preventDefault(); const q = $("#q").value.trim(); if (q) location.hash = "#/search/" + encodeURIComponent(q); };
 $("#q").addEventListener("input", () => { $("#qClear").hidden = !$("#q").value; });
 $("#qClear").onclick = () => { $("#q").value = ""; $("#qClear").hidden = true; $("#q").focus(); };
@@ -1844,7 +1898,7 @@ function renderSide() {
   if (!status) return;
   const pct = status.total ? Math.round(100 * status.uploaded / status.total) : 0;
   $("#stat").innerHTML = `
-    <div>${ico("cloud")} Backed up: ${nf(status.uploaded)} of ${nf(status.total)} (${backedPct(status.uploaded, status.total)}%)</div>
+    <div title="${nf(status.uploaded)} of ${nf(status.total)} photos & videos in Telegram">${ico("cloud")} Backed up ${backedPct(status.uploaded, status.total)}%</div>
     <div class="bar"><i style="width:${pct}%"></i></div>
     <div><span class="status-dot ${status.telegram ? "on" : ""}"></span>Telegram ${status.telegram ? "connected" : "offline"}</div>
     <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
@@ -1856,7 +1910,7 @@ async function loadUserAlbums() { userAlbums = await api("/api/user-albums"); }
 
 function showLogin() {
   document.body.innerHTML = `<div class="login"><form id="loginForm" autocomplete="on">
-      <h1><svg viewBox="0 0 24 24"><use href="#i-photo"/></svg>Photo Vault</h1>
+      <h1><svg viewBox="0 0 24 24"><use href="#i-photo"/></svg>Photos</h1>
       <input id="lName" name="username" autocomplete="username" placeholder="Name" autocapitalize="none" required>
       <input id="lPw" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
       <div class="err" id="lErr"></div><button class="fill-btn">Sign in</button></form></div>` + document.querySelector("svg").outerHTML;

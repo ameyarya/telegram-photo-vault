@@ -372,7 +372,8 @@ def test_no_sort_button_on_folder_with_only_subfolders(page):
 
 def test_sidebar_shows_backed_up_percentage(page):
     go(page)
-    expect(page.locator(".side")).to_contain_text("Backed up: 0 of 10 (0%)")     # Telegram is off in the test world
+    expect(page.locator(".side")).to_contain_text("Backed up 0%")                 # Telegram is off in the test world
+    assert page.locator(".side [title='0 of 10 photos & videos in Telegram']").count() == 1   # exact numbers on hover
     assert page.evaluate("[backedPct(9999, 10000), backedPct(5, 10), backedPct(10, 10), backedPct(0, 0)]") == [99, 50, 100, 100]
 
 
@@ -385,3 +386,45 @@ def test_refresh_button_reloads_in_place(page):
         page.click("#refreshBtn")
     expect(page.locator(".chip.on")).to_have_attribute("data-f", "")                          # the filter stays
     expect(page).to_have_url(page.base + "/#/album/vacation")
+
+
+def test_view_options_layout_size_and_shape(page):
+    go(page)
+    all_oldest_first(page)
+    expect(page.locator(".day h3").first).to_be_visible()
+    h_medium = page.locator(".tile").first.bounding_box()["height"]
+    page.click("#viewBtn")
+    expect(page.locator("#viewMenu")).to_be_visible()
+    page.click('.seg[data-k="group"][data-v="none"]')                     # continuous: no day headings
+    expect(page.locator("#days .day h3")).to_have_count(0)
+    expect(page.locator("#days .day")).to_have_count(1)
+    page.click('.seg[data-k="shape"][data-v="square"]')                   # square tiles
+    for t in page.locator(".tile").all()[:5]:
+        b = t.bounding_box()
+        assert abs(b["width"] - b["height"]) <= 2
+    page.click('.seg[data-k="size"][data-v="l"]')                         # bigger
+    assert page.locator(".tile").first.bounding_box()["height"] > h_medium
+    shot(page, "view-continuous-square-large")
+    page.reload()
+    page.wait_for_selector(".tile")
+    expect(page.locator("#days .day h3")).to_have_count(0)                # remembered
+    page.click("#viewBtn")
+    expect(page.locator('.seg.on[data-k="shape"]')).to_have_text("Square")
+    for k, v in (("group", "day"), ("size", "m"), ("shape", "actual")):
+        page.click(f'.seg[data-k="{k}"][data-v="{v}"]')
+    expect(page.locator(".day h3").first).to_be_visible()
+    page.mouse.click(5, 300)                                              # a click elsewhere closes the menu
+    expect(page.locator("#viewMenu")).to_be_hidden()
+
+
+def test_folders_fold_away_and_stay_folded(page):
+    go(page)
+    expect(page.locator("#topFolders a").first).to_be_visible()
+    page.click("#foldersToggle")
+    expect(page.locator("#topFolders")).to_be_hidden()
+    expect(page.locator("#foldersToggle")).to_have_attribute("aria-expanded", "false")
+    page.reload()
+    page.wait_for_selector(".side a.active")
+    expect(page.locator("#topFolders")).to_be_hidden()
+    page.click("#foldersToggle")
+    expect(page.locator("#topFolders a").first).to_be_visible()
