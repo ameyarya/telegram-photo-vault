@@ -188,3 +188,27 @@ def test_look_alike_chains_dont_merge_different_people():
     merged = ml.merge_groups(embs, groups, 0.70)
     assert len(merged) == 2                                      # b joins one of them, never all three in one
     assert not any(set(range(0, 4)) <= set(m) and set(range(8, 12)) <= set(m) for m in merged)
+
+
+def test_search_understands_names_of_people_and_taught_things(mapi, mlworld):
+    """"alice on red" = Alice's photos, ranked by 'red'; a pet/thing taught from example photos is found by its look."""
+    people = mapi.get("/api/people").json()
+    alice = next(p for p in people if "alice" in mapi.get("/api/items", params={"person": p["id"]}).json()["items"][0]["name"])
+    mapi.post(f"/api/people/{alice['id']}/name", json={"name": "Alice Smith"})
+    r = mapi.get("/api/smart-search", params={"q": "alice"}).json()                  # first name, any case
+    assert r["understood"] == {"people": ["Alice Smith"], "subjects": [], "text": ""}
+    assert sorted(i["name"] for i in r["items"]) == ["face_alice_0.jpg", "face_alice_1.jpg", "face_alice_2.jpg"]
+    r = mapi.get("/api/smart-search", params={"q": "photos of Alice's face, with bob"}).json()
+    assert r["understood"]["people"] == ["Alice Smith"] and "bob" in r["understood"]["text"]
+    red = next(i for i in mapi.get("/api/items", params={"q": "red.jpg"}).json()["items"] if i["name"] == "red.jpg")
+    t = mapi.post("/api/subjects", json={"name": "Rover", "ids": [red["id"]]}).json()
+    assert t == {"name": "Rover", "examples": 1, "matches": 1}
+    r = mapi.get("/api/smart-search", params={"q": "rover"}).json()
+    assert r["understood"]["subjects"] == ["Rover"] and [i["name"] for i in r["items"]] == ["red.jpg"]
+    assert mapi.get("/api/smart-search", params={"q": "rover and alice"}).json()["items"] == []   # never together
+    subs = mapi.get("/api/subjects").json()
+    assert [s["name"] for s in subs] == ["Rover"] and subs[0]["cover"] == red["id"]
+    assert mapi.post("/api/subjects", json={"name": " ", "ids": [1]}).status_code == 400
+    mapi.delete(f"/api/subjects/{subs[0]['id']}")
+    assert mapi.get("/api/smart-search", params={"q": "rover"}).json().get("understood") is None   # plain search again
+    mapi.post(f"/api/people/{alice['id']}/name", json={"name": ""})

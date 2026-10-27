@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS favorites (media_id INTEGER PRIMARY KEY, added TEXT D
 CREATE TABLE IF NOT EXISTS user_albums (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS user_album_items (album_id INTEGER NOT NULL, media_id INTEGER NOT NULL,
   added TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (album_id, media_id));
-CREATE TABLE IF NOT EXISTS clip (media_id INTEGER PRIMARY KEY, emb BLOB NOT NULL);       -- image embeddings (smart search)
+CREATE TABLE IF NOT EXISTS clip (media_id INTEGER PRIMARY KEY, emb BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS subjects (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  examples TEXT NOT NULL);  -- a pet or thing you named from example photos (media ids, JSON): found by looking alike       -- image embeddings (smart search)
 CREATE TABLE IF NOT EXISTS faces (id INTEGER PRIMARY KEY, media_id INTEGER NOT NULL, x REAL, y REAL, w REAL, h REAL,
   score REAL, emb BLOB NOT NULL, person INTEGER);                                         -- box as fractions of the image
 CREATE INDEX IF NOT EXISTS faces_media ON faces(media_id);

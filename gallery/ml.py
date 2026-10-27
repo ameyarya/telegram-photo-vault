@@ -10,6 +10,7 @@ GALLERY_ML_FAKE=1 swaps both for tiny deterministic stand-ins (used by the tests
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -481,19 +482,153 @@ def smart_rank(q, limit=200):
     return [(int(ids[k]), float(scores[k])) for k in order if scores[k] >= cutoff]
 
 
+# ---------------------------------------------------------------- pets and things you named
+SUBJECT_MARGIN = 0.06   # a photo shows the subject if it's about as close to its look as its own examples are
+SUBJECT_FLOOR = 0.62    # ... and never below this (CLIP image similarity)
+
+
+def subject_vector(con, examples):
+    rows = con.execute(f"SELECT emb FROM clip WHERE media_id IN ({','.join('?' * len(examples))})", examples).fetchall()
+    if not rows:
+        return None, 1.0
+    vecs = _norm(np.stack([np.frombuffer(r["emb"], dtype=np.float16).astype(np.float32) for r in rows]))
+    cent = _norm(vecs.mean(axis=0))
+    return cent, max(SUBJECT_FLOOR, float((vecs @ cent).min()) - SUBJECT_MARGIN)
+
+
+def subject_matches(con, examples):
+    """{media id: similarity} for photos that look like the examples."""
+    cent, cutoff = subject_vector(con, examples)
+    if cent is None:
+        return {}
+    ids, matrix = _search_matrix()
+    sims = matrix @ cent
+    keep = np.nonzero(sims >= cutoff)[0]
+    return {int(ids[k]): float(sims[k]) for k in keep}
+
+
+class Subject(BaseModel):
+    name: str
+    ids: list[int]
+
+
+@router.post("/api/subjects")
+def add_subject(body: Subject):
+    """Teach a pet or thing by name from photos of it ("Rex"); adding photos to an existing name refines it."""
+    name = body.name.strip()[:60]
+    if not name or not body.ids:
+        raise HTTPException(400, "Give a name and at least one photo")
+    con = connect()
+    row = con.execute("SELECT id, examples FROM subjects WHERE name = ?", (name,)).fetchone()
+    examples = sorted(set((json.loads(row["examples"]) if row else []) + body.ids))
+    if row:
+        con.execute("UPDATE subjects SET examples = ? WHERE id = ?", (json.dumps(examples), row["id"]))
+    else:
+        con.execute("INSERT INTO subjects(name, examples) VALUES (?, ?)", (name, json.dumps(examples)))
+    con.commit()
+    return {"name": name, "examples": len(examples), "matches": len(subject_matches(con, examples))}
+
+
+@router.get("/api/subjects")
+def list_subjects():
+    con = connect()
+    return [{"id": r["id"], "name": r["name"], "examples": len(json.loads(r["examples"])),
+             "cover": json.loads(r["examples"])[0]} for r in con.execute("SELECT * FROM subjects ORDER BY name")]
+
+
+@router.delete("/api/subjects/{sid}")
+def delete_subject(sid: int):
+    con = connect()
+    con.execute("DELETE FROM subjects WHERE id = ?", (sid,))
+    con.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- understanding a search
+JOINERS = {"and", "&", "with", "together", "+"}
+FILLER = {"photos", "photo", "pics", "pictures", "pic", "images", "of", "show", "me", "all"}
+
+
+def understand(con, q):
+    """Split a query into the people and subjects it names and the rest, e.g. "sam and priya on a mountain" ->
+    people [Sam, Priya], text "on a mountain". Names match whole words (first names too), any case, "sam's" too."""
+    people = {}
+    for r in con.execute("SELECT id, name FROM people WHERE name IS NOT NULL"):
+        people.setdefault(r["name"].lower(), r["id"])
+        people.setdefault(r["name"].lower().split()[0], r["id"])
+    subjects = {r["name"].lower(): (r["id"], r["name"], json.loads(r["examples"]))
+                for r in con.execute("SELECT * FROM subjects")}
+    names = {r["id"]: r["name"] for r in con.execute("SELECT id, name FROM people WHERE name IS NOT NULL")}
+    words = re.findall(r"[\w&+]+(?:'s)?", q.lower())
+    found_p, found_s, rest, i = [], [], [], 0
+    while i < len(words):
+        w = words[i][:-2] if words[i].endswith("'s") else words[i]
+        two = f"{w} {words[i + 1]}" if i + 1 < len(words) else None
+        if two in subjects or two in people:
+            w, i = two, i + 1
+        if w in subjects:
+            if subjects[w] not in found_s:
+                found_s.append(subjects[w])
+        elif w in people:
+            if people[w] not in found_p:
+                found_p.append(people[w])
+        else:
+            rest.append(words[i])
+        i += 1
+    if found_p or found_s:
+        rest = [w for w in rest if w not in JOINERS]
+        if all(w in FILLER for w in rest):
+            rest = []
+    return {"people": [(p, names[p]) for p in found_p], "subjects": found_s, "text": " ".join(rest)}
+
+
 @router.get("/api/smart-search")
 def smart_search(q: str, limit: int = 200, album: str = "", filter: str = ""):
+    """Search by what's in the photo: names of people (their faces) and of pets/things you taught, plus a description
+    ("sam and priya on a mountain", "rex on a beach"). Without names, it ranks everything by the description."""
     import server
     if not q.strip():
         return {"items": [], "ready": True}
-    if not models_ready() or connect().execute("SELECT count(*) FROM clip").fetchone()[0] == 0:
+    con = connect()
+    if not models_ready() or con.execute("SELECT count(*) FROM clip").fetchone()[0] == 0:
         return {"items": [], "ready": False}
-    ranked = smart_rank(q.strip(), limit)
+    u = understand(con, q.strip())
+    named = bool(u["people"] or u["subjects"])
+    if not named:
+        ranked = smart_rank(q.strip(), limit)
+    else:
+        cand, score = None, {}
+        for pid, _ in u["people"]:
+            have = {r[0] for r in con.execute("SELECT DISTINCT media_id FROM faces WHERE person = ?", (pid,))}
+            cand = have if cand is None else cand & have
+        for _, _, examples in u["subjects"]:
+            m = subject_matches(con, examples)
+            score.update(m)
+            cand = set(m) if cand is None else cand & set(m)
+        cand = sorted(cand or [])
+        if u["text"] and cand:
+            if _text_model["clip"] is None:
+                _text_model["clip"] = Clip()
+            ids, matrix = _search_matrix()
+            pos = {int(m): k for k, m in enumerate(ids)}
+            rows = [pos[m] for m in cand if m in pos]
+            sims = matrix[rows] @ _text_model["clip"].text(u["text"])
+            ranked = [(int(ids[rows[k]]), float(sims[k])) for k in np.argsort(-sims)]
+        elif score:
+            ranked = sorted(((m, score.get(m, 0.0)) for m in cand), key=lambda x: -x[1])
+        else:
+            dates = dict(con.execute(f"SELECT id, taken_at FROM media WHERE id IN ({','.join('?' * len(cand))})",
+                                     cand).fetchall()) if cand else {}
+            ranked = [(m, 0.0) for m in sorted(cand, key=lambda m: dates.get(m, ""), reverse=True)]
+        ranked = ranked[:max(limit, 500)]
+    understood = {"people": [n for _, n in u["people"]], "subjects": [s[1] for s in u["subjects"]],
+                  "text": u["text"]} if named else None
     if not ranked:
-        return {"items": [], "ready": True}
+        return {"items": [], "ready": True, "understood": understood}
     where, args = selection(album, True, filter, ids=[m for m, _ in ranked])
-    rows = {r["id"]: dict(r) for r in connect().execute(f"SELECT {server.ITEM_COLS} FROM media WHERE {where}", args)}
-    return {"ready": True, "items": [{**rows[m], "score": round(s, 4)} for m, s in ranked if m in rows]}
+    rows = {r["id"]: dict(r) for r in con.execute(f"SELECT {server.ITEM_COLS} FROM media WHERE {where}", args)}
+    return {"ready": True, "understood": understood,
+            "items": [{**rows[m], "score": round(s, 4)} for m, s in ranked if m in rows]}
 
 
 @router.get("/api/people")

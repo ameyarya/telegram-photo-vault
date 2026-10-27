@@ -187,6 +187,11 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .person img,.person .ph{width:120px;height:120px;border-radius:50%;object-fit:cover;background:var(--tile);display:block;margin:0 auto 8px}
 .person b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .person span{color:var(--ink2);font-size:12px}
+.person b[data-name]{color:var(--accent)}
+.subject .face{object-fit:cover}
+.subjects-help{margin-top:10px}
+.subjects-help svg{width:1.2em;height:1.2em;vertical-align:-.25em}
+#peopleMore{margin-top:16px}
 .person .unnamed{color:var(--accent);font-weight:400}
 .sim-group{margin:18px 0 26px}
 .sim-group h3{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--ink2)}
@@ -369,6 +374,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
   <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
@@ -397,6 +403,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
   <button class="icon-btn" id="selDownload" title="Download" aria-label="Download"><svg><use href="#i-download"/></svg></button>
+  <button class="icon-btn owner-only" id="selName" title="Name what's in these photos (a pet or thing, e.g. your dog)" aria-label="Name what's in these photos"><svg><use href="#i-tag"/></svg></button>
   <button class="icon-btn owner-only" id="selRestore" title="Restore from Telegram" aria-label="Restore from Telegram"><svg><use href="#i-restore"/></svg></button>
   <button class="icon-btn owner-only" id="selDate" title="Edit date &amp; time" aria-label="Edit date and time"><svg><use href="#i-cal-edit"/></svg></button>
   <button class="icon-btn owner-only" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
@@ -687,9 +694,16 @@ async function openSearch(q) {
     if (feed?.params.q !== q) return;
     if (!r.ready) {
       box.innerHTML = `<div class="note">${ico("smart")} Smart search (things like “beach” or “cake”) appears once photo analysis has run — see Backup.</div>`;
+    } else if (r.understood) {
+      const u = r.understood, who = [...u.people, ...u.subjects];
+      const names = who.length > 1 ? who.slice(0, -1).join(", ") + " and " + who.at(-1) : who[0];
+      box.innerHTML = `<h2 class="sec" id="understood">${ico("smart")} Photos of ${esc(names)}${u.text ? ` · “${esc(u.text)}”` : ""}
+        <span class="muted">${r.items.length ? plural(r.items.length, "photo") + (u.text ? ", best matches first" : "") : "none found"}</span></h2>
+        <div class="sim-row" id="smartRow"></div>`;
     } else if (r.items.length) {
       box.innerHTML = `<h2 class="sec">${ico("smart")} Best matches</h2><div class="sim-row" id="smartRow"></div>`;
-
+    }
+    if ($("#smartRow") && r.items.length) {
       $("#smartRow").innerHTML = r.items.map((it, i) => tileHtml(it, 150, 150, "s" + i)).join("");
       $("#smartRow").onclick = e => { const t = e.target.closest(".tile"); if (t && !e.target.closest(".sel")) openViewerOn(r.items, +t.dataset.i.slice(1)); };
     }
@@ -898,6 +912,15 @@ $("#selRemove").onclick = async () => {
   await loadUserAlbums(); clearPicked(); route();
 };
 $("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
+$("#selName").onclick = async () => {
+  const name = await promptDialog("Name what's in these photos", "A pet or a thing, e.g. your dog's name. Search will then find photos that look like these.");
+  if (!name) return;
+  try {
+    const r = await post("/api/subjects", {name, ids: [...picked]});
+    clearPicked();
+    toast(`Learned “${esc(r.name)}” from ${plural(r.examples, "photo")}: ${nf(r.matches)} look like it. <a href="#/search/${encodeURIComponent(r.name)}">See them</a>`, 8000);
+  } catch (e) { toast(esc(e.message)); }
+};
 $("#selDownload").onclick = () => {
   const ids = [...picked];
   const a = document.createElement("a");
@@ -1044,6 +1067,21 @@ function updateScrubberPos() {
 }
 
 // ---------- people, similar ----------
+const PEOPLE_MIN = 10;
+let peopleShowAll = false;
+async function drawSubjects() {
+  const box = $("#subjectsBox"); if (!box || me.role !== "owner") return;
+  const subs = await api("/api/subjects").catch(() => []);
+  box.innerHTML = `<h2 class="sec">Pets & things</h2>` + (subs.length ? `<div class="people">` + subs.map(x => `<div class="person subject" data-q="${esc(x.name)}">
+      <img class="face" loading="lazy" src="/thumb/${x.cover}" alt=""><b>${esc(x.name)}</b>
+      <span>from ${plural(x.examples, "photo")} · <a href="#" data-del="${x.id}">remove</a></span></div>`).join("") + `</div>` : "") +
+    `<div class="muted subjects-help">${ico("tag")} To teach a pet or thing by name (e.g. your dog), select a few clear photos of it anywhere and press ${ico("tag")} in the selection bar. Then search for it by name, e.g. “rex on a beach”.</div>`;
+  box.onclick = async e => {
+    const del = e.target.closest("[data-del]");
+    if (del) { e.preventDefault(); await fetch(`/api/subjects/${del.dataset.del}`, {method: "DELETE"}); return drawSubjects(); }
+    const c = e.target.closest(".subject"); if (c) location.hash = "#/search/" + encodeURIComponent(c.dataset.q);
+  };
+}
 async function renderPeople() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>People</h1><div class="head-actions">
@@ -1055,10 +1093,20 @@ async function renderPeople() {
     box.innerHTML = `<div class="note">${st.faces ? "Not enough faces grouped yet." : "No faces analysed yet."} ${mlNote(st)}</div>`; return;
   }
   $("#pSelect").hidden = people.length < 2;
+  // the people who matter first: named ones and anyone in 10+ photos; the rest (mostly strangers) behind a link
+  let main = people.filter(p => p.name || p.n >= PEOPLE_MIN);
+  if (main.length < 12) main = people;            // a small library: everyone
+  const rest = people.length - main.length;
+  const shown = peopleShowAll ? people : main;
+  const card = p => `<div class="person" data-id="${p.id}">${faceImg(p)}
+      <b class="${p.name ? "" : "unnamed"}" ${p.name ? "" : `data-name title="Add a name"`}>${esc(p.name || "Who's this?")}</b><span>${plural(p.n, "photo")}</span></div>`;
   box.innerHTML = (sugg ? `<div class="note owner-only" id="reviewNote">${ico("people")} ${sugg === 1 ? "1 possible match" : nf(sugg) + " possible matches"}: the face model thinks some of these might be the same person.
       <a href="#/people/review" class="all-link" id="reviewLink">Review</a></div>` : "") +
-    `<div class="people" id="peopleGrid">` + people.map(p => `<div class="person" data-id="${p.id}">${faceImg(p)}
-      <b class="${p.name ? "" : "unnamed"}">${esc(p.name || "Add a name")}</b><span>${plural(p.n, "photo")}</span></div>`).join("") + `</div>`;
+    `<div class="people" id="peopleGrid">` + shown.map(card).join("") + `</div>` +
+    (rest && !peopleShowAll ? `<button class="txt-btn" id="peopleMore">Show ${nf(rest)} more ${rest === 1 ? "person" : "people"} (in fewer than ${PEOPLE_MIN} photos)</button>` : "") +
+    `<div id="subjectsBox" class="owner-only"></div>`;
+  $("#peopleMore") && ($("#peopleMore").onclick = () => { peopleShowAll = true; renderPeople(); });
+  drawSubjects();
   const sel = new Set();
   const sync = () => {
     $("#peopleGrid").classList.toggle("selecting", sel.size > 0);
@@ -1072,8 +1120,13 @@ async function renderPeople() {
     const r = await post("/api/people/merge", {ids: [...sel]});
     toast(`Merged ${sel.size} people into one`); location.hash = "#/person/" + r.into;
   };
-  $("#peopleGrid").onclick = e => {
+  $("#peopleGrid").onclick = async e => {
     const p = e.target.closest(".person"); if (!p) return;
+    if (!selecting && e.target.closest("[data-name]") && me.role === "owner") {   // name them right here
+      const name = await promptDialog("Who's this?", "Name");
+      if (name) { await post(`/api/people/${p.dataset.id}/name`, {name}); renderPeople(); }
+      return;
+    }
     if (!selecting) { location.hash = "#/person/" + p.dataset.id; return; }
     const id = +p.dataset.id; sel.has(id) ? sel.delete(id) : sel.add(id); p.classList.toggle("picked", sel.has(id)); sync();
   };
