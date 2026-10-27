@@ -158,7 +158,7 @@ def test_favorite_wins_best_and_groups_can_be_dismissed(lapi, liveworld):
     assert lapi.get("/api/similar").json()["groups"][0]["best"] == fav
     lapi.post("/api/favorites/remove", json={"ids": [fav]})
     assert lapi.post("/api/similar/dismiss", json={"key": grp["key"]}).status_code == 200
-    assert lapi.get("/api/similar").json() == {"total": 0, "groups": []}
+    assert lapi.get("/api/similar").json() == {"total": 0, "extra": 0, "extra_bytes": 0, "groups": []}
     con = db(liveworld)
     con.execute("DELETE FROM similar_dismissed")
     con.commit()
