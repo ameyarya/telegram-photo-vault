@@ -1,4 +1,4 @@
-"""serve.py: HTTPS with a certificate valid for photo-vault.local, and http:// redirecting to it."""
+"""serve.py: HTTPS with a certificate valid for photos.local, and http:// redirecting to it."""
 import shutil
 import socket
 import ssl
@@ -22,7 +22,7 @@ MKCERT = shutil.which("mkcert") or "/opt/homebrew/bin/mkcert"
 def tls(world, tmp_path_factory):
     d = tmp_path_factory.mktemp("certs")
     cert, key = d / "c.pem", d / "k.pem"
-    subprocess.run([MKCERT, "-cert-file", cert, "-key-file", key, "photo-vault.local", "localhost", "127.0.0.1"],
+    subprocess.run([MKCERT, "-cert-file", cert, "-key-file", key, "photos.local", "localhost", "127.0.0.1"],
                    check=True, capture_output=True)
     ca = Path(subprocess.run([MKCERT, "-CAROOT"], capture_output=True, text=True).stdout.strip()) / "rootCA.pem"
     https_port, http_port = free_port(), free_port()
@@ -42,11 +42,11 @@ def tls(world, tmp_path_factory):
     proc.wait()
 
 
-def test_certificate_is_valid_for_photo_vault_local(tls):
+def test_certificate_is_valid_for_photos_local(tls):
     ctx = ssl.create_default_context(cafile=str(tls["ca"]))
     with socket.create_connection(("127.0.0.1", tls["https"])) as raw:
-        with ctx.wrap_socket(raw, server_hostname="photo-vault.local") as s:  # raises if the name or chain is wrong
-            s.sendall(b"GET /api/status HTTP/1.1\r\nHost: photo-vault.local\r\nConnection: close\r\n\r\n")
+        with ctx.wrap_socket(raw, server_hostname="photos.local") as s:  # raises if the name or chain is wrong
+            s.sendall(b"GET /api/status HTTP/1.1\r\nHost: photos.local\r\nConnection: close\r\n\r\n")
             assert s.recv(64).startswith(b"HTTP/1.1 200")
 
 
@@ -58,7 +58,7 @@ def test_https_serves_the_gallery(tls):
 def test_http_redirects_to_https_keeping_the_path(tls):
     r = httpx.get(f"http://127.0.0.1:{tls['http']}/thumb/1?x=2", follow_redirects=False)
     assert r.status_code == 308
-    assert r.headers["location"] == f"https://photo-vault.local:{tls['https']}/thumb/1?x=2"
+    assert r.headers["location"] == f"https://photos.local:{tls['https']}/thumb/1?x=2"
 
 
 def test_both_ports_refuse_other_devices(tls):
@@ -67,3 +67,11 @@ def test_both_ports_refuse_other_devices(tls):
         pytest.skip("no network interface")
     assert refused(f"http://{ip}:{tls['http']}/")
     assert refused(f"https://{ip}:{tls['https']}/api/status", verify=False)
+
+
+def test_the_old_address_forwards_to_the_new_one(tls):
+    """photo-vault.local (bookmarks, home-screen icons) keeps working: same page on photos.local."""
+    ctx = ssl.create_default_context(cafile=str(tls["ca"]))
+    r = httpx.get(f"https://127.0.0.1:{tls['https']}/api/items?x=1", headers={"host": "photo-vault.local"}, verify=ctx,
+                  follow_redirects=False)
+    assert r.status_code == 308 and r.headers["location"] == f"https://photos.local:{tls['https']}/api/items?x=1"

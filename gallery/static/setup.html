@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Photo Vault setup</title>
+<title>Photos setup</title>
 <style>
 :root{--bg:#fff;--ink:#1f1f1f;--ink2:#5f6368;--line:#e0e3e7;--accent:#0b57d0;--surface:#f6f8fc}
 @media (prefers-color-scheme: dark){:root{--bg:#1b1b1d;--ink:#e3e3e3;--ink2:#a8acb1;--line:#3c4043;--accent:#a8c7fa;--surface:#242428}}
@@ -23,14 +23,14 @@ b{font-weight:600}
 </head>
 <body>
 <main>
-  <h1>Photo Vault on your phone</h1>
+  <h1>Photos on your phone</h1>
   <p class="sub">One-time setup, about two minutes. Your phone must be on the same Wi-Fi as the Mac.</p>
   <div class="tabs"><button id="tIos" class="on">iPhone</button><button id="tAnd">Android</button></div>
   <ol id="ios">
     <li>Open this page in <b>Safari</b> and tap:<br><a class="btn" href="/ca.pem">Download certificate</a><br>then tap <b>Allow</b>.</li>
     <li>Open <b>Settings</b> → <b>Profile Downloaded</b> (near the top) → <b>Install</b>, and enter your phone passcode.</li>
     <li>Settings → <b>General</b> → <b>About</b> → <b>Certificate Trust Settings</b> → switch on the <b>mkcert</b> certificate.</li>
-    <li>Open the gallery and sign in with the name and password you were given:<br><a class="btn" href="https://photo-vault.local/">Open Photo Vault</a></li>
+    <li>Open the gallery and sign in with the name and password you were given:<br><a class="btn" href="https://photos.local/">Open Photos</a></li>
     <li>Optional: tap <b>Share</b> → <b>Add to Home Screen</b> to get an app icon.</li>
   </ol>
   <ol id="and" hidden>
@@ -38,7 +38,7 @@ b{font-weight:600}
     <li>Open <b>Settings</b> → <b>Security &amp; privacy</b> → <b>More security settings</b> → <b>Encryption &amp; credentials</b> →
       <b>Install a certificate</b> → <b>CA certificate</b> → <b>Install anyway</b>, and pick the downloaded <b>photo-vault-ca.pem</b>.
       (Menu names differ a little between phones; searching Settings for “CA certificate” finds it.)</li>
-    <li>Open the gallery in <b>Chrome</b> and sign in with the name and password you were given:<br><a class="btn" href="https://photo-vault.local/">Open Photo Vault</a></li>
+    <li>Open the gallery in <b>Chrome</b> and sign in with the name and password you were given:<br><a class="btn" href="https://photos.local/">Open Photos</a></li>
     <li>Optional: Chrome menu → <b>Add to Home screen</b>.</li>
   </ol>
   <div class="note">The certificate lets your phone check it's really talking to the Mac, so your password and photos

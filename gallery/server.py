@@ -3,7 +3,7 @@
 Thumbnails and the index are local. Full-size photos and videos come from the drive when it is
 plugged in, otherwise they are streamed from Telegram. Nothing here can change or delete anything on the
 drive or in Telegram, except moving files you trash (see trash.py); other writes are local (favorites, albums, restores).
-Run: ../.venv/bin/python serve.py   (https://photo-vault.local), or install_service.sh to keep it running.
+Run: ../.venv/bin/python serve.py   (https://photos.local), or install_service.sh to keep it running.
 """
 import asyncio
 import mimetypes
@@ -15,12 +15,12 @@ from contextlib import asynccontextmanager
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 from telethon.errors import FileReferenceExpiredError
 
 import tg
 from build_index import make_thumb, thumb_path
-from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, TELEGRAM, load_env, local_path
+from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, HOSTNAME, OLD_HOSTNAMES, TELEGRAM, load_env, local_path
 from db import connect
 from search import VISIBLE, parse_query, selection
 
@@ -78,6 +78,11 @@ for _mod in (auth, dates, library, ml, restore, backup, trash, upload):
 # --- who may use it: this Mac always; phones on the home Wi-Fi only when shared and signed in (see auth.py) ---
 @app.middleware("http")
 async def gatekeeper(request: Request, call_next):
+    host = (request.headers.get("host") or "").split(":")[0].lower()
+    if host in OLD_HOSTNAMES:                      # an older address (bookmarks, home-screen icons): the same page, new name
+        port = request.url.port or (request.scope.get("server") or (None, None))[1]   # the port it came in on
+        target = f"https://{HOSTNAME}{'' if port in (None, 443) else f':{port}'}{request.url.path}"
+        return RedirectResponse(target + (f"?{request.url.query}" if request.url.query else ""), status_code=308)
     refused = await asyncio.to_thread(auth.gate, request)
     return refused or await call_next(request)
 

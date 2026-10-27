@@ -216,16 +216,16 @@ def test_http_port_refuses_redirects_and_serves_setup(monkeypatch):
         async def send(m):
             sent.append(m)
         scope = {"type": "http", "client": (client, 5000), "path": path, "raw_path": path.encode(), "query_string": b"",
-                 "method": "GET", "headers": [], "scheme": "http", "server": ("photo-vault.local", 80), "root_path": ""}
+                 "method": "GET", "headers": [], "scheme": "http", "server": ("photos.local", 80), "root_path": ""}
         with ThreadPoolExecutor(1) as ex:  # Playwright keeps an event loop running on this thread
             ex.submit(lambda: asyncio.run(serve.redirect(scope, receive, send))).result()
         start = next(m for m in sent if m["type"] == "http.response.start")
         return start["status"], dict(start["headers"]).get(b"location", b"").decode()
 
-    assert call("127.0.0.1", "/x", False) == (308, "https://photo-vault.local/x")
+    assert call("127.0.0.1", "/x", False) == (308, "https://photos.local/x")
     assert call("192.168.1.50", "/x", False)[0] == 403
     assert call("8.8.8.8", "/x", True)[0] == 403                                   # not the home network
-    assert call("192.168.1.50", "/api/items", True) == (308, "https://photo-vault.local/api/items")
+    assert call("192.168.1.50", "/api/items", True) == (308, "https://photos.local/api/items")
     assert call("192.168.1.50", "/setup", False)[0] == 403
 
 

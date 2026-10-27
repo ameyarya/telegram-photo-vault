@@ -1,8 +1,9 @@
-"""Run the gallery on https://photo-vault.local (port 443) and redirect http:// (port 80) to it.
+"""Run the gallery on https://photos.local (port 443) and redirect http:// (port 80) to it.
 
 Certificates come from mkcert (see setup_https.sh). Other devices are refused unless sharing on the home Wi-Fi is
-switched on (see auth.py). While it is, photo-vault.local is announced on the network (Bonjour) so phones find this
+switched on (see auth.py). While it is, photos.local is announced on the network (Bonjour) so phones find this
 Mac by name, and http:// also serves the phone setup page and certificate (a phone can't use https:// before that).
+Older addresses (GALLERY_OLD_HOSTNAMES, e.g. photo-vault.local) are announced too and forward to the new one.
 """
 import asyncio
 import os
@@ -11,13 +12,13 @@ import subprocess
 import uvicorn
 from starlette.responses import RedirectResponse, Response
 
-from config import BASE
+from config import BASE, HOSTNAME, OLD_HOSTNAMES
 
-HOST = os.environ.get("GALLERY_HOSTNAME", "photo-vault.local")
+HOST = HOSTNAME
 HTTPS_PORT = int(os.environ.get("GALLERY_HTTPS_PORT", 443))
 HTTP_PORT = int(os.environ.get("GALLERY_HTTP_PORT", 80))
-CERT = os.environ.get("GALLERY_CERT", str(BASE / "certs" / "photo-vault.local.pem"))
-KEY = os.environ.get("GALLERY_KEY", str(BASE / "certs" / "photo-vault.local-key.pem"))
+CERT = os.environ.get("GALLERY_CERT", str(BASE / "certs" / f"{HOST}.pem"))
+KEY = os.environ.get("GALLERY_KEY", str(BASE / "certs" / f"{HOST}-key.pem"))
 LOCAL = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 
 
@@ -42,18 +43,21 @@ async def redirect(scope, receive, send):
 
 
 async def announce():
-    """While sharing is on, tell the home network that photo-vault.local is this Mac (follows IP changes)."""
+    """While sharing is on, tell the home network that photos.local (and any older address) is this Mac (follows IP
+    changes)."""
     import auth
-    proc, ip = None, None
+    procs, ip = [], None
     while True:
         want = await asyncio.to_thread(auth.sharing_on) and await asyncio.to_thread(auth.lan_address)
         if want != ip:
-            if proc:
-                proc.terminate()
-                proc = None
+            for p in procs:
+                p.terminate()
+            procs = []
             if want:
-                proc = subprocess.Popen(["dns-sd", "-P", "Photo Vault", "_https._tcp", "local", str(HTTPS_PORT), HOST, want],
-                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                for k, name in enumerate([HOST] + OLD_HOSTNAMES):
+                    procs.append(subprocess.Popen(["dns-sd", "-P", "Photos" if k == 0 else f"Photos ({name})", "_https._tcp",
+                                                   "local", str(HTTPS_PORT), name, want],
+                                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
             ip = want
         await asyncio.sleep(20)
 

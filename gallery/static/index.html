@@ -1300,7 +1300,7 @@ async function renderSharing() {
       <div class="panel"><label class="switch"><input type="checkbox" id="shareOn" ${sh.sharing ? "checked" : ""} ${u.users.length ? "" : "disabled"}>
         Share on home Wi-Fi</label>
         <div class="muted" style="margin-top:8px">${sh.sharing
-          ? `On. On the phone, open <b>http://photo-vault.local/setup</b> once (in Safari on iPhone) to trust this Mac, then <b>https://photo-vault.local</b>.
+          ? `On. On the phone, open <b>http://photos.local/setup</b> once (in Safari on iPhone) to trust this Mac, then <b>https://photos.local</b>.
              If the name doesn't open, use <b>http://${esc(sh.address || "this Mac's address")}/setup</b>.`
           : u.users.length ? "Off: only this Mac can open the gallery." : "Add an account first."}</div></div>
       <div class="panel" style="margin-top:16px"><h3>Accounts</h3>${u.users.map(acct).join("") || `<div class="muted">No accounts yet.</div>`}

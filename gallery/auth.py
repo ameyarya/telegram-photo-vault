@@ -304,7 +304,7 @@ def lan_address():
 # ---------------------------------------------------------------- phone setup (no data, so no sign-in)
 @router.get("/ca.pem")
 def ca_certificate():
-    """The public half of this Mac's mkcert certificate authority, so a phone can trust https://photo-vault.local."""
+    """The public half of this Mac's mkcert certificate authority, so a phone can trust https://photos.local."""
     import subprocess
     root = subprocess.run(["mkcert", "-CAROOT"], capture_output=True, text=True).stdout.strip()
     pem = os.path.join(root, "rootCA.pem") if root else ""

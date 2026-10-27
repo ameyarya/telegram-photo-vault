@@ -22,7 +22,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | **Duplicate skipping** (`backup/find_duplicates.py`) — copies confirmed byte-for-byte (SHA-256), never by name alone | ✅ tested |
 | **Timestamp manifest** (`backup/save_timestamps.sh`) — saves created/modified dates Telegram doesn't keep | ✅ tested |
 | **Upload verification** (`backup/verify_uploads.py`) — downloads samples back and compares SHA-256 with the originals | ✅ |
-| **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photo-vault.local`, this Mac only | ✅ tested, incl. headless-browser tests |
+| **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photos.local`, this Mac only | ✅ tested, incl. headless-browser tests |
 | ↳ **Date scrubber**, oldest/newest-first, **filter chips** (photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date) | ✅ |
 | ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
 | ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
@@ -96,9 +96,9 @@ run it again later. Add `--rescan` after adding new photos.
    them in `config.env` (`TG_API_ID`, `TG_API_HASH`).
 2. Log the gallery in (Terminal): `cd gallery && ../.venv/bin/python tg.py login`
 3. Index the drive (thumbnails are also made on demand): `../.venv/bin/python build_index.py`
-4. Make `https://photo-vault.local` work and keep the gallery running in the background:
+4. Make `https://photos.local` work and keep the gallery running in the background:
    ```sh
-   sudo zsh setup_hostname.sh     # adds photo-vault.local to /etc/hosts (backs it up first)
+   sudo zsh setup_hostname.sh     # adds photos.local to /etc/hosts (backs it up first)
    zsh setup_https.sh             # mkcert: a certificate trusted only on this Mac (asks for your password)
    zsh install_service.sh         # starts at login; `zsh install_service.sh --remove` to undo
    ```
@@ -112,8 +112,8 @@ crossed-out cloud.
 ### Optional: family on their phones (home Wi-Fi)
 
 Open the gallery on the Mac → **Sharing**: add an account for each person (view-only, or full access), then switch on
-**Share on home Wi-Fi**. On the phone, open `http://photo-vault.local/setup` once: it walks through trusting this Mac's
-certificate (so passwords and photos are encrypted on the Wi-Fi), then sign in at `https://photo-vault.local`.
+**Share on home Wi-Fi**. On the phone, open `http://photos.local/setup` once: it walks through trusting this Mac's
+certificate (so passwords and photos are encrypted on the Wi-Fi), then sign in at `https://photos.local`.
 
 - Only devices on your home network that sign in get in; everything else is refused. Switch it off any time.
 - Accounts are managed only on the Mac. "Sign out" a lost phone, or change a password to sign out all their devices.
