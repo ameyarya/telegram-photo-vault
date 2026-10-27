@@ -392,3 +392,29 @@ def test_people_page_puts_main_people_first_and_folds_the_rest(page):
     expect(page.locator("#peopleMore")).to_have_text("Show 5 more people (in fewer than 10 photos)")
     page.click("#peopleMore")
     expect(page.locator("#peopleGrid .person")).to_have_count(20)
+
+
+@pytest.mark.parametrize("page", [BIG], indirect=True)
+def test_scrubber_drag_bubble_and_fair_spacing(page):
+    go(page)
+    all_oldest_first(page)
+    sc = page.locator("#scrubber").bounding_box()
+    x = sc["x"] + sc["width"] / 2
+    page.mouse.move(x, sc["y"] + sc["height"] * 0.1)
+    page.mouse.down()                                                   # drag from the top ...
+    page.mouse.move(x, sc["y"] + sc["height"] * 0.5, steps=5)
+    page.mouse.move(x, sc["y"] + sc["height"] * 0.85, steps=5)
+    expect(page.locator("#scrubber")).to_have_class(re.compile("dragging"))
+    expect(page.locator("#scTip")).to_contain_text("2023")              # the bubble follows the finger
+    page.mouse.up()                                                     # ... and let go: jump there
+    on_screen = """() => [...document.querySelectorAll('#days .day h3')]
+                     .find(h => h.getBoundingClientRect().top >= 60)?.textContent"""
+    page.wait_for_function(f"({on_screen})()?.includes('2023')")
+    page.evaluate("document.querySelector('#main').scrollTop += 300")    # scrolling shows the date bubble
+    expect(page.locator("#scrubber")).to_have_class(re.compile("active"))
+    expect(page.locator("#scTip")).to_be_visible()
+    # a year with one photo next to one with thousands still gets a readable slot on the bar
+    gap = page.evaluate("""() => { const f = {months: [{m: '2010-05', n: 1}, {m: '2011-03', n: 1},
+                                     ...Array.from({length: 12}, (_, i) => ({m: '2024-' + String(i + 1).padStart(2, '0'), n: 5000}))]};
+                                   f.total = f.months.reduce((a, m) => a + m.n, 0); scrubberLayout(f); return f.ys[1] - f.ys[0]; }""")
+    assert gap > 18

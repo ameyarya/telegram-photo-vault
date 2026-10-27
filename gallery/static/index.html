@@ -182,7 +182,18 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .scrubber .pos{position:absolute;right:3px;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--accent);pointer-events:none}
 .scrubber .tip{position:absolute;right:30px;transform:translateY(-50%);background:var(--accent);color:#fff;font-size:12px;font-weight:500;padding:3px 8px;border-radius:12px;white-space:nowrap;pointer-events:none;display:none}
 @media (prefers-color-scheme: dark){.scrubber .tip{color:#062e6f}}
-.scrubber:hover .tip{display:block}
+.scrubber:hover .tip,.scrubber.active .tip{display:block}
+.scrubber{touch-action:none}
+.scrubber .pos{transition:top .08s}
+.scrubber.dragging .pos{width:12px;height:12px;margin-top:-6px;right:1px;transition:none}
+@media (max-width:600px){                     /* phones: a thin bar on the edge that appears while scrolling */
+  .scrubber{width:36px;opacity:0;pointer-events:none;transition:opacity .2s}
+  .scrubber.active{opacity:1;pointer-events:auto}
+  .scrubber .yr{display:none}
+  .scrubber::before{right:8px;width:4px;border-radius:2px}
+  .scrubber .pos{right:4px;width:12px;height:12px;margin-top:-6px}
+  .with-scrubber .page{padding-right:8px}
+}
 .with-scrubber .page{padding-right:72px}
 
 /* ---------- people / similar / dashboard ---------- */
@@ -916,7 +927,11 @@ $("#page").addEventListener("click", e => {
   openViewer(+t.dataset.i);
 });
 let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderSections(true); drawScrubber(); }, 120); });
-$("#main").addEventListener("scroll", () => { $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0); updateScrubberPos(); }, {passive: true});
+$("#main").addEventListener("scroll", () => {
+  $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0);
+  updateScrubberPos();
+  if (feed?.months && !$("#scrubber").hidden) scrubberShow();
+}, {passive: true});
 new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#main"), rootMargin: "2000px"}).observe($("#sentinel"));
 const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadPrev(), {root: $("#main"), rootMargin: "1200px"});
 
@@ -1079,40 +1094,82 @@ async function loadMonths() {
   drawScrubber();
 }
 function hideScrubber() { $("#scrubber").hidden = true; document.body.classList.remove("with-scrubber"); }
+// Space on the bar: mostly by photo count, but every month gets a share too, so years with few photos still get a
+// readable slot instead of being squeezed together at one end.
+function scrubberLayout(f) {
+  const n = f.months.length, sc = $("#scrubber"), H = sc.clientHeight - 20;
+  let cum = 0, wsum = 0;
+  f.cum = f.months.map(m => { const c = cum; cum += m.n; return c; });
+  const w = f.months.map(m => 0.65 * m.n / f.total + 0.35 / n);
+  f.ys = w.map(x => { const y = 10 + H * wsum; wsum += x; return y; });
+  f.hs = w.map(x => H * x);
+}
+const yForIndex = (f, idx) => {
+  let i = f.cum.findIndex((c, k) => idx < c + f.months[k].n); if (i < 0) i = f.months.length - 1;
+  return f.ys[i] + f.hs[i] * Math.min(1, (idx - f.cum[i]) / Math.max(1, f.months[i].n));
+};
+function indexForY(f, y) {
+  let i = f.ys.findIndex((top, k) => y < top + f.hs[k]); if (i < 0) i = f.months.length - 1;
+  const frac = Math.min(1, Math.max(0, (y - f.ys[i]) / Math.max(1, f.hs[i])));
+  return {month: i, idx: Math.min(f.total - 1, f.cum[i] + Math.floor(frac * f.months[i].n))};
+}
 function drawScrubber() {
   const f = feed, sc = $("#scrubber");
-  if (!f?.months || f.months.length < 2 || innerWidth < 500) return hideScrubber();
+  if (!f?.months || f.months.length < 2) return hideScrubber();
   sc.hidden = false; document.body.classList.add("with-scrubber");
-  const H = sc.clientHeight - 20; let cum = 0, lastY = -99, html = "";
-  f.cum = f.months.map(m => { const c = cum; cum += m.n; return c; });
+  scrubberLayout(f);
+  let lastY = -99, html = "";
   f.months.forEach((m, i) => {
-    const y = 10 + H * f.cum[i] / f.total, yr = m.m.slice(0, 4);
-    const prevYr = i ? f.months[i - 1].m.slice(0, 4) : null;
-    if (yr !== prevYr && y - lastY > 16) { html += `<span class="yr" style="top:${y}px">${yr}</span>`; lastY = y; }
+    const yr = m.m.slice(0, 4), prevYr = i ? f.months[i - 1].m.slice(0, 4) : null;
+    if (yr !== prevYr && f.ys[i] - lastY > 18) { html += `<span class="yr" style="top:${f.ys[i]}px">${yr}</span>`; lastY = f.ys[i]; }
   });
   sc.innerHTML = html + `<span class="pos" id="scPos"></span><span class="tip" id="scTip"></span>`;
   updateScrubberPos();
 }
-function monthAt(clientY) {
-  const f = feed, sc = $("#scrubber"), r = sc.getBoundingClientRect();
-  const frac = Math.min(1, Math.max(0, (clientY - r.top - 10) / (r.height - 20)));
-  const target = frac * f.total;
-  let i = f.cum.findIndex((c, k) => target < c + f.months[k].n);
-  if (i < 0) i = f.months.length - 1;
-  return i;
+function scTip(y, text) {
+  const tip = $("#scTip"); if (!tip) return;
+  tip.textContent = text; tip.style.top = y + "px";
 }
-$("#scrubber").addEventListener("mousemove", e => {
+let scDrag = null, scIdle = null;
+function scrubberShow() {        // the date bubble (and, on phones, the bar) shows while you scroll or drag
+  const sc = $("#scrubber"); sc.classList.add("active");
+  clearTimeout(scIdle); scIdle = setTimeout(() => { if (!scDrag) sc.classList.remove("active"); }, 1200);
+}
+function scrubAt(clientY) {
+  const f = feed, r = $("#scrubber").getBoundingClientRect(), y = Math.min(r.height - 10, Math.max(10, clientY - r.top));
+  const at = indexForY(f, y);
+  scTip(y, monthLabel(f.months[at.month].m));
+  $("#scPos").style.top = y + "px";
+  return at;
+}
+$("#scrubber").addEventListener("pointerdown", e => {
   if (!feed?.months) return;
-  const i = monthAt(e.clientY), tip = $("#scTip");
-  tip.textContent = monthLabel(feed.months[i].m); tip.style.top = (e.clientY - $("#scrubber").getBoundingClientRect().top) + "px";
+  e.preventDefault();
+  $("#scrubber").setPointerCapture(e.pointerId);
+  scDrag = scrubAt(e.clientY); $("#scrubber").classList.add("active", "dragging");
 });
-$("#scrubber").addEventListener("click", e => { if (feed?.months) jumpTo(feed.cum[monthAt(e.clientY)]); });
+$("#scrubber").addEventListener("pointermove", e => {
+  if (!feed?.months) return;
+  if (scDrag) scDrag = scrubAt(e.clientY);
+  else if (e.pointerType === "mouse") { const r = $("#scrubber").getBoundingClientRect(); scTip(e.clientY - r.top, monthLabel(feed.months[indexForY(feed, e.clientY - r.top).month].m)); }
+});
+const scDrop = () => {
+  if (!scDrag) return;
+  const at = scDrag; scDrag = null;
+  $("#scrubber").classList.remove("dragging"); scrubberShow();
+  jumpTo(feed.cum[at.month] + Math.max(0, at.idx - feed.cum[at.month]));
+};
+$("#scrubber").addEventListener("pointerup", scDrop);
+$("#scrubber").addEventListener("pointercancel", () => { scDrag = null; $("#scrubber").classList.remove("dragging"); });
 function updateScrubberPos() {
-  const f = feed, pos = $("#scPos"); if (!f?.months || !pos) return;
+  const f = feed, pos = $("#scPos"); if (!f?.months || !pos || scDrag || !f.ys) return;
   const t = [...document.querySelectorAll("#days .tile")].find(t => t.getBoundingClientRect().bottom > 70);
-  const idx = f.base + (t ? +t.dataset.i : 0);
-  pos.style.top = (10 + ($("#scrubber").clientHeight - 20) * idx / Math.max(1, f.total)) + "px";
+  const idx = f.base + (t ? +t.dataset.i : 0), y = yForIndex(f, Math.min(idx, f.total - 1));
+  pos.style.top = y + "px";
+  const it = t && f.items[+t.dataset.i];
+  if (it) scTip(y, monthLabel(it.taken_at.slice(0, 7)));
 }
+addEventListener("resize", () => { if (feed?.months && !$("#scrubber").hidden) drawScrubber(); });
 
 // ---------- people, similar ----------
 const PEOPLE_MIN = 10;
