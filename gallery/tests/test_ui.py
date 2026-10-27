@@ -374,9 +374,10 @@ def test_sidebar_shows_backed_up_percentage(page):
     assert page.evaluate("[backedPct(9999, 10000), backedPct(5, 10), backedPct(10, 10), backedPct(0, 0)]") == [99, 50, 100, 100]
 
 
-def test_refresh_button_beside_restore_reloads_in_place(page):
+def test_refresh_button_reloads_in_place(page):
     go(page, "#/album/vacation")
-    expect(page.locator(".head-actions #restoreBtn + #refreshBtn")).to_be_visible()          # right beside Restore
+    expect(page.locator(".head-actions #refreshBtn")).to_be_visible()
+    assert page.locator("#restoreBtn").count() == 0                                          # Restore is on Backup now
     page.click(".chip[data-f='']")
     with page.expect_response(lambda r: "/api/status" in r.url):
         page.click("#refreshBtn")

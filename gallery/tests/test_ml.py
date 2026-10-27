@@ -170,3 +170,21 @@ def test_clustering_edge_cases():
     import ml, numpy as np
     assert len(ml.cluster_faces(np.zeros((0, 128), np.float32))) == 0
     assert list(ml.cluster_faces(ml._norm(np.ones((1, 128))).astype(np.float32))) == [-1]
+
+
+def test_look_alike_chains_dont_merge_different_people():
+    """Regression: merging every similar pair at once chained A~B, B~C ... into one 'person' holding a quarter of a
+    real library's faces. Merging the closest pair first and recomputing keeps A and C apart."""
+    import numpy as np
+    import ml
+    rng = np.random.default_rng(0)
+    def person(v, n=4):
+        return [ml._norm(v + rng.normal(0, 0.02, v.shape)) for _ in range(n)]
+    a = ml._norm(np.r_[1.0, 0.0, 0.0, np.zeros(61)])
+    c = ml._norm(np.r_[0.2, 0.98, 0.0, np.zeros(61)])           # a and c: clearly different people
+    b = ml._norm(a + c)                                          # b looks a bit like each
+    groups = [list(range(0, 4)), list(range(4, 8)), list(range(8, 12))]
+    embs = np.stack(person(a) + person(b) + person(c)).astype(np.float32)
+    merged = ml.merge_groups(embs, groups, 0.70)
+    assert len(merged) == 2                                      # b joins one of them, never all three in one
+    assert not any(set(range(0, 4)) <= set(m) and set(range(8, 12)) <= set(m) for m in merged)

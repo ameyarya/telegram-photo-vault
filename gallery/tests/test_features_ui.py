@@ -237,9 +237,11 @@ def test_no_scrubber_for_small_albums(page):
 
 # ---------- restore from the page ----------
 @pytest.mark.parametrize("page", [CLOUD], indirect=True)
-def test_restore_from_album_page_and_watch_progress(page):
-    go(page, "#/album/vacation")
-    page.click("#restoreBtn")
+def test_restore_from_backup_page_and_watch_progress(page):
+    go(page, "#/backup")
+    expect(page.locator("#restorePanel")).to_be_visible()
+    page.select_option("#restoreWhat", label="Vacation")
+    page.click("#restoreGo")
     expect(page.locator(".dialog")).to_contain_text("Photo Vault Restore")
     page.click(".dialog [data-x='1']")
     expect(page.locator(".toast")).to_contain_text("Restoring 3 files")
@@ -261,8 +263,8 @@ def test_restore_selection(page):
 
 
 def test_restore_without_telegram_explains(page):
-    go(page, "#/album/vacation")
-    page.click("#restoreBtn")
+    go(page, "#/backup")
+    page.click("#restoreGo")
     page.click(".dialog [data-x='1']")
     expect(page.locator(".toast")).to_contain_text("Telegram isn't connected")
 

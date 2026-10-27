@@ -265,6 +265,11 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 @keyframes spin{to{transform:rotate(360deg)}}
 #refreshBtn.spinning svg{animation:spin .8s linear infinite}
 @media (max-width:600px){.head-actions .txt-btn .lbl{display:none}}  /* phones: Restore and Refresh as icons, so all fit */
+.restore-panel{max-width:860px;margin:12px 0}
+.restore-panel h3{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+.restore-panel .muted svg{width:1.25em;height:1.25em;vertical-align:-.3em}
+.restore-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.restore-row select{flex:1;min-width:200px;max-width:480px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 10px;font:inherit}
 .up-box{max-width:640px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:12px}
 .up-box .chips{flex-wrap:wrap}
 .up-pick{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--line);border-radius:16px;text-align:center}
@@ -705,7 +710,7 @@ function openFeed(o) {
     .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.actions || ""}${o.empty ? "" : `<button class="txt-btn owner-only" id="restoreBtn" aria-label="Restore" title="Download these from Telegram into a folder">${ico("restore")}<span class="lbl">Restore</span></button>`}<button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+      <div class="head-actions">${o.actions || ""}<button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
     <div class="sentinel" id="topSentinel"></div><div id="days"></div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
@@ -718,7 +723,6 @@ function openFeed(o) {
   $("#chips")?.addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route(); });
   if (filterChip === "undated") $("#chips")?.insertAdjacentHTML("afterend", `<div class="note owner-only">These have no camera date, so they're dated by the file.
     Select some and press ${ico("cal-edit")} to set or shift their date, or see <a href="#/dates">suggested dates</a>.</div>`);
-  $("#restoreBtn") && ($("#restoreBtn").onclick = () => startRestore(feedQuery(), o.restoreLabel || o.title));
   if (o.empty) { feed.total = 0; $("#pgSub").textContent = o.empty; return; }
   topObserver.observe($("#topSentinel"));
   loadMore().then(loadMonths);
@@ -967,6 +971,24 @@ async function addToAlbum(ids) {
 }
 
 // ---------- restore ----------
+// Backup page: pick what to restore (everything, a folder, an album, a person, favorites)
+async function fillRestoreChoices() {
+  if (me.role !== "owner") return;
+  const people = await api("/api/people").catch(() => []);
+  const opt = (v, label) => `<option value="${esc(JSON.stringify(v))}">${esc(label)}</option>`;
+  const group = (label, items) => items.length ? `<optgroup label="${label}">${items.join("")}</optgroup>` : "";
+  const sel = $("#restoreWhat"); if (!sel) return;
+  sel.innerHTML = opt({}, "Everything") + opt({filter: "favorites"}, "Favorites") +
+    group("Folders", albums.slice().sort((a, b) => a.album.localeCompare(b.album))
+      .map(a => opt({album: a.album, sub: "true"}, a.album.split("/").map((_, i, s) => folderName(s.slice(0, i + 1).join("/"))).join(" › ")))) +
+    group("Your albums", userAlbums.map(a => opt({user_album: a.id}, a.name))) +
+    group("People", people.filter(p => p.name).map(p => opt({person: p.id}, p.name)));
+  $("#restoreGo").onclick = () => {
+    const q = JSON.parse(sel.value);
+    startRestore(q, sel.options[sel.selectedIndex].text);
+  };
+}
+
 async function startRestore(query, label) {
   try {
     const n = picked.size && query.ids ? query.ids.length : feed?.total;
@@ -1412,7 +1434,15 @@ function mlNote(st) {
 let backupTimer = null;
 async function renderBackup() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div><div class="page-sub" id="pgSub"></div><div id="dashBox"><div class="empty">Loading…</div></div>`;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div><div class="page-sub" id="pgSub"></div>
+    <div class="panel owner-only restore-panel" id="restorePanel"><h3>${ico("restore")} Restore from Telegram</h3>
+      <div class="muted">Download photos from your Telegram backup into a new folder in Downloads › Photo Vault Restore, with
+        their original dates. Nothing on the drive or in Telegram changes. (To restore a few photos, select them anywhere
+        and use ${ico("restore")} in the selection bar.)</div>
+      <div class="restore-row"><select id="restoreWhat" aria-label="What to restore"><option value="all">Everything</option></select>
+        <button class="fill-btn" id="restoreGo">Restore</button></div></div>
+    <div id="dashBox"><div class="empty">Loading…</div></div>`;
+  fillRestoreChoices();
   clearInterval(backupTimer);
   const draw = async () => {
     if (!location.hash.startsWith("#/backup")) return clearInterval(backupTimer);

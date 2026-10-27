@@ -251,8 +251,9 @@ def cluster_faces(embs, k=FACE_NEIGHBOURS, link=FACE_LINK, merge=PEOPLE_MERGE, i
     1. Link each face only to *mutual* close matches (each among the other's k most similar, and similar enough).
        "Generic" faces resemble everyone but are nobody's closest match, so they can't bridge different people.
     2. Chinese whispers on that graph (the method dlib uses): tight, reliable groups.
-    3. Merge groups whose average faces match strongly; averages are far less noisy than single faces.
-    Linking faces directly (A~B, B~C, ...) chained almost everyone into one person on a real library.
+    3. Merge groups, most similar pair first, recomputing the merged group's average face each time, and stop when no
+       two averages match strongly. Merging every pair above the threshold at once chained look-alikes (A~B, B~C ...)
+       into one "person" holding a quarter of a real library's faces, men and women alike.
     """
     n = len(embs)
     if n == 0:
@@ -293,16 +294,47 @@ def cluster_faces(embs, k=FACE_NEIGHBOURS, link=FACE_LINK, merge=PEOPLE_MERGE, i
     out = np.full(n, -1, dtype=np.int64)
     if not tight:
         return out
-    cents = _norm(np.stack([embs[g].mean(axis=0) for g in tight]))
-    u = _Union(len(tight))
-    for i in range(0, len(tight), 2048):
-        s = cents[i:i + 2048] @ cents.T
-        for a, b in zip(*np.nonzero(s >= merge)):
-            if a + i < b:
-                u.join(a + i, int(b))
-    for g, members in enumerate(tight):
-        out[members] = u.find(g)
+    for label, members in enumerate(merge_groups(embs, tight, merge)):
+        out[members] = label
     return out
+
+
+def merge_groups(embs, groups, threshold):
+    """Centroid linkage: repeatedly merge the two groups whose average faces are most similar, until the best pair is
+    below threshold. Returns the merged groups (lists of face indexes)."""
+    sums = np.stack([embs[g].sum(axis=0) for g in groups]).astype(np.float64)
+    cents = _norm(sums).astype(np.float64)
+    n = len(groups)
+    alive = np.ones(n, bool)
+    members = [list(g) for g in groups]
+    S = cents @ cents.T
+    np.fill_diagonal(S, -2)
+    best_j = S.argmax(axis=1)
+    best_s = S[np.arange(n), best_j]
+    while n > 1:
+        best_s[~alive] = -2
+        a = int(best_s.argmax())
+        if best_s[a] < threshold:
+            break
+        b = int(best_j[a])
+        sums[a] += sums[b]
+        members[a] += members[b]
+        members[b] = []
+        alive[b] = False
+        cents[a] = sums[a] / np.linalg.norm(sums[a])
+        row = cents @ cents[a]
+        row[~alive] = -2
+        row[a] = -2
+        S[a], S[:, a] = row, row
+        S[b], S[:, b] = -2, -2
+        stale = alive & ((best_j == a) | (best_j == b))
+        stale[a] = True
+        for i in np.nonzero(stale)[0]:
+            best_j[i] = S[i].argmax()
+            best_s[i] = S[i, best_j[i]]
+        better = alive & (row > best_s)
+        best_j[better], best_s[better] = a, row[better]
+    return [m for m, keep in zip(members, alive) if keep]
 
 
 def group_people(con):
