@@ -141,3 +141,15 @@ def test_ui_pick_see_status_then_upload(page, tmp_path, upworld):
     page.set_input_files("#upFiles", [str(a), str(b)])                                 # picking again: nothing to send
     page.locator("#upD", has_text="2").wait_for()
     assert page.locator("#upGo").count() == 0
+
+
+@pytest.mark.parametrize("page", [{"world": "upworld"}], indirect=True)
+def test_upload_lives_on_the_backup_page(page):
+    page.goto(page.base + "/#/backup")
+    page.locator("#uploadPanel").wait_for()
+    assert page.locator('.side a[data-route="upload"]').count() == 0          # not in the sidebar any more
+    page.click("#uploadGo")
+    page.locator("#upFiles").wait_for(state="attached")
+    assert page.locator('.side a[data-route="backup"].active').count() == 1   # still "in" Backup
+    page.click("#pgBack")
+    page.locator("#uploadPanel").wait_for()

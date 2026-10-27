@@ -79,14 +79,16 @@ def test_video_tile_shows_duration(page):
 
 
 # ---------- albums ----------
-def test_albums_page_and_open_album(page):
+def test_albums_page_is_your_albums_and_folders_are_in_the_sidebar(page):
     go(page, "#/albums")
-    expect(page.locator(".card")).to_have_count(6)
-    expect(page.locator(".group h2")).to_have_text(["Family", "iPhone", "Vacation"])
-    expect(page.locator(".card", has_text="iPhone")).to_contain_text("1 item")
-    expect(page.locator(".card", has_text="iPhone")).not_to_contain_text("1 items")
+    expect(page.locator(".card")).to_have_count(0)                          # no folders repeated here
+    expect(page.locator(".note")).to_contain_text("Make your own albums")
+    expect(page.locator("#topFolders a")).to_have_text(["Family", "iPhone", "Vacation"])
+    page.locator("#topFolders a", has_text="Family").click()
+    expect(page.locator(".page-head h1")).to_have_text("Family")
     page.wait_for_function("[...document.querySelectorAll('.card img')].every(i => i.complete && i.naturalWidth)")
-    shot(page, "albums-dark")
+    shot(page, "folder-family")
+    page.locator(".card", has_text="Wedding").click()
     page.locator(".card", has_text="Day 1").click()
     expect(page.locator(".page-head h1")).to_have_text("Day 1")
     all_oldest_first(page)
@@ -254,12 +256,12 @@ def test_mobile_drawer(page):
     page.wait_for_function("document.querySelector('#side').getBoundingClientRect().left === 0")
     expect(page.locator(".side a[data-route=photos]")).to_be_visible()
     shot(page, "mobile-drawer")
-    page.click(".side a[data-route=albums]")
+    page.locator("#topFolders a", has_text="Family").click()                # a folder, from the drawer
     expect(page.locator("#side")).not_to_be_in_viewport()
-    expect(page.locator(".card")).to_have_count(6)
-    a, b = page.locator(".card").nth(2).bounding_box(), page.locator(".card").nth(3).bounding_box()
+    expect(page.locator(".card")).to_have_count(2)
+    a, b = page.locator(".card").nth(0).bounding_box(), page.locator(".card").nth(1).bounding_box()
     assert a["y"] == b["y"] and b["x"] > a["x"]   # two cards side by side on a phone
-    shot(page, "mobile-albums")
+    shot(page, "mobile-folder")
 
 
 @pytest.mark.parametrize("page", [MOBILE], indirect=True)
@@ -311,8 +313,8 @@ def test_drill_down_breadcrumbs_and_back(page):
     expect(page.locator("#crumbs a")).to_have_text(["Family", "Wedding"])
     page.locator("#crumbs a", has_text="Family").click()
     expect(page.locator(".page-head h1")).to_have_text("Family")
-    page.click("#pgBack")                                    # top-level folder: back to Albums
-    expect(page).to_have_url(page.base + "/#/albums")
+    page.click("#pgBack")                                    # top-level folder: back to Photos
+    expect(page).to_have_url(page.base + "/#/photos")
 
 
 def test_view_all_as_one_timeline(page):

@@ -277,7 +277,9 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .restore-panel h3{display:flex;align-items:center;gap:8px;margin:0 0 6px}
 .restore-panel .muted svg{width:1.25em;height:1.25em;vertical-align:-.3em}
 .restore-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.restore-row select{flex:1;min-width:200px;max-width:480px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 10px;font:inherit}
+.restore-row select{flex:1;min-width:200px;max-width:480px;height:40px;border-radius:8px;border:1px solid var(--line);color:var(--ink);padding:0 40px 0 12px;font:inherit;
+  appearance:none;-webkit-appearance:none;cursor:pointer;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23888'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 10px center/22px}
+.restore-row .fill-btn{display:inline-flex;align-items:center;height:40px;text-decoration:none}
 .up-box{max-width:640px;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:12px}
 .up-box .chips{flex-wrap:wrap}
 .up-pick{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 16px;border:2px dashed var(--line);border-radius:16px;text-align:center}
@@ -420,7 +422,6 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
-  <a href="#/upload" data-route="upload"><svg><use href="#i-upload"/></svg>Upload from phone</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
   <a href="#/sharing" data-route="sharing" class="mac-only"><svg><use href="#i-share"/></svg>Sharing</a>
@@ -503,7 +504,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup", "/upload": "upload"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup", "/upload": "backup"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -545,20 +546,10 @@ function renderAlbums() {
   feed = null;
   let html = `<div class="page-head no-back"><h1>Albums</h1>
       <div class="head-actions"><button class="txt-btn" id="newAlbum">${ico("add")}New album</button></div></div>`;
-  html += `<h2 class="sec">Your albums</h2>`;
   html += userAlbums.length
     ? `<div class="cards">` + userAlbums.map(a => cardHtml("#/ualbum/" + a.id, a.name, plural(a.n, "item"), a.cover, "ua")).join("") + `</div>`
     : `<div class="note">Make your own albums: select photos (tick the circle on any photo) and choose “Add to album”, or press “New album”. They live only on this Mac.</div>`;
-  const groups = {};
-  for (const a of albums) (groups[a.album.split("/")[0]] ??= []).push(a);
-  for (const [top, items] of Object.entries(groups)) {
-    html += `<section class="group"><h2>${esc(folderName(top))}</h2><div class="cards">`;
-    for (const a of items) {
-      const segs = a.album.split("/"), trail = segs.slice(1, -1).map((_, i) => folderName(segs.slice(0, i + 2).join("/"))).join(" › ");
-      html += cardHtml("#/album/" + encodeURIComponent(a.album), albumTitle(a.album), plural(a.n, "item") + (trail ? " · " + trail : ""), a.cover);
-    }
-    html += `</div></section>`;
-  }
+  // folders on the drive are in the sidebar (Folders); this page is just the albums you make
   $("#page").innerHTML = html;
   bindCards();
   $("#newAlbum").onclick = async () => {
@@ -613,7 +604,7 @@ function openFolder(album, all = false) {
     title: albumTitle(album) + (all ? " · everything" : ""), crumbs, pre,
     actions: all ? "" : `<button class="txt-btn owner-only" id="renameFolder" title="Rename in the gallery (the folder on the hard disk keeps its name)">${ico("edit")}Rename</button>`,
     params: {album, sub: all ? "true" : "false"}, restoreLabel: albumTitle(album),
-    back: all ? "#/album/" + encodeURIComponent(album) : parent ? "#/album/" + encodeURIComponent(parent) : "#/albums",
+    back: all ? "#/album/" + encodeURIComponent(album) : parent ? "#/album/" + encodeURIComponent(parent) : "#/photos",
     empty: kids.length && !direct ? `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}` : null,
     extraSub: kids.length ? ` here · ${plural(folderTotal(album), "item")} including sub-folders` : "",
   });
@@ -1338,7 +1329,7 @@ let upRun = null;   // the picked files and their state, kept while you look at 
 async function renderUpload() {
   feed = null;
   const inf = await api("/api/upload/info");
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Upload from phone</h1></div>
+  $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back to Backup">${ico("back")}</button><h1>Upload from phone</h1></div>
     <div class="page-sub">Back up photos and videos from this phone to the hard disk (folder <b>${esc(inf.folder)}</b>), then Telegram.
       ${inf.drive ? "" : "The hard disk isn't plugged in: uploads wait on the Mac and move to it when it's plugged in."}</div>
     <div class="up-box">
@@ -1349,6 +1340,7 @@ async function renderUpload() {
         <div id="upAct" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
         <div class="bar" id="upBarBox" style="margin:12px 0 6px" hidden><i id="upBar" style="width:0%"></i></div><div class="up-now" id="upNow"></div><div class="up-err" id="upErr"></div></div>
       <div class="chips" id="upChips" hidden></div><div class="up-grid" id="upGrid"></div><div id="upMore"></div></div>`;
+  $("#pgBack").onclick = () => location.hash = "#/backup";
   $("#upFiles").onchange = e => { if (e.target.files.length) pickFiles([...e.target.files]); e.target.value = ""; };
   if (upRun) drawUpload(true);
 }
@@ -1496,6 +1488,10 @@ let backupTimer = null;
 async function renderBackup() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div><div class="page-sub" id="pgSub"></div>
+    <div class="panel restore-panel" id="uploadPanel"><h3>${ico("upload")} Upload from this phone</h3>
+      <div class="muted">Back up photos and videos from the phone you're on into its folder, then to Telegram. You'll see which are
+        already backed up before anything is sent.</div>
+      <div class="restore-row"><a class="fill-btn" href="#/upload" id="uploadGo">Choose photos &amp; videos</a></div></div>
     <div class="panel owner-only restore-panel" id="restorePanel"><h3>${ico("restore")} Restore from Telegram</h3>
       <div class="muted">Download photos from your Telegram backup into a new folder in Downloads › Photo Vault Restore, with
         their original dates. Nothing on the drive or in Telegram changes. (To restore a few photos, select them anywhere
