@@ -476,3 +476,29 @@ def test_share_sends_heic_as_a_full_size_jpeg(api):
     r = api.get(f"/share/{heic['id']}")
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
     assert Image.open(io.BytesIO(r.content)).size == (1000, 750)          # full size, not the 2048px viewing copy cap
+
+
+@pytest.mark.parametrize("page", [{"viewport": {"width": 1300, "height": 520}}], indirect=True)
+def test_top_bar_centred_search_account_menu_and_tall_rows(page):
+    go(page)
+    s = page.locator("#searchForm").bounding_box()
+    assert abs((s["x"] + s["width"] / 2) - 650) <= 2                        # search is centred
+    assert page.locator("#searchForm svg").count() == 0 or page.locator("#searchForm .icon-btn:not(#qClear)").count() == 0
+    a = page.locator("#acctBtn").bounding_box()
+    assert a["x"] > s["x"] + s["width"]                                        # account icon on the right
+    page.click("#acctBtn")
+    menu = page.locator("#acctMenu")
+    expect(menu).to_contain_text("This Mac")
+    expect(menu).to_contain_text("Full access")
+    assert page.locator('.side a[href="#/sharing"]').count() == 0               # Sharing lives in the account menu now
+    menu.locator('a[href="#/sharing"]').click()
+    expect(page.locator(".page-head h1")).to_have_text("Sharing")
+    expect(menu).to_be_hidden()
+    rows = [page.locator(f'.side a[data-route="{r}"]').bounding_box()["height"] for r in ("photos", "albums", "backup")]
+    assert all(h >= 50 for h in rows)                                          # not squeezed in a short window
+
+
+def test_share_is_the_last_button_in_the_viewer(page):
+    open_first_photo(page)
+    ids = page.evaluate("[...document.querySelectorAll('.v-top button, .v-top a')].filter(e => e.offsetParent).map(e => e.id)")
+    assert ids[-1] == "vShare" and ids[-2] == "vDl"

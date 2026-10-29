@@ -24,19 +24,35 @@ svg{width:24px;height:24px;fill:currentColor;flex:none}
 .icon-btn:hover{background:var(--hover)}
 
 /* ---------- shell ---------- */
-.topbar{position:fixed;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:8px;padding:0 16px 0 8px;background:var(--bg);z-index:20}
+.topbar{position:fixed;inset:0 0 auto 0;height:64px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--bg);z-index:20}
 .topbar.scrolled{box-shadow:0 1px 3px rgb(0 0 0/.12)}
 /* wide screens: the logo fills up to the page content, so the search box lines up with it (8 + 40 + 8 + 208 = 264, + the page's 8) */
-.logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);width:208px;flex:none;white-space:nowrap}
+.top-left{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:8px}   /* left and right weigh the same: search sits centred */
+.logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);min-width:0;white-space:nowrap}
 .logo svg{width:30px;height:30px;color:var(--accent)}
-.search{flex:1;max-width:720px;height:48px;border-radius:24px;background:var(--search);display:flex;align-items:center;gap:8px;padding:0 6px 0 4px}
+.search{flex:0 1 720px;min-width:0;height:48px;border-radius:24px;background:var(--search);display:flex;align-items:center;gap:8px;padding:0 6px 0 20px}   /* centred */
+.top-right{flex:1 1 0;display:flex;justify-content:flex-end;min-width:0}
+.acct-wrap{position:relative}
+.avatar{width:36px;height:36px;border-radius:50%;border:0;cursor:pointer;background:var(--accent);color:var(--bg);font:inherit;font-weight:600;font-size:15px;
+  display:grid;place-items:center;padding:0}
+.avatar svg{width:22px;height:22px;fill:currentColor;color:var(--bg)}
+.acct-menu{position:absolute;right:0;top:46px;z-index:40;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:8px;min-width:260px;
+  box-shadow:0 6px 24px rgb(0 0 0/.35);display:grid;gap:2px}
+.acct-head{display:flex;align-items:center;gap:12px;padding:10px 10px 12px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.acct-head .avatar{width:44px;height:44px;font-size:18px;cursor:default}
+.acct-head b{display:block;font-weight:500}.acct-head span{color:var(--ink2);font-size:13px}
+.acct-menu a,.acct-menu button.item{display:flex;align-items:center;gap:14px;height:44px;padding:0 12px;border-radius:10px;color:var(--ink);text-decoration:none;
+  background:none;border:0;font:inherit;cursor:pointer;width:100%;text-align:left}
+.acct-menu a:hover,.acct-menu button.item:hover{background:var(--hover)}
+.acct-menu a svg,.acct-menu button.item svg{width:20px;height:20px;color:var(--ink2)}
 .search input{flex:1;border:0;background:none;outline:0;font:inherit;font-size:16px;color:var(--ink);min-width:0}
 .search input::placeholder{color:var(--ink2)}
 .spacer{flex:1}
 .status-dot{width:10px;height:10px;border-radius:50%;background:#9aa0a6}
 .status-dot.on{background:#1e8e3e}
 .side{position:fixed;top:64px;bottom:0;left:0;width:256px;padding:8px 12px 16px 0;overflow:auto;background:var(--bg);z-index:15;display:flex;flex-direction:column}
-.side a{display:flex;align-items:center;gap:18px;height:48px;padding:0 24px;border-radius:0 24px 24px 0;color:var(--ink);text-decoration:none;font-weight:500}
+.side > *{flex-shrink:0}   /* a short window scrolls the sidebar instead of squeezing its rows */
+.side a{display:flex;align-items:center;gap:18px;height:52px;padding:0 24px;border-radius:0 24px 24px 0;color:var(--ink);text-decoration:none;font-weight:500}
 .side a svg{color:var(--ink2)}
 .side a:hover{background:var(--hover)}
 .side a.active{background:var(--pill);color:var(--pill-ink)}
@@ -388,7 +404,8 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   .side .side-brand{display:flex}
   .scrim.open{display:block;position:fixed;inset:0;background:rgb(0 0 0/.32);z-index:30}
   main{left:0}
-  .logo span{display:none}.logo{width:auto;padding-right:4px}
+  .logo span{display:none}.logo{flex:none;padding-right:4px}.top-left{flex:none}
+  .search{flex:1 1 0}.top-right{flex:none}
   .page{padding:4px 8px 80px}
   .cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px 8px}
   .v-info{position:absolute;inset:auto 0 0 0;width:auto;max-height:60%;border:0;border-top:1px solid #333;z-index:4}
@@ -432,7 +449,10 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
-  <symbol id="i-share-ios" viewBox="0 0 24 24"><path d="M12 2.6 7.6 7l1.4 1.4 2-2V15h2V6.4l2 2L16.4 7 12 2.6zM6 10h2v9.5h8V10h2v11.5H6V10z"/></symbol>
+  <symbol id="i-share-ios" viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
@@ -449,14 +469,14 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 </svg>
 
 <header class="topbar" id="topbar">
-  <button class="icon-btn" id="menuBtn" aria-label="Main menu"><svg><use href="#i-menu"/></svg></button>
-  <div class="logo"><svg><use href="#i-photo"/></svg><span>Photos</span></div>
+  <div class="top-left"><button class="icon-btn" id="menuBtn" aria-label="Main menu"><svg><use href="#i-menu"/></svg></button>
+  <div class="logo"><svg><use href="#i-photo"/></svg><span>Photos</span></div></div>
   <form class="search" id="searchForm" role="search">
-    <span class="icon-btn"><svg><use href="#i-search"/></svg></span>
     <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
     <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
   </form>
-  <div class="spacer"></div>
+  <div class="top-right"><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
+    <div class="acct-menu" id="acctMenu" hidden></div></span></div>
 </header>
 <div class="selbar" id="selbar" hidden>
   <button class="icon-btn" id="selClose" aria-label="Clear selection"><svg><use href="#i-close"/></svg></button>
@@ -481,7 +501,6 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
-  <a href="#/sharing" data-route="sharing" class="mac-only"><svg><use href="#i-share"/></svg>Sharing</a>
   <h4><button class="fold-btn" id="foldersToggle" aria-expanded="true" aria-controls="topFolders">FOLDERS<svg><use href="#i-chevron"/></svg></button></h4>
   <div id="topFolders"></div>
   <div class="stat" id="stat"></div>
@@ -501,9 +520,9 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
+      <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
       <span class="share-wrap"><button class="icon-btn" id="vShare" aria-label="Share" title="Share"><svg><use href="#i-share-ios"/></svg></button>
         <div class="share-menu" id="shareMenu" hidden><button data-sh="copy">Copy image</button><a data-sh="dl" download>Download</a></div></span>
-      <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
     </div>
     <button class="v-nav v-prev" id="vPrev" aria-label="Previous"><svg><use href="#i-left"/></svg></button>
     <button class="v-nav v-next" id="vNext" aria-label="Next"><svg><use href="#i-right"/></svg></button>
@@ -2067,8 +2086,7 @@ function renderSide() {
     <div><span class="status-dot ${status.telegram ? "on" : ""}"></span>Telegram ${status.telegram ? "connected" : "offline"}</div>
     <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Drive ${status.drive ? "plugged in" : "unplugged"}</div>
     <div>${nf(status.total)} photos & videos indexed</div>`;
-  $("#me").innerHTML = me && !me.local ? `Signed in as ${esc(me.name)} · <a id="signOut">Sign out</a>` : "";
-  $("#signOut") && ($("#signOut").onclick = async () => { await post("/api/logout"); location.reload(); });
+  drawAccount();
 }
 async function loadUserAlbums() { userAlbums = await api("/api/user-albums"); }
 
@@ -2096,6 +2114,24 @@ async function refreshAll() {
   } catch (e) { toast(esc(e.message)); }
   finally { $("#refreshBtn")?.classList.remove("spinning"); }
 }
+
+// ---------- account menu (top right) ----------
+function drawAccount() {
+  if (!me) return;
+  const name = me.local ? "This Mac" : me.name, initial = me.local ? ico("laptop") : esc((me.name || "?").trim()[0].toUpperCase());
+  const role = me.role === "owner" ? "Full access" : "View, favorite, albums";
+  $("#acctBtn").innerHTML = initial; $("#acctBtn").title = `${name} · ${role}`;
+  $("#acctMenu").innerHTML = `<div class="acct-head"><span class="avatar">${initial}</span><span><b>${esc(name)}</b><span>${role}</span></span></div>
+    ${me.local ? `<a href="#/sharing" data-acct>${ico("share")}Sharing & accounts</a>` : ""}
+    ${me.local ? `<a href="/setup" target="_blank" data-acct>${ico("phone")}Set up a phone</a>` : ""}
+    <a href="#/backup" data-acct>${ico("cloud-done")}Backup & upload</a>
+    ${me.role === "owner" ? `<a href="#/trash" data-acct>${ico("trash")}Trash</a>` : ""}
+    ${me.local ? "" : `<button class="item" id="signOut">${ico("logout")}Sign out</button>`}`;
+  $("#signOut") && ($("#signOut").onclick = async () => { await post("/api/logout"); location.reload(); });
+}
+$("#acctBtn").onclick = e => { e.stopPropagation(); $("#acctMenu").hidden = !$("#acctMenu").hidden; };
+$("#acctMenu").onclick = e => { e.stopPropagation(); if (e.target.closest("[data-acct]")) $("#acctMenu").hidden = true; };
+document.addEventListener("click", () => { if ($("#acctMenu")) $("#acctMenu").hidden = true; });
 
 async function boot() {
   const r = await fetch("/api/me");

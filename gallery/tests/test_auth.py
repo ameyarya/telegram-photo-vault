@@ -6,6 +6,7 @@ import sqlite3
 
 import httpx
 import pytest
+from playwright.sync_api import expect
 
 from conftest import shot, start_server, free_port
 
@@ -170,7 +171,9 @@ def test_ui_phone_signs_in_and_sees_a_view_only_gallery(page, phone_world):
     assert page.locator("#restoreBtn").is_hidden()
     assert page.locator('.side a[href="#/trash"]').is_hidden() and page.locator('.side a[href="#/sharing"]').is_hidden()
     shot(page, "phone-gallery")
-    page.locator("#menuBtn, .menu-btn, [aria-label='Menu']").first.click()
+    page.click("#acctBtn")                                                   # account menu, top right
+    expect(page.locator("#acctMenu")).to_contain_text("View, favorite, albums")
+    assert page.locator('#acctMenu a[href="#/sharing"]').count() == 0          # Sharing is for this Mac only
     page.locator("#signOut").click()
     page.locator("#lName").wait_for()
 
