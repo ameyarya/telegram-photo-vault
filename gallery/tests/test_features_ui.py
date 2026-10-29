@@ -4,7 +4,7 @@ import re
 import pytest
 from playwright.sync_api import expect
 
-from conftest import all_oldest_first, shot
+from conftest import pick_filter, all_oldest_first, shot
 
 ML = {"world": "mlworld"}
 BIG = {"world": "bigworld"}
@@ -34,22 +34,22 @@ def open_photo(page, album, name):
 def test_filter_chips(page):
     go(page)
     expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
-    page.click(".chip[data-f='']")
+    pick_filter(page, "")
     expect(page.locator("#days .tile")).to_have_count(10)
-    page.click(".chip[data-f=videos]")
+    pick_filter(page, "videos")
     expect(page.locator("#days .tile")).to_have_count(3)
     expect(page.locator(".chip.on")).to_have_text("Videos")
     expect(page.locator("#pgSub")).to_contain_text("3 items")
-    page.click(".chip[data-f=located]")
+    pick_filter(page, "located")
     expect(page.locator("#days .tile")).to_have_count(1)
-    page.click(".chip[data-f='']")
+    pick_filter(page, "")
     expect(page.locator("#days .tile")).to_have_count(10)
-    page.click(".chip[data-f=raw]")
+    pick_filter(page, "raw")
     expect(page.locator("#days .empty")).to_contain_text("Nothing matches this filter")
     page.click(".side a[data-route=albums]")                    # chips belong to a page
     page.click(".side a[data-route=photos]")
     expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
-    page.click(".chip[data-f='']")
+    pick_filter(page, "")
     expect(page.locator("#days .tile")).to_have_count(10)
 
 
@@ -111,7 +111,7 @@ def test_select_add_to_new_album_remove_rename_delete(page):
     expect(page).to_have_url(page.base + "/#/albums")
     expect(page.locator(".card.ua")).to_have_count(0)
     page.click(".side a[data-route=photos]")
-    page.click(".chip[data-f='']")                                # All: the timeline opens on Photos
+    pick_filter(page, "")                                # All: the timeline opens on Photos
     expect(page.locator("#days .tile")).to_have_count(10)         # nothing deleted
 
 
@@ -422,3 +422,31 @@ def test_scrubber_drag_bubble_and_fair_spacing(page):
                                      ...Array.from({length: 12}, (_, i) => ({m: '2024-' + String(i + 1).padStart(2, '0'), n: 5000}))]};
                                    f.total = f.months.reduce((a, m) => a + m.n, 0); scrubberLayout(f); return f.ys[1] - f.ys[0]; }""")
     assert gap > 18
+
+
+def test_filters_are_one_dropdown(page):
+    go(page)
+    expect(page.locator("#filterBtn")).to_have_text("Photos")          # the current filter, not rows of pills
+    expect(page.locator("#filterMenu")).to_be_hidden()
+    page.click("#filterBtn")
+    expect(page.locator("#filterMenu .chip")).to_have_count(10)
+    page.click("#filterMenu .chip[data-f='videos']")
+    expect(page.locator("#filterBtn")).to_have_text("Videos")
+    expect(page.locator("#filterMenu")).to_be_hidden()
+    expect(page.locator("#days .tile")).to_have_count(3)
+    page.click("#filterBtn")
+    page.mouse.click(600, 600)                                           # a click elsewhere closes it
+    expect(page.locator("#filterMenu")).to_be_hidden()
+
+
+@pytest.mark.parametrize("page", [{"viewport": {"width": 390, "height": 844}}], indirect=True)
+def test_menus_fit_on_a_phone(page):
+    go(page)
+    page.click("#viewBtn")
+    b = page.locator("#viewMenu").bounding_box()
+    assert b["x"] >= 0 and b["x"] + b["width"] <= 390                   # not cut off at the edge
+    page.click(".page-head h1")                                          # closes the View menu
+    page.click("#filterBtn")
+    b = page.locator("#filterMenu").bounding_box()
+    assert b["x"] >= 0 and b["x"] + b["width"] <= 390
+    shot(page, "phone-filter-menu")

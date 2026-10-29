@@ -140,6 +140,17 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 
 /* ---------- chips, selection, dialogs, toast ---------- */
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.filter-wrap{position:relative;display:inline-block}
+.filter-btn{height:36px;padding:0 10px 0 12px;border-radius:18px;border:1px solid var(--line);color:var(--ink);background:none;font:inherit;font-weight:500;
+  font-size:14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.filter-btn svg{width:18px;height:18px}
+.filter-btn.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
+.filter-menu{position:absolute;left:0;top:42px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px;
+  display:grid;min-width:200px;box-shadow:0 6px 24px rgb(0 0 0/.35)}
+.filter-menu .chip{border:0;border-radius:8px;height:38px;width:100%;justify-content:flex-start;padding:0 12px 0 34px;position:relative;background:none;cursor:pointer;font:inherit;font-size:14px;color:var(--ink)}
+.filter-menu .chip svg{position:absolute;left:10px;width:18px;height:18px}
+.filter-menu .chip:hover{background:var(--hover)}
+.filter-menu .chip.on{background:var(--pill);color:var(--pill-ink)}
 .chip{height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);color:var(--ink2);font-weight:500;font-size:13px;display:inline-flex;align-items:center;gap:6px}
 .chip:hover{background:var(--hover)}
 .chip.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
@@ -287,7 +298,11 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .fix .arrow{color:var(--ink2)}
 @keyframes spin{to{transform:rotate(360deg)}}
 #refreshBtn.spinning svg{animation:spin .8s linear infinite}
-@media (max-width:600px){.head-actions .txt-btn .lbl{display:none}}  /* phones: Restore and Refresh as icons, so all fit */
+@media (max-width:600px){
+  .head-actions .txt-btn .lbl{display:none}
+  .head-actions .txt-btn:has(.lbl){width:40px;height:40px;padding:0;gap:0;justify-content:center;border-radius:50%}   /* icon-only, evenly spaced */
+  .head-actions{gap:4px}
+}  /* phones: Restore and Refresh as icons, so all fit */
 .loading{display:flex;align-items:center;gap:10px;color:var(--ink2);padding:24px 0}
 .spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -302,6 +317,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .view-menu{position:absolute;right:0;top:44px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;
   box-shadow:0 6px 24px rgb(0 0 0/.35);display:grid;gap:10px;min-width:300px}
 .vm-row{display:flex;align-items:center;gap:6px}
+@media (max-width:600px){.view-menu{position:fixed;left:8px;right:8px;top:120px;min-width:0}.vm-row{flex-wrap:wrap}}
 .vm-row>span{width:64px;color:var(--ink2);font-size:13px}
 .seg{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);color:var(--ink);background:none;cursor:pointer;font:inherit;font-size:13px}
 .seg.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
@@ -414,6 +430,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
   <symbol id="i-share-ios" viewBox="0 0 24 24"><path d="M12 2.6 7.6 7l1.4 1.4 2-2V15h2V6.4l2 2L16.4 7 12 2.6zM6 10h2v9.5h8V10h2v11.5H6V10z"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
@@ -759,10 +776,15 @@ function openFeed(o) {
   // A page with chips and no filter of its own starts on DEFAULT_CHIP; one without chips shows everything.
   if (filterChip === null) filterChip = o.chips === false || params.filter ? "" : DEFAULT_CHIP;
   feed = {o, params, base: 0, items: [], total: null, loading: false, loadingPrev: false, months: null};
-  const chips = o.chips === false ? "" : `<div class="chips" id="chips">${[["", "All"], ["photos", "Photos"], ["videos", "Videos"],
-    ["favorites", "Favorites"], ["live", "Live photos"], ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
-    .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k)
-    .map(([k, label]) => `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${label}</button>`).join("")}</div>`;
+  // the filters fold into one button ("Photos ▾") that opens the list, instead of rows of pills
+  const filters = [["", "All"], ["photos", "Photos"], ["videos", "Videos"], ["favorites", "Favorites"], ["live", "Live photos"],
+    ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"]]
+    .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k);
+  const current = (filters.find(([k]) => k === filterChip) || filters[0])[1];
+  const chips = o.chips === false ? "" : `<div class="chips filter-wrap" id="chips">
+    <button class="filter-btn ${filterChip ? "on" : ""}" id="filterBtn" aria-haspopup="true" aria-expanded="false">${ico("filter")}<span>${current}</span>${ico("chevron")}</button>
+    <div class="filter-menu" id="filterMenu" hidden>${filters.map(([k, label]) =>
+      `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${filterChip === k ? ico("check") : ""}${label}</button>`).join("")}</div></div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
       <div class="head-actions">${o.actions || ""}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
@@ -776,7 +798,13 @@ function openFeed(o) {
     newestFirst = !newestFirst;
     route();
   });
-  $("#chips")?.addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route(); });
+  $("#chips")?.addEventListener("click", e => {
+    e.stopPropagation();
+    if (e.target.closest("#filterBtn")) {
+      const m = $("#filterMenu"); m.hidden = !m.hidden; $("#filterBtn").setAttribute("aria-expanded", String(!m.hidden)); return;
+    }
+    const c = e.target.closest(".chip"); if (!c) return; filterChip = c.dataset.f; route();
+  });
   if (filterChip === "undated") $("#chips")?.insertAdjacentHTML("afterend", `<div class="note owner-only">These have no camera date, so they're dated by the file.
     Select some and press ${ico("cal-edit")} to set or shift their date, or see <a href="#/dates">suggested dates</a>.</div>`);
   if (o.empty) { feed.total = 0; $("#pgSub").textContent = o.empty; return; }
@@ -1751,7 +1779,10 @@ $("#shareMenu").onclick = async e => {
   }
   $("#shareMenu").hidden = true;
 };
-document.addEventListener("click", () => { if ($("#shareMenu")) $("#shareMenu").hidden = true; });
+document.addEventListener("click", () => {
+  if ($("#shareMenu")) $("#shareMenu").hidden = true;
+  if ($("#filterMenu")) $("#filterMenu").hidden = true;
+});
 
 function curList() { return viewList || feed?.items || []; }
 function openViewer(i) { viewList = null; openViewerAt(i); }

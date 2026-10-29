@@ -2,7 +2,7 @@
 import pytest
 from playwright.sync_api import expect
 
-from conftest import all_oldest_first, shot
+from conftest import pick_filter, all_oldest_first, shot
 
 MOBILE = {"viewport": {"width": 390, "height": 844}}
 
@@ -339,7 +339,7 @@ def test_viewer_inside_folder_steps_only_through_that_folder(page):
 # ---------- sort order ----------
 def test_sort_newest_first_by_default_and_toggle(page):
     go(page)
-    page.click(".chip[data-f='']")                                        # All (pages open on Photos)
+    pick_filter(page, "")                                        # All (pages open on Photos)
     expect(page.locator("#sortBtn")).to_have_text("Newest first")         # newest first on every visit
     expect(page.locator(".day h3").first).to_contain_text("Aug 26")       # the newest day leads
     expect(page.locator(".tile")).to_have_count(10)
@@ -381,7 +381,7 @@ def test_refresh_button_reloads_in_place(page):
     go(page, "#/album/vacation")
     expect(page.locator(".head-actions #refreshBtn")).to_be_visible()
     assert page.locator("#restoreBtn").count() == 0                                          # Restore is on Backup now
-    page.click(".chip[data-f='']")
+    pick_filter(page, "")
     with page.expect_response(lambda r: "/api/status" in r.url):
         page.click("#refreshBtn")
     expect(page.locator(".chip.on")).to_have_attribute("data-f", "")                          # the filter stays

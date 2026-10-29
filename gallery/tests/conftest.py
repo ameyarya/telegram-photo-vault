@@ -322,10 +322,17 @@ def shot(page, name):
 def all_oldest_first(page):
     """Pages open on Photos, newest first; most UI tests were written for everything, oldest first."""
     page.wait_for_selector("#chips, .tile, .empty, .cards")
-    if page.locator(".chip.on").count() and page.locator(".chip.on").first.get_attribute("data-f") != "":
-        page.click(".chip[data-f='']")
-        page.wait_for_selector(".chip.on[data-f='']")
+    if page.locator("#chips .chip.on").count() and page.locator("#chips .chip.on").first.get_attribute("data-f") != "":
+        pick_filter(page, "")
+        page.wait_for_selector("#chips .chip.on[data-f='']", state="attached")
     if page.locator("#sortBtn").count() and "Newest" in page.locator("#sortBtn").inner_text():
         page.click("#sortBtn")
         page.wait_for_function("document.querySelector('#sortBtn')?.innerText.includes('Oldest')")
     page.wait_for_load_state("networkidle")              # the page has reloaded its photos
+
+
+def pick_filter(page, f):
+    """Choose a filter from the filter dropdown ("Photos ▾")."""
+    if page.locator("#filterMenu").is_hidden():
+        page.click("#filterBtn")
+    page.click(f"#filterMenu .chip[data-f='{f}']")
