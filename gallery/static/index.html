@@ -145,7 +145,8 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   font-size:14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
 .filter-btn svg{width:18px;height:18px}
 .filter-btn.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
-.filter-menu{position:absolute;left:0;top:42px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px;
+.head-actions .chips{margin:0}
+.filter-menu{position:absolute;right:0;top:42px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px;
   display:grid;min-width:200px;box-shadow:0 6px 24px rgb(0 0 0/.35)}
 .filter-menu .chip{border:0;border-radius:8px;height:38px;width:100%;justify-content:flex-start;padding:0 12px 0 34px;position:relative;background:none;cursor:pointer;font:inherit;font-size:14px;color:var(--ink)}
 .filter-menu .chip svg{position:absolute;left:10px;width:18px;height:18px}
@@ -203,7 +204,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
   .scrubber .yr{display:none}
   .scrubber::before{right:8px;width:4px;border-radius:2px}
   .scrubber .pos{right:4px;width:12px;height:12px;margin-top:-6px}
-  .with-scrubber .page{padding-right:8px}
+  body.with-scrubber .page{padding-right:8px}
 }
 .with-scrubber .page{padding-right:72px}
 
@@ -298,11 +299,14 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .fix .arrow{color:var(--ink2)}
 @keyframes spin{to{transform:rotate(360deg)}}
 #refreshBtn.spinning svg{animation:spin .8s linear infinite}
-@media (max-width:600px){
-  .head-actions .txt-btn .lbl{display:none}
-  .head-actions .txt-btn:has(.lbl){width:40px;height:40px;padding:0;gap:0;justify-content:center;border-radius:50%}   /* icon-only, evenly spaced */
-  .head-actions{gap:4px}
-}  /* phones: Restore and Refresh as icons, so all fit */
+/* the page's buttons (filter, view, refresh, order) are round icons on the right; their names are tooltips and for screen readers */
+.head-actions .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.head-actions .txt-btn:has(.lbl),.head-actions .sort-btn,.head-actions .filter-btn{width:40px;height:40px;padding:0;gap:0;justify-content:center;
+  border-radius:50%;border:0;background:none;color:var(--ink2);flex:none}
+.head-actions .txt-btn:has(.lbl):hover,.head-actions .sort-btn:hover,.head-actions .filter-btn:hover{background:var(--hover)}
+.head-actions .filter-btn.on{background:var(--pill);color:var(--pill-ink)}
+.head-actions .sort-btn.oldest svg{transform:scaleY(-1)}
+.head-actions{gap:2px}  /* phones: Restore and Refresh as icons, so all fit */
 .loading{display:flex;align-items:center;gap:10px;color:var(--ink2);padding:24px 0}
 .spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -390,7 +394,6 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   .v-info{position:absolute;inset:auto 0 0 0;width:auto;max-height:60%;border:0;border-top:1px solid #333;z-index:4}
   .v-nav{display:none}
   .scrubber{width:40px}
-  .with-scrubber .page{padding-right:44px}
   .people{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
   .person img,.person .ph{width:88px;height:88px}
   .sim-row .tile,.trash-grid .tile{width:31vw;height:31vw}
@@ -593,7 +596,7 @@ function route() {
   if (h.startsWith("/ualbum/")) return openUserAlbum(+h.slice(8));
   if (h.startsWith("/person/")) return openPerson(+h.slice(8));
   if (h.startsWith("/search/")) return openSearch(h.slice(8));
-  return openFeed({title: "Photos", params: {}, noBack: true});
+  return openFeed({title: "Photos", params: {}, noBack: true, noSub: true});
 }
 window.addEventListener("hashchange", () => { if (viewerIdx < 0) route(); });
 
@@ -782,13 +785,13 @@ function openFeed(o) {
     .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k);
   const current = (filters.find(([k]) => k === filterChip) || filters[0])[1];
   const chips = o.chips === false ? "" : `<div class="chips filter-wrap" id="chips">
-    <button class="filter-btn ${filterChip ? "on" : ""}" id="filterBtn" aria-haspopup="true" aria-expanded="false">${ico("filter")}<span>${current}</span>${ico("chevron")}</button>
+    <button class="filter-btn ${filterChip !== DEFAULT_CHIP ? "on" : ""}" id="filterBtn" aria-haspopup="true" aria-expanded="false" title="Showing: ${current}">${ico("filter")}<span class="lbl">${current}</span></button>
     <div class="filter-menu" id="filterMenu" hidden>${filters.map(([k, label]) =>
       `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${filterChip === k ? ico("check") : ""}${label}</button>`).join("")}</div></div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.actions || ""}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
-    ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub"></div>${o.pre || ""}${o.empty ? "" : chips}
+      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+    ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub" ${o.noSub ? "hidden" : ""}></div>${o.pre || ""}
     <div class="sentinel" id="topSentinel"></div><div id="days">${loadingHtml()}</div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
   bindCards();
@@ -811,7 +814,7 @@ function openFeed(o) {
   topObserver.observe($("#topSentinel"));
   loadMore().then(loadMonths);
 }
-const sortBtn = () => `<button class="sort-btn" id="sortBtn" title="Change the order">${ico("sort")}<span>${newestFirst ? "Newest first" : "Oldest first"}</span></button>`;
+const sortBtn = () => `<button class="sort-btn ${newestFirst ? "" : "oldest"}" id="sortBtn" title="${newestFirst ? "Newest first" : "Oldest first"} (click to change)">${ico("sort")}<span class="lbl">${newestFirst ? "Newest first" : "Oldest first"}</span></button>`;
 
 function feedQuery(f = feed) {
   const p = {...f.params};
@@ -1154,7 +1157,9 @@ function indexForY(f, y) {
 function drawScrubber() {
   const f = feed, sc = $("#scrubber");
   if (!f?.months || f.months.length < 2) return hideScrubber();
+  const wasOn = document.body.classList.contains("with-scrubber");
   sc.hidden = false; document.body.classList.add("with-scrubber");
+  if (!wasOn) renderSections();      // the page just got narrower for the bar: lay the rows out again so none overflow
   scrubberLayout(f);
   let lastY = -99, html = "";
   f.months.forEach((m, i) => {

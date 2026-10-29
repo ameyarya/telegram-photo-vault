@@ -450,3 +450,40 @@ def test_menus_fit_on_a_phone(page):
     b = page.locator("#filterMenu").bounding_box()
     assert b["x"] >= 0 and b["x"] + b["width"] <= 390
     shot(page, "phone-filter-menu")
+
+
+@pytest.mark.parametrize("page", [{"viewport": {"width": 1300, "height": 800}}, {"viewport": {"width": 390, "height": 844}}], indirect=True)
+def test_page_buttons_are_round_icons_on_the_right(page):
+    go(page)
+    title = page.locator(".page-head h1").bounding_box()
+    boxes = [page.locator(f"#{b}").bounding_box() for b in ("filterBtn", "viewBtn", "refreshBtn", "sortBtn")]
+    for b in boxes:
+        assert abs(b["width"] - 40) <= 1 and abs(b["height"] - 40) <= 1          # same round icon size
+        assert abs(b["y"] - boxes[0]["y"]) <= 1                                   # one row, with the title
+        assert b["x"] > title["x"] + title["width"]                               # to the right of the title
+    xs = [b["x"] for b in boxes]
+    assert xs == sorted(xs)
+    page_right = page.locator("#days").bounding_box()
+    assert abs((boxes[-1]["x"] + 40) - (page_right["x"] + page_right["width"])) <= 4   # flush with the right edge
+    assert page.locator("#sortBtn").get_attribute("title").startswith("Newest first")    # names are tooltips
+    assert page.locator("#filterBtn").get_attribute("title") == "Showing: Photos"
+    expect(page.locator("#pgSub")).to_be_hidden()                                   # no count/date line on Photos
+    shot(page, f"header-icons-{page.viewport_size['width']}")
+
+
+@pytest.mark.parametrize("page", [{"world": "bigworld", "viewport": {"width": 1300, "height": 800}},
+                                  {"world": "bigworld", "viewport": {"width": 390, "height": 844}}], indirect=True)
+def test_rows_and_buttons_line_up_with_the_scrubber(page):
+    """Regression: rows were laid out before the date bar appeared and ran under it; on phones a stray 44px margin
+    pushed the buttons in from the edge."""
+    go(page)
+    page.wait_for_selector("body.with-scrubber")
+    page.wait_for_timeout(300)
+    right = page.evaluate("""() => { const d = document.querySelector('#days').getBoundingClientRect().right;
+        return [d, Math.max(...[...document.querySelectorAll('#days .tile')].map(t => t.getBoundingClientRect().right)),
+                document.querySelector('#sortBtn').getBoundingClientRect().right]; }""")
+    days, tiles, sort = right
+    assert tiles <= days + 1                                   # no photo runs under the date bar
+    assert abs(sort - days) <= 2                               # the buttons end where the photos do
+    if page.viewport_size["width"] < 600:
+        assert 390 - sort <= 12                                # close to the phone's edge
