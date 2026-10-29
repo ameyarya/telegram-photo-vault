@@ -66,8 +66,11 @@ def move_to_drive(log=print):
         src.unlink()
         moved += 1
     for dirpath, dirnames, filenames in sorted(os.walk(INBOX), key=lambda x: -len(x[0])):
-        if Path(dirpath) != INBOX and not os.listdir(dirpath) and Path(dirpath).parent != INBOX:
-            os.rmdir(dirpath)                          # tidy empty sub-folders (top folders stay: Syncthing uses them)
+        d = Path(dirpath)
+        if (d != INBOX and d.parent != INBOX and not os.listdir(d)
+                and not any(part.startswith(".") for part in d.relative_to(INBOX).parts)):
+            os.rmdir(d)          # tidy empty sub-folders; top folders and hidden ones stay (Syncthing's .stfolder marker:
+                                 # without it Syncthing stops syncing that phone, to be safe)
     return moved
 
 

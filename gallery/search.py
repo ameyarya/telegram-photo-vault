@@ -4,12 +4,17 @@ selection(...) returns a SQL WHERE clause plus its arguments, used by every list
 """
 import re
 
-# A screenshot: no camera recorded and either a PNG (iPhone/Android screenshots) or phone-screen shaped (taller than
-# about 2:1, or an older iPhone's exact 16:9 screen size: screenshots saved or shared as JPG/HEIC), or "screenshot" in
-# the name. Anything a camera made keeps its camera make/model, so tall camera photos and panoramas stay photos.
-PHONE_SCREEN = ("(width > 0 AND height > 0 AND (MAX(width, height) * 1.0 / MIN(width, height) >= 1.95"
-                " OR (MIN(width, height), MAX(width, height)) IN (VALUES (640, 1136), (750, 1334), (1242, 2208))))")
-SCREENSHOT = f"((make IS NULL AND (ext = 'png' OR {PHONE_SCREEN})) OR lower(name) LIKE '%screenshot%')"
+# A screenshot is what a phone saves when you take one, not anything screen-shaped (Snapchat saves, downloads and AI
+# images are tall JPGs/PNGs too):
+#  * iPhone / iPad: a PNG with no camera, at the exact pixel size of an Apple screen (portrait or landscape)
+#  * Android and anything else: "screenshot" in the file name (Screenshot_2024-..., Screen Shot ...)
+APPLE_SCREENS = ((640, 960), (640, 1136), (750, 1334), (768, 1024), (828, 1792), (1080, 1920), (1080, 2340), (1125, 2436),
+                 (1170, 2532), (1179, 2556), (1206, 2622), (1242, 2208), (1242, 2688), (1260, 2736), (1284, 2778), (1290, 2796),
+                 (1320, 2868), (1488, 2266), (1536, 2008), (1536, 2048), (1620, 2160), (1640, 2360), (1668, 2224), (1668, 2388),
+                 (2048, 2732), (2064, 2752))
+_SIZES = ", ".join(f"({a}, {b})" for a, b in APPLE_SCREENS)
+SCREENSHOT = ("(lower(name) LIKE '%screenshot%' OR lower(name) LIKE '%screen shot%' OR "
+              f"(ext = 'png' AND make IS NULL AND width > 0 AND height > 0 AND (min(width, height), max(width, height)) IN (VALUES {_SIZES})))")
 
 FILTERS = {
     "photos": f"kind = 'image' AND NOT {SCREENSHOT}",

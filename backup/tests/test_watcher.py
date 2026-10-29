@@ -139,3 +139,15 @@ def test_telegram_only_folder_never_goes_to_the_drive_and_leaves_the_mac_once_sa
     (data / "thumbs/01/1.jpg").write_bytes(b"thumb")
     log = w["once"](CLOUD_ONLY_FOLDERS="old-account")
     assert not f.exists() and not (w["drive"] / "old-account/old.jpg").exists() and "removed 1 Telegram-only" in log
+
+
+def test_syncthings_hidden_marker_folder_is_never_tidied_away(w):
+    """Regression: the tidy-up removed Syncthing's empty .stfolder marker, and Syncthing stopped syncing the phone."""
+    marker = w["state"] / "inbox/her-phone/.stfolder"
+    marker.mkdir()
+    (w["state"] / "inbox/her-phone/sub").mkdir()
+    (w["state"] / "inbox/her-phone/sub/a.jpg").write_bytes(b"x")
+    w["once"]()
+    assert (w["drive"] / "her-phone/sub/a.jpg").exists()
+    assert marker.is_dir()                                       # kept
+    assert not (w["state"] / "inbox/her-phone/sub").exists()     # an ordinary empty folder is still tidied

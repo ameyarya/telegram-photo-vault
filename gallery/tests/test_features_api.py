@@ -165,3 +165,23 @@ def test_backup_dashboard(api):
     assert b["last_failures"] == ["2026-10-16 10:01:00  batch failed (first: a)"]
     assert len(b["not_backed_up_sample"]) == 10
     assert b["drive"] is True and b["telegram"] is False
+
+
+def test_only_real_screenshots_count_as_screenshots():
+    """Regression: Snapchat saves and other tall images (downloads, AI art) were filed under Screenshots."""
+    import sqlite3
+    from search import SCREENSHOT
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE media (name TEXT, ext TEXT, width INT, height INT, make TEXT)")
+    rows = {"IMG_0001.PNG": ("png", 1179, 2556, None, True),        # iPhone screenshot
+            "IMG_0002.PNG": ("png", 2556, 1179, None, True),        # ... taken sideways
+            "IMG_0003.PNG": ("png", 1640, 2360, None, True),        # iPad screenshot
+            "Screenshot_2019-07-26.png": ("png", 1080, 2214, None, True),   # Android: by name
+            "Screen Shot 2020-01-01.jpg": ("jpg", 1440, 900, None, True),
+            "Snapchat-1203229220.jpg": ("jpg", 1080, 2214, None, False),    # a Snapchat save
+            "IMG_0004.JPG": ("jpg", 1242, 2208, None, False),        # screen-sized JPG: saved from an app, not a screenshot
+            "IMG_0005.PNG": ("png", 1024, 1536, None, False),        # AI image / download
+            "IMG_0006.PNG": ("png", 1179, 2556, "Apple", False)}     # a camera made it
+    con.executemany("INSERT INTO media VALUES (?,?,?,?,?)", [(n, *v[:4]) for n, v in rows.items()])
+    got = {r[0] for r in con.execute(f"SELECT name FROM media WHERE {SCREENSHOT}")}
+    assert got == {n for n, v in rows.items() if v[4]}
