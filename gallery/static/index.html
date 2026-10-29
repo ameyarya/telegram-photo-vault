@@ -1751,13 +1751,13 @@ async function shareCurrent() {
   try {
     const file = await shareFile(it);
     if (!navigator.canShare({files: [file]})) { toast("This file can't be shared from this browser; use Download."); return; }
-    try { await navigator.share({files: [file], title: file.name}); }
+    try { await navigator.share({files: [file]}); }
     catch (e) {
       if (e.name === "AbortError") return;      // you closed the share sheet
       if (e.name !== "NotAllowedError") throw e;
       // fetching took too long for the browser to still count it as your tap: one more tap opens the sheet
       toast(`${esc(file.name)} is ready <button class="txt-btn" id="shareNow">Share now</button>`, 20000);
-      $("#shareNow").onclick = () => navigator.share({files: [file], title: file.name}).catch(() => {});
+      $("#shareNow").onclick = () => navigator.share({files: [file]}).catch(() => {});
     }
   } catch (e) { toast(esc(e.message)); }
   finally { btn.classList.remove("busy"); }

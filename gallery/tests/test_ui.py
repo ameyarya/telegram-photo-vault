@@ -435,13 +435,15 @@ def test_share_opens_the_share_sheet_with_the_photo(page):
     page.add_init_script("""
         window.__shared = [];
         navigator.canShare = () => true;
-        navigator.share = async d => { window.__shared.push(...d.files.map(f => ({name: f.name, type: f.type, size: f.size}))); };
+        navigator.share = async d => { window.__shared.push(...d.files.map(f => ({name: f.name, type: f.type, size: f.size,
+                                                                            extra: Object.keys(d).filter(k => k !== "files")}))); };
     """)
     open_first_photo(page)
     page.click("#vShare")
     page.wait_for_function("window.__shared.length === 1")
     shared = page.evaluate("window.__shared[0]")
     assert shared["name"] == "beach.jpg" and shared["type"] == "image/jpeg" and shared["size"] > 1000
+    assert shared["extra"] == []            # only the file: no title/text, which apps like WhatsApp turn into a caption
     expect(page.locator("#viewer")).to_be_visible()                       # still on the photo afterwards
 
 
