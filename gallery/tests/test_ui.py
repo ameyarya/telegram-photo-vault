@@ -428,3 +428,49 @@ def test_folders_fold_away_and_stay_folded(page):
     expect(page.locator("#topFolders")).to_be_hidden()
     page.click("#foldersToggle")
     expect(page.locator("#topFolders a").first).to_be_visible()
+
+
+def test_share_opens_the_share_sheet_with_the_photo(page):
+    """Share hands the phone's share sheet (AirDrop, Messages ...) the full-quality file, named like the photo."""
+    page.add_init_script("""
+        window.__shared = [];
+        navigator.canShare = () => true;
+        navigator.share = async d => { window.__shared.push(...d.files.map(f => ({name: f.name, type: f.type, size: f.size}))); };
+    """)
+    open_first_photo(page)
+    page.click("#vShare")
+    page.wait_for_function("window.__shared.length === 1")
+    shared = page.evaluate("window.__shared[0]")
+    assert shared["name"] == "beach.jpg" and shared["type"] == "image/jpeg" and shared["size"] > 1000
+    expect(page.locator("#viewer")).to_be_visible()                       # still on the photo afterwards
+
+
+def test_share_falls_back_to_copy_and_download_without_a_share_sheet(page):
+    page.add_init_script("delete Navigator.prototype.share; delete Navigator.prototype.canShare;")
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    open_first_photo(page)
+    page.click("#vShare")
+    menu = page.locator("#shareMenu")
+    expect(menu).to_be_visible()
+    assert "/original/" in menu.locator('[data-sh="dl"]').get_attribute("href")
+    page.click('#shareMenu [data-sh="copy"]')
+    expect(page.locator(".toast")).to_contain_text("Copied")
+    assert page.evaluate("navigator.clipboard.read().then(i => i[0].types)") == ["image/png"]
+    expect(page.locator("#viewer")).to_be_visible()                       # the menu didn't close the photo
+
+
+def test_share_endpoint_sends_full_quality(api):
+    items = api.get("/api/items", params={"album": "vacation"}).json()["items"]
+    beach = next(i for i in items if i["name"] == "beach.jpg")
+    r = api.get(f"/share/{beach['id']}")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg" and len(r.content) == beach["size"]
+
+
+def test_share_sends_heic_as_a_full_size_jpeg(api):
+    import io
+    from PIL import Image
+    heic = next(i for i in api.get("/api/items", params={"album": "family/wedding/day 2"}).json()["items"]
+                if i["name"] == "IMG_0001.heic")
+    r = api.get(f"/share/{heic['id']}")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert Image.open(io.BytesIO(r.content)).size == (1000, 750)          # full size, not the 2048px viewing copy cap

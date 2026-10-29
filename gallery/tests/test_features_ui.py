@@ -355,10 +355,14 @@ def test_dashboard_analysis_panel(page):
 
 # ---------- mobile ----------
 @pytest.mark.parametrize("page", [{"world": "bigworld", "viewport": {"width": 390, "height": 844}}], indirect=True)
-def test_mobile_hides_scrubber_and_shows_selection_bar(page):
+def test_mobile_scrubber_appears_only_while_scrolling_and_selection_bar(page):
     go(page)
     expect(page.locator("#days .tile").first).to_be_visible()
-    expect(page.locator("#scrubber")).to_be_hidden()
+    sc = page.locator("#scrubber")
+    page.wait_for_function("getComputedStyle(document.querySelector('#scrubber')).opacity === '0'")   # out of the way
+    page.evaluate("document.querySelector('#main').scrollTop += 400")
+    expect(sc).to_have_class(re.compile("active"))                                    # shows while scrolling
+    page.wait_for_function("getComputedStyle(document.querySelector('#scrubber')).opacity === '0'", timeout=5000)
     t = page.locator("#days .tile").first
     t.locator(".sel").click(force=True)
     expect(page.locator("#selbar")).to_be_visible()

@@ -358,25 +358,43 @@ async def view(media_id: int, request: Request):
         return await serve_file(row, request)
     preview = CACHE / "preview" / f"{media_id}.jpg"
     if not preview.exists():
-        preview.parent.mkdir(parents=True, exist_ok=True)
-        src = local_file(row)
-        if src is None:  # pull the original from Telegram into the cache first
-            src = CACHE / "orig" / f"{media_id}.{row['ext']}"
-            if not src.exists():
-                src.parent.mkdir(parents=True, exist_ok=True)
-                tmp = src.with_suffix(".part")
-                with open(tmp, "wb") as f:
-                    async for chunk in tg_bytes(row, 0, row["size"] - 1):
-                        f.write(chunk)
-                tmp.rename(src)
-        proc = await asyncio.create_subprocess_exec(
-            "sips", "-s", "format", "jpeg", "-s", "formatOptions", "85", "-Z", "2048", str(src), "--out", str(preview),
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        await proc.wait()
-        if not preview.exists():
-            raise HTTPException(500, "could not convert this photo for viewing; use Download original")
-        trim_cache()
+        await _to_jpeg(row, preview, max_px=2048, quality=85)
     return FileResponse(preview, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+async def _to_jpeg(row, out, max_px=None, quality=85):
+    """Convert a photo (HEIC, RAW, TIFF, big JPEG ...) to a JPEG at `out`, pulling it from Telegram if needed."""
+    src = local_file(row)
+    if src is None:  # pull the original from Telegram into the cache first
+        src = CACHE / "orig" / f"{row['id']}.{row['ext']}"
+        if not src.exists():
+            src.parent.mkdir(parents=True, exist_ok=True)
+            tmp = src.with_suffix(".part")
+            with open(tmp, "wb") as f:
+                async for chunk in tg_bytes(row, 0, row["size"] - 1):
+                    f.write(chunk)
+            tmp.rename(src)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    proc = await asyncio.create_subprocess_exec(
+        "sips", "-s", "format", "jpeg", "-s", "formatOptions", str(quality), *(["-Z", str(max_px)] if max_px else []),
+        str(src), "--out", str(out), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    await proc.wait()
+    if not out.exists():
+        raise HTTPException(500, "could not convert this photo; use Download original")
+    trim_cache()
+
+
+@app.get("/share/{media_id}")
+async def share(media_id: int, request: Request):
+    """What the Share button sends: full quality, in a format every app can open. Videos and JPEG/PNG/GIF/WebP as
+    they are; HEIC, RAW and TIFF as a full-size JPEG (with its camera details)."""
+    row = await asyncio.to_thread(get_row, media_id)
+    if row["kind"] == "video" or row["ext"] in BROWSER_IMAGE_EXT:
+        return await serve_file(row, request)
+    out = CACHE / "share" / f"{media_id}.jpg"
+    if not out.exists():
+        await _to_jpeg(row, out, quality=92)
+    return FileResponse(out, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
 
 
 def trim_cache():

@@ -292,6 +292,13 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
 .view-wrap{position:relative}
+.share-wrap{position:relative;display:inline-flex}
+#vShare{position:relative}
+#vShare.busy svg{opacity:.25}
+#vShare.busy::after{content:"";position:absolute;left:50%;top:50%;margin:-9px 0 0 -9px;width:18px;height:18px;border:2px solid rgb(255 255 255/.25);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+.share-menu{position:absolute;right:0;top:46px;z-index:30;background:#2a2b2e;border-radius:10px;padding:6px;display:grid;min-width:160px;box-shadow:0 6px 24px rgb(0 0 0/.5)}
+.share-menu button,.share-menu a{background:none;border:0;color:#fff;font:inherit;text-align:left;padding:10px 12px;border-radius:6px;cursor:pointer;text-decoration:none}
+.share-menu button:hover,.share-menu a:hover{background:rgb(255 255 255/.1)}
 .view-menu{position:absolute;right:0;top:44px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;
   box-shadow:0 6px 24px rgb(0 0 0/.35);display:grid;gap:10px;min-width:300px}
 .vm-row{display:flex;align-items:center;gap:6px}
@@ -406,6 +413,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
+  <symbol id="i-share-ios" viewBox="0 0 24 24"><path d="M12 2.6 7.6 7l1.4 1.4 2-2V15h2V6.4l2 2L16.4 7 12 2.6zM6 10h2v9.5h8V10h2v11.5H6V10z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
@@ -473,6 +481,8 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
+      <span class="share-wrap"><button class="icon-btn" id="vShare" aria-label="Share" title="Share"><svg><use href="#i-share-ios"/></svg></button>
+        <div class="share-menu" id="shareMenu" hidden><button data-sh="copy">Copy image</button><a data-sh="dl" download>Download</a></div></span>
       <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
     </div>
     <button class="v-nav v-prev" id="vPrev" aria-label="Previous"><svg><use href="#i-left"/></svg></button>
@@ -1685,6 +1695,64 @@ async function renderBackup() {
 
 // ---------- viewer ----------
 let viewList = null;   // the list the viewer steps through (the feed, or a fixed list like search matches)
+// ---------- share (the phone's own share sheet: AirDrop, Messages, WhatsApp, Save to Files ...) ----------
+let sharePrefetch = null, shareCached = null;      // {id, file}: only the latest one (videos can be big)
+async function shareFile(it) {
+  if (shareCached?.id === it.id) return shareCached.file;
+  const r = await fetch(`/share/${it.id}`);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Couldn't get this file");
+  const blob = await r.blob();
+  let name = it.name.replace(/ \(part \d+\)$/, "");
+  if (it.kind !== "video" && !/\.(jpe?g|png|gif|webp)$/i.test(name)) name = name.replace(/\.[^.]+$/, "") + ".jpg";
+  const file = new File([blob], name, {type: blob.type || (it.kind === "video" ? "video/mp4" : "image/jpeg"),
+                                      lastModified: Date.parse(it.taken_at) || Date.now()});
+  shareCached = {id: it.id, file};
+  return file;
+}
+const canShareFiles = () => !!(navigator.share && navigator.canShare) &&
+  navigator.canShare({files: [new File([""], "x.jpg", {type: "image/jpeg"})]});
+async function shareCurrent() {
+  const it = curList()[viewerIdx]; if (!it) return;
+  if (!canShareFiles()) {                       // no share sheet in this browser: copy or download instead
+    $("#shareMenu").querySelector('[data-sh="dl"]').href = `/original/${it.id}?download=1`;
+    $("#shareMenu").querySelector('[data-sh="copy"]').hidden = it.kind === "video";
+    $("#shareMenu").hidden = !$("#shareMenu").hidden;
+    return;
+  }
+  const btn = $("#vShare"); btn.classList.add("busy");
+  try {
+    const file = await shareFile(it);
+    if (!navigator.canShare({files: [file]})) { toast("This file can't be shared from this browser; use Download."); return; }
+    try { await navigator.share({files: [file], title: file.name}); }
+    catch (e) {
+      if (e.name === "AbortError") return;      // you closed the share sheet
+      if (e.name !== "NotAllowedError") throw e;
+      // fetching took too long for the browser to still count it as your tap: one more tap opens the sheet
+      toast(`${esc(file.name)} is ready <button class="txt-btn" id="shareNow">Share now</button>`, 20000);
+      $("#shareNow").onclick = () => navigator.share({files: [file], title: file.name}).catch(() => {});
+    }
+  } catch (e) { toast(esc(e.message)); }
+  finally { btn.classList.remove("busy"); }
+}
+$("#vShare").onclick = e => { e.stopPropagation(); shareCurrent(); };
+$("#shareMenu").onclick = async e => {
+  e.stopPropagation();
+  const b = e.target.closest("[data-sh]"); if (!b) return;
+  if (b.dataset.sh === "copy") {
+    try {
+      const it = curList()[viewerIdx], file = await shareFile(it);
+      const png = await new Promise(async res => {         // the clipboard takes PNG everywhere
+        const bmp = await createImageBitmap(file), c = document.createElement("canvas");
+        c.width = bmp.width; c.height = bmp.height; c.getContext("2d").drawImage(bmp, 0, 0); c.toBlob(res, "image/png");
+      });
+      await navigator.clipboard.write([new ClipboardItem({"image/png": png})]);
+      toast("Copied: paste it into any app");
+    } catch { toast("Couldn't copy this one; use Download."); }
+  }
+  $("#shareMenu").hidden = true;
+};
+document.addEventListener("click", () => { if ($("#shareMenu")) $("#shareMenu").hidden = true; });
+
 function curList() { return viewList || feed?.items || []; }
 function openViewer(i) { viewList = null; openViewerAt(i); }
 function openViewerOn(list, i) { viewList = list; openViewerAt(i); }
@@ -1742,6 +1810,9 @@ function showItem() {
   const box = $("#vMain");
   box.querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   $("#vDl").href = `/original/${it.id}?download=1`;
+  $("#shareMenu").hidden = true;
+  clearTimeout(sharePrefetch);       // a photo you stay on is fetched quietly, so Share opens straight away
+  if (it.kind !== "video") sharePrefetch = setTimeout(() => shareFile(it).catch(() => {}), 1200);
   setFavIcon(it.fav);
   $("#vZoom").hidden = it.kind === "video";
   $("#vLive").hidden = !it.live_id; $("#vLive").classList.remove("on");
