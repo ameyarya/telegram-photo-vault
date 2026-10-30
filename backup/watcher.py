@@ -151,6 +151,8 @@ def backup_new(reason):
         return 0
     before = lines("done.log")
     log(f"backing up ({reason})")
+    if any(f not in inbox.backed_up() for f in inbox.files()):
+        run(INDEX, "index.log")     # new phone photos show in the gallery now, not after a long upload (e.g. a big import)
     up = run(UPLOAD, "upload.log")
     new = lines("done.log") - before
     run(INDEX, "index.log")

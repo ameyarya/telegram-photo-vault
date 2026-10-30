@@ -151,3 +151,16 @@ def test_syncthings_hidden_marker_folder_is_never_tidied_away(w):
     assert (w["drive"] / "her-phone/sub/a.jpg").exists()
     assert marker.is_dir()                                       # kept
     assert not (w["state"] / "inbox/her-phone/sub").exists()     # an ordinary empty folder is still tidied
+
+
+def test_new_inbox_photos_are_indexed_before_the_upload(w):
+    """Regression: a big upload round (a large drive import) kept a phone's new photos out of the gallery for hours."""
+    order = w["tmp"] / "order.txt"
+    up = w["tmp"] / "up2.py"
+    up.write_text(f"open({str(order)!r}, 'a').write('upload\\n')\n")
+    idx = w["tmp"] / "idx.py"
+    idx.write_text(f"open({str(order)!r}, 'a').write('index\\n')\n")
+    (w["state"] / "inbox/her-phone/new.jpg").write_bytes(b"x")
+    w["drive"].rmdir()
+    w["once"](WATCH_UPLOAD=f"{sys.executable} {up}", WATCH_INDEX=f"{sys.executable} {idx}")
+    assert order.read_text().split() == ["index", "upload", "index"]
