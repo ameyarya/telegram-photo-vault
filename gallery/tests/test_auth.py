@@ -179,6 +179,27 @@ def test_ui_phone_signs_in_and_sees_a_view_only_gallery(page, phone_world):
     page.locator("#lName").wait_for()
 
 
+@pytest.mark.parametrize("page", [{"world": "world", "viewport": {"width": 390, "height": 844}}], indirect=True)
+def test_ui_signing_in_leaves_no_sign_in_page_to_go_back_to(page, phone_world):
+    page.goto(phone_world["url"] + "/")
+    page.locator("#lName").wait_for()
+    steps = page.evaluate("history.length")
+    page.fill("#lName", "Partner")
+    page.fill("#lPw", "new-password-9")
+    page.press("#lPw", "Enter")
+    page.locator("#days .tile").first.wait_for()
+    assert page.evaluate("history.length") == steps and "password" not in page.url   # signed in on the same page
+    for close in ("black space", "back"):
+        page.locator("#days .tile").first.click()
+        page.wait_for_selector("#viewer.open")
+        page.locator("#vMain").dispatch_event("click") if close == "black space" else page.go_back()
+        page.wait_for_function("!document.querySelector('#viewer.open')")
+        assert page.locator("#loginForm").count() == 0 and page.locator("#days .tile").first.is_visible(), close
+    page.click("#acctBtn")
+    page.click("#signOut")
+    page.locator("#lName").wait_for()
+
+
 @pytest.mark.parametrize("page", [{"world": "world"}], indirect=True)
 def test_ui_mac_sharing_page(page, mac):
     page.goto(page.base + "/#/sharing")

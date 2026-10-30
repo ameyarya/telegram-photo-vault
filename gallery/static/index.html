@@ -282,6 +282,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .trash-grid{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
 .trash-grid .tile{width:150px;height:150px}
 body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
+body.signed-out>:not(.login,svg){display:none!important}
 .login{min-height:100vh;display:grid;place-items:center;padding:16px;box-sizing:border-box}
 .login form{width:100%;max-width:340px;display:grid;gap:12px}
 .login h1{font-weight:400;font-size:26px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
@@ -2114,19 +2115,31 @@ function renderSide() {
 }
 async function loadUserAlbums() { userAlbums = await api("/api/user-albums"); }
 
+// Signing in never leaves the page: a reload here left the old sign-in page as a step in the history on Android,
+// so Back (or closing a photo) went to the sign-in page again
 function showLogin() {
-  document.body.innerHTML = `<div class="login"><form id="loginForm" autocomplete="on">
+  document.body.classList.add("signed-out");
+  document.body.insertAdjacentHTML("beforeend", `<div class="login"><form id="loginForm" method="post" autocomplete="on">
       <h1><svg viewBox="0 0 24 24"><use href="#i-photo"/></svg>Photos</h1>
       <input id="lName" name="username" autocomplete="username" placeholder="Name" autocapitalize="none" required>
       <input id="lPw" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
-      <div class="err" id="lErr"></div><button class="fill-btn">Sign in</button></form></div>` + document.querySelector("svg").outerHTML;
+      <div class="err" id="lErr"></div><button class="fill-btn">Sign in</button></form></div>`);
   $("#lName").focus();
   $("#loginForm").onsubmit = async e => {
     e.preventDefault(); $("#lErr").textContent = "";
-    try { await post("/api/login", {name: $("#lName").value, password: $("#lPw").value}); location.reload(); }
-    catch (err) { $("#lErr").textContent = err.message; $("#lPw").select(); }
+    try { await post("/api/login", {name: $("#lName").value, password: $("#lPw").value}); }
+    catch (err) { $("#lErr").textContent = err.message; $("#lPw").select(); return; }
+    signedIn();
   };
 }
+function signedIn() {
+  document.querySelector(".login")?.remove(); document.body.classList.remove("signed-out");
+  boot().catch(e => { $("#page").innerHTML = `<div class="empty">Couldn't start: ${esc(e.message)}</div>`; });
+}
+// Back to this page while Chrome kept it showing the sign-in form, signed in since in another tab: the gallery
+addEventListener("pageshow", async e => {
+  if (e.persisted && $("#loginForm") && (await fetch("/api/me")).ok) signedIn();
+});
 
 // Refresh: new photos, folders and the backup status, without reloading the page (filter and order stay)
 async function refreshAll() {
