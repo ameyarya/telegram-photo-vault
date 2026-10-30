@@ -8,7 +8,7 @@ folder, <state>/phone-sync/<drive folder> (e.g. phone-sync/iphone), and every wa
   * moves each new photo into the inbox folder of the same name, renaming it " (2)" (" (3)" ...) if the name was ever
     used there (on the drive, in the inbox or in Telegram), a photo and its Live video together, like icloud_export.py;
   * sets aside photos that are already backed up (same size and date, or same size and name, e.g. what iCloud Photos
-    already brought) in a hidden .already-backed-up folder, instead of uploading them twice;
+    already brought, even if it's still waiting in the inbox) in a hidden .already-backed-up folder, instead of uploading them twice;
   * adds both to the folder's .stignore, so Syncthing never downloads them again.
 
 Set the Syncthing folder up as Receive Only with Ignore Delete, like a phone that syncs into the inbox.
@@ -44,6 +44,13 @@ def backed_up(folder):
             have.add((size, round(mtime or 0)))
             have.add((size, base_name(path.rsplit("/", 1)[1])))
         con.close()
+    waiting = INBOX / folder                    # not backed up yet, but already here (e.g. iCloud brought it too)
+    if waiting.is_dir():
+        for f in os.listdir(waiting):
+            if not f.startswith(".") and (waiting / f).is_file():
+                st = (waiting / f).stat()
+                have.add((st.st_size, round(st.st_mtime)))
+                have.add((st.st_size, base_name(f)))
     return have
 
 

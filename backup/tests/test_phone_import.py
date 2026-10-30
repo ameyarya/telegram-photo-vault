@@ -30,19 +30,24 @@ def test_iphone_photos_are_renamed_set_aside_and_never_synced_again(tmp_path):
     (stage / "2026/10/IMG_0004.MOV").write_bytes(b"its live video")
     (stage / "2026/10/IMG_0100.HEIC").write_bytes(b"backed!")
     (stage / "IMG_[1].PNG").write_bytes(b"png")
+    (state / "inbox/iphone").mkdir(parents=True)
+    (state / "inbox/iphone/IMG_0200 (2).HEIC").write_bytes(b"twin!")      # iCloud brought it this minute too
+    (stage / "IMG_0200.HEIC").write_bytes(b"twin!")
     (stage / "2026/10/.syncthing.IMG_0005.HEIC.tmp").write_bytes(b"still coming")
     env = {**os.environ, "VAULT_CONFIG": os.devnull, "STATE_DIR": str(state), "GALLERY_DRIVE": str(drive),
            "GALLERY_DATA": str(data), "FOLDERS": ""}
     r = subprocess.run([sys.executable, str(HERE / "phone_import.py")], env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert "moved 3 photos" in r.stdout
-    assert sorted(os.listdir(state / "inbox/iphone")) == ["IMG_0004 (2).HEIC", "IMG_0004 (2).MOV", "IMG_[1].PNG"]
+    assert sorted(os.listdir(state / "inbox/iphone")) == ["IMG_0004 (2).HEIC", "IMG_0004 (2).MOV",
+                                                            "IMG_0200 (2).HEIC", "IMG_[1].PNG"]
     assert (state / "inbox/iphone/IMG_0004 (2).HEIC").read_bytes() == b"new photo, longer"
     assert (stage / ".already-backed-up/2026/10/IMG_0100.HEIC").exists()                  # not uploaded twice
+    assert (stage / ".already-backed-up/IMG_0200.HEIC").exists()
     assert (stage / "2026/10/.syncthing.IMG_0005.HEIC.tmp").exists()                      # Syncthing's, left alone
     ignored = (stage / ".stignore").read_text().splitlines()
     assert ignored[0] == "/.already-backed-up"
     assert set(ignored[1:]) == {"/2026/10/IMG_0004.HEIC", "/2026/10/IMG_0004.MOV", "/2026/10/IMG_0100.HEIC",
-                                "/IMG_\\[1\\].PNG"}
+                                "/IMG_\\[1\\].PNG", "/IMG_0200.HEIC"}
     r = subprocess.run([sys.executable, str(HERE / "phone_import.py")], env=env, capture_output=True, text=True)
     assert "moved 0 photos" in r.stdout and (stage / ".stignore").read_text().count(".already-backed-up") == 1
