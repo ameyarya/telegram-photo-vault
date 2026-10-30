@@ -56,6 +56,12 @@ Not built: encryption before upload, Windows/Linux support, access from outside 
 - Telegram keeps each file's bytes exactly (EXIF, GPS, video metadata survive) but **not** the file system's
   created/modified dates — that's what the timestamp manifest is for.
 - macOS only: it uses `caffeinate`, `nettop`, `sips`, `launchd` and BSD tools.
+- **Renaming or moving folders on the drive** used to look like brand-new files to Telegram. Now, before uploading, each
+  new file is checked against what's already backed up (same name and size): if the old copy is gone and the date
+  matches, it was renamed/moved, and the backup records and the gallery (favorites, faces, albums) follow it, with
+  nothing uploaded; if the old copy is still there with identical bytes, it's a copy and is skipped. If a scan still
+  finds more than `UPLOAD_HOLD` (default 1000) new files on the drive at once, they wait for an **Upload them** on
+  the Backup page (you get a notification); phone and iCloud photos keep uploading meanwhile.
 
 ## Setup
 
@@ -173,6 +179,7 @@ backup of an Android phone, use [Syncthing](https://syncthing.net) (free, open s
    it syncs even with the drive unplugged; the watcher moves backed-up files onto the drive), and
    Folder type **Receive Only**. Under Advanced, turn on **Ignore Delete**, so deleting photos on the phone never deletes
    them from the drive. Never press "Revert Local Changes" on it, because that deletes files the phone doesn't have.
+   Syncthing needs the hidden `.stfolder` inside that folder; the watcher puts it back if it ever goes missing.
 
 Auto-backup then picks the photos up like anything else copied onto the drive.
 

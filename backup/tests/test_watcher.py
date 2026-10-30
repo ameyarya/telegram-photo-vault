@@ -164,3 +164,15 @@ def test_new_inbox_photos_are_indexed_before_the_upload(w):
     w["drive"].rmdir()
     w["once"](WATCH_UPLOAD=f"{sys.executable} {up}", WATCH_INDEX=f"{sys.executable} {idx}")
     assert order.read_text().split() == ["index", "upload", "index"]
+
+
+def test_a_missing_syncthing_marker_is_put_back(w):
+    """Regression: without .stfolder Syncthing stops syncing that phone ("folder marker missing")."""
+    phone = w["state"] / "inbox/her-phone"
+    (phone / ".stignore").write_text("old.jpg\n")
+    w["once"]()
+    assert (phone / ".stfolder").is_dir()
+    other = w["state"] / "inbox/not-syncthing"
+    other.mkdir()
+    w["once"]()
+    assert not (other / ".stfolder").exists()            # only phone folders that Syncthing set up

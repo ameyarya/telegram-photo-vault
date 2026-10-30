@@ -390,6 +390,8 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 .job:first-of-type{border-top:0}
 .job .bar{height:6px}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink2);margin:8px 0}
+.note.warn{display:flex;gap:12px;align-items:flex-start;border-color:#e8a33d;background:color-mix(in srgb,#e8a33d 12%,var(--surface));color:var(--ink);margin:0 0 16px}
+.note.warn > svg{flex:none;width:22px;height:22px;fill:#e8a33d}
 .v-zoom{cursor:zoom-in}
 .zoomed{cursor:zoom-out}
 .zoomed:active{cursor:grabbing}
@@ -1700,7 +1702,12 @@ async function renderBackup() {
     const maxF = Math.max(...b.by_folder.map(f => f.bytes), 1), maxY = Math.max(...b.by_year.map(y => y.bytes), 1);
     const dot = ok => `<span class="${ok ? "ok-dot" : "bad-dot"}"></span>`;
     $("#pgSub").textContent = `${plural(t.files, "photo & video")} · ${size(t.bytes)}`;
-    $("#dashBox").innerHTML = `<div class="dash">
+    const hold = b.hold && me.role === "owner" ? `<div class="note warn" id="holdNote">${ico("cloud-off")}<div><b>${nf(b.hold.files)} new files appeared on the
+        hard disk</b> (${Object.entries(b.hold.folders).map(([f, n]) => `${esc(f)}: ${nf(n)}`).join(", ")}), so they're waiting for your OK
+        instead of uploading. If you renamed or moved a folder in Finder, rename it back: renamed photos that are already backed up
+        are recognised, but a surprise this big is worth a look first.
+        <div style="margin-top:8px"><button class="fill-btn" id="holdGo">Upload them</button></div></div></div>` : "";
+    $("#dashBox").innerHTML = hold + `<div class="dash">
       <div class="panel" id="dashTotal"><h3>Backed up to Telegram</h3><div class="big">${pct}%</div>
         <div class="muted">${nf(t.backed_up)} of ${nf(t.files)} items · ${size(t.backed_up_bytes)} of ${size(t.bytes)}</div>${bar(t.backed_up, t.files)}
         <div class="kv" style="margin-top:12px"><span>Exact duplicates skipped</span><span>${nf(b.skipped_duplicates)} (their twin is backed up)</span>
@@ -1733,6 +1740,7 @@ async function renderBackup() {
         ${bar(j.done, j.total)}<span>${j.status === "running" ? `<button class="txt-btn" data-cancel="${j.id}">Cancel</button>` : `<button class="txt-btn" data-reveal="${j.id}">Show in Finder</button>`}</span></div>`).join("")
         : `<div class="muted">Restore everything, a folder, an album or a person above, or a selection of photos from the selection bar. Files go to Downloads › Photo Vault Restore with their original dates.</div>`}</div>
     </div>`;
+    $("#holdGo")?.addEventListener("click", async () => { try { await post("/api/backup/approve-upload"); toast("They'll start uploading within a minute"); draw(); } catch (e) { toast(esc(e.message)); } });
     $("#runMl")?.addEventListener("click", async () => { try { await post("/api/ml/run"); toast("Analysis started"); draw(); } catch (e) { toast(esc(e.message)); } });
     $("#seeMissing")?.addEventListener("click", () => { filterChip = "notbackedup"; lastPath = "/photos"; });
     $("#dashJobs").onclick = async e => {

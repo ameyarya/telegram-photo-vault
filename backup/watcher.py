@@ -170,9 +170,11 @@ class Watcher:
         self.last_scan = 0
         self.warned = 0
         self.retry_at = 0
+        self.hold_seen = None
 
     def round(self):
         STATE.mkdir(parents=True, exist_ok=True)
+        self.check_phone_folders()
         if ICLOUD_ON:
             m = photos_marker()
             if m is not None and m != self.marker and time.time() >= self.retry_at:
@@ -209,10 +211,31 @@ class Watcher:
         freed = inbox.free_cloud_only(log)
         if freed:
             log(f"removed {freed} Telegram-only files from the Mac (safely uploaded)")
+        hold = STATE / "upload-hold.json"
+        if hold.exists() and hold.stat().st_mtime != self.hold_seen:      # tell you once about held files
+            self.hold_seen = hold.stat().st_mtime
+            import json
+            h = json.loads(hold.read_text())
+            notify(f"{h['files']:,} new files appeared on the drive ({', '.join(h['folders'])}); they wait on the "
+                   "Backup page for your OK. Renamed a folder in Finder? Rename it back instead.")
         free = inbox.mac_free_gb()
         if free < LOW_GB and time.time() - self.warned > 86400:
             self.warned = time.time()
             notify(f"The Mac has only {free:.0f} GB free; plug in the photo drive so new photos can move onto it")
+
+
+def check_phone_folders():
+    """A phone's sync folder (Syncthing) needs its hidden .stfolder marker; without it Syncthing stops syncing that phone,
+    to be safe. Put it back if it ever goes missing."""
+    if not config.INBOX.is_dir():
+        return
+    for d in config.INBOX.iterdir():
+        if d.is_dir() and (d / ".stignore").exists() and not (d / ".stfolder").exists():
+            (d / ".stfolder").mkdir()
+            notify(f"Fixed the phone sync for {d.name}: its Syncthing marker was missing")
+
+
+Watcher.check_phone_folders = staticmethod(check_phone_folders)
 
 
 def main():

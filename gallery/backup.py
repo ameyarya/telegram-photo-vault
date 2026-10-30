@@ -53,4 +53,23 @@ def backup_status():
         "uploader_running": _running("upload.sh"), "bots_running": _running("bot_upload.py run"),
         "drive": DRIVE.is_dir(), "telegram": server.state["client"] is not None,
         "telegram_error": server.state["tg_error"], "last_sync": server.state["last_sync"], "now": time.time(),
+        "hold": _hold(),
     }
+
+
+def _hold():
+    """New drive files held back for your OK (backup/guard.py), if any."""
+    import json
+    f = STATE / "upload-hold.json"
+    try:
+        return json.loads(f.read_text()) if f.exists() else None
+    except ValueError:
+        return None
+
+
+@router.post("/api/backup/approve-upload")
+def approve_upload():
+    """'Upload them': the held files go up in the next round (within a minute)."""
+    (STATE / ".upload-approved").touch()
+    (STATE / "upload-hold.json").unlink(missing_ok=True)
+    return {"ok": True}

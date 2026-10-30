@@ -327,6 +327,23 @@ def test_people_and_similar_explain_when_empty(page):
     expect(page.locator(".note")).to_contain_text("No similar groups")
 
 
+def test_held_upload_is_shown_and_approved(page, world):
+    """A surprise flood of new drive files (a folder renamed in Finder) waits on the Backup page for an OK."""
+    hold = world["state"] / "upload-hold.json"
+    hold.write_text('{"files": 1500, "folders": {"samsung": 1500}, "since": "2026-10-29 10:00"}')
+    try:
+        go(page, "#/backup")
+        expect(page.locator("#holdNote")).to_contain_text("1,500 new files")
+        expect(page.locator("#holdNote")).to_contain_text("samsung: 1,500")
+        shot(page, "backup-hold")
+        page.click("#holdGo")
+        expect(page.locator("#holdNote")).to_have_count(0)
+        assert (world["state"] / ".upload-approved").exists() and not hold.exists()
+    finally:
+        hold.unlink(missing_ok=True)
+        (world["state"] / ".upload-approved").unlink(missing_ok=True)
+
+
 # ---------- backup dashboard ----------
 def test_backup_dashboard(page):
     go(page, "#/backup")

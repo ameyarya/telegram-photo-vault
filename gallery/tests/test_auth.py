@@ -101,7 +101,8 @@ def test_member_can_browse_and_favorite_but_not_delete_or_manage(phone_world, it
         assert p.post("/api/favorites/remove", json={"ids": [some]}).status_code == 200
         for path, body in [("/api/trash", {"ids": [some]}), ("/api/trash/empty", {}), ("/api/restore", {"ids": [some]}),
                            ("/api/ml/run", {}), ("/api/people/merge", {"ids": [1, 2]}), ("/api/people/1/merge", {"into": 2}),
-                           ("/api/users", {"name": "x", "password": "12345678"}), ("/api/sharing", {"on": False})]:
+                           ("/api/users", {"name": "x", "password": "12345678"}), ("/api/sharing", {"on": False}),
+                           ("/api/backup/approve-upload", {})]:
             assert p.post(path, json=body).status_code == 403, path
         for path in ("/api/trash", "/api/jobs", "/api/users"):
             assert p.get(path).status_code == 403, path

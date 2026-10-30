@@ -85,6 +85,16 @@ def main():
     tmp.write_text("".join(f + "\n" for f in files))
     tmp.replace(STATE / "all.txt")
     todo = remaining(files)
+    if todo:                                   # moved/renamed or copied photos aren't uploaded again (guard.py)
+        import guard
+        guard.reconcile(todo, log)
+        todo = remaining(files)
+        todo, held = guard.hold_big_surprises(todo, log)
+        if held:                               # the bots take their work from all.txt: leave the held ones out
+            keep = set(held)
+            tmp.write_text("".join(f + "\n" for f in files if f not in keep))
+            tmp.replace(STATE / "all.txt")
+            files = [f for f in files if f not in keep]
     log(f"{len(files)} files on the drive{'' if DRIVE.is_dir() else ' (unplugged: inbox only)'}, {len(todo)} to upload")
     if "--list" in sys.argv or not todo:
         return 0
