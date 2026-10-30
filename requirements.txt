@@ -5,3 +5,4 @@ httpx
 numpy
 pillow
 stream-zip
+python-multipart

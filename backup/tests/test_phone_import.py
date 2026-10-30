@@ -12,6 +12,7 @@ def test_iphone_photos_are_renamed_set_aside_and_never_synced_again(tmp_path):
     state, drive, data = tmp_path / "state", tmp_path / "drive", tmp_path / "data"
     stage = state / "phone-sync/iphone"
     (stage / "2026/10").mkdir(parents=True)
+    (stage / ".stfolder").mkdir()                                       # a Syncthing folder (Möbius Sync)
     (drive / "iphone").mkdir(parents=True)
     data.mkdir()
     (drive / "iphone/IMG_0004.HEIC").write_bytes(b"old photo")        # numbers wrapped: same name, other photo

@@ -33,7 +33,8 @@ _failures = {}  # ip or username -> [failure times]
 PUBLIC = {"/", "/api/login", "/api/me", "/setup", "/ca.pem", "/favicon.ico"}
 # what only full-access accounts (and this Mac) may do
 OWNER_ONLY = ("/api/trash", "/api/restore", "/api/jobs", "/api/ml/run", "/api/people/merge", "/api/people/not-same",
-              "/api/similar/dismiss", "/api/dates", "/api/folder-names", "/api/subjects", "/api/backup/approve", "/api/users", "/api/sessions", "/api/sharing")
+              "/api/similar/dismiss", "/api/dates", "/api/folder-names", "/api/subjects", "/api/backup/approve", "/api/users", "/api/sessions", "/api/sharing",
+              "/api/shortcut/")
 OWNER_ONLY_RE = ("/merge", "/delete")  # /api/people/{id}/merge, /api/user-albums/{id}/delete
 
 
@@ -114,6 +115,16 @@ def gate(request):
     origin = request.headers.get("origin")
     if request.method not in ("GET", "HEAD", "OPTIONS") and origin and origin.split("://", 1)[-1] != request.headers.get("host"):
         return Response("Cross-site request refused.", status_code=403)  # another website can't act on the gallery
+    if path.startswith("/api/shortcut/") and path not in ("/api/shortcut/token", "/api/shortcut/status"):
+        import shortcut                                      # an iPhone's backup shortcut: its token, not an account
+        request.state.shortcut_folder = shortcut.token_folder(request)
+        request.state.user = None
+        host = request.client.host if request.client else ""
+        if not (is_loopback(request) or is_home_network(host)):
+            return Response("This gallery is only available on the home network.", status_code=403)
+        if not request.state.shortcut_folder:
+            return JSONResponse({"detail": "Needs the shortcut's token"}, status_code=401)
+        return None
     if is_loopback(request):
         request.state.user = {"id": 0, "name": "This Mac", "role": "owner", "local": True}
         return None

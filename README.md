@@ -189,6 +189,24 @@ while it's open or briefly in the background, so open it now and then on home Wi
 
 Auto-backup then picks the photos up like anything else copied onto the drive.
 
+### Optional: back up an iPhone with a Shortcut (free, no app)
+
+iOS doesn't let an app sync the photo library in the background, but a Shortcuts automation can send new photos to
+the gallery over the home Wi-Fi (`gallery/shortcut.py`). Each run sends what was created since the last finished run,
+so nothing is missed while the Mac is asleep or away; a photo sent twice is kept once.
+
+1. On the Mac, make a token for the drive folder (it's shown once; making a new one replaces it):
+   `curl -s -X POST https://<hostname>/api/shortcut/token -H 'Content-Type: application/json' -d '{"folder": "iphone"}'`
+2. In the Shortcuts app, a shortcut that: gets the contents of `https://<hostname>/api/shortcut/since` (header
+   `Authorization: Bearer <token>`), turns it into a date, finds photos whose creation date is after it, sends each
+   with "Get Contents of URL" (POST, Form, a File field named `file`) to `/api/shortcut/upload`, then POSTs to
+   `/api/shortcut/done`. All three with the same header.
+3. Automations that run it, set to Run Immediately: when the Camera app is closed, when joining the home Wi-Fi, when
+   the phone starts charging, and at a few times of day.
+
+Photos arrive in `<state>/phone-sync/<folder>` and `backup/phone_import.py` moves them into the inbox under a name never
+used in that folder (iPhone numbers wrap around). Live Photos arrive as the still photo only.
+
 ### Optional: bot uploader (experimental)
 
 Telegram limits upload speed per account; a bot is a separate account. Create one with

@@ -76,7 +76,7 @@ def run(log=print):
                     aside += 1
             gone += [(d / f).relative_to(stage).as_posix() for f in files]
             total += len(move_in(d, dest, names_in_use(stage.name)))
-        if gone:
+        if gone and (stage / ".stfolder").exists():            # a Syncthing folder: never download them again
             ign = stage / ".stignore"
             first = "" if ign.exists() and f"/{ASIDE}\n" in ign.read_text() else f"/{ASIDE}\n"
             with open(ign, "a") as s:

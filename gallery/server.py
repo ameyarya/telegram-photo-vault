@@ -70,8 +70,8 @@ async def lifespan(app):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 
-import auth, backup, dates, library, ml, restore, trash, upload  # noqa: E402  (they import helpers defined in this module)
-for _mod in (auth, dates, library, ml, restore, backup, trash, upload):
+import auth, backup, dates, library, ml, restore, shortcut, trash, upload  # noqa: E402  (they import helpers defined in this module)
+for _mod in (auth, dates, library, ml, restore, backup, shortcut, trash, upload):
     app.include_router(_mod.router)
 
 
