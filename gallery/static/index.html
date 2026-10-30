@@ -523,6 +523,7 @@ body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
       <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
+      <button class="icon-btn owner-only" id="vTrash" aria-label="Move to trash" title="Move to trash (Delete)"><svg><use href="#i-trash"/></svg></button>
       <span class="share-wrap"><button class="icon-btn" id="vShare" aria-label="Share" title="Share"><svg><use href="#i-share-ios"/></svg></button>
         <div class="share-menu" id="shareMenu" hidden><button data-sh="copy">Copy image</button><a data-sh="dl" download>Download</a></div></span>
     </div>
@@ -1652,7 +1653,7 @@ async function renderTrash() {
     <div class="page-sub" id="pgSub"></div><div id="trashBox"></div>`;
   const r = await api("/api/trash");
   $("#pgSub").textContent = r.items.length
-    ? `${plural(r.items.length, "item")}${r.other_files ? ` and ${plural(r.other_files, "other file")}` : ""} · ${size(r.bytes)} on the drive (in its .photo-vault-trash folder). Hidden from the gallery; still backed up in Telegram.${r.drive ? "" : " The drive is unplugged: files move to its trash folder when it's plugged in."}`
+    ? `${plural(r.items.length, "item")}${r.other_files ? ` and ${plural(r.other_files, "other file")}` : ""} · ${size(r.bytes)} on the drive (in its .photo-vault-trash folder). Hidden from the gallery; still backed up in Telegram.${r.drive ? "" : " The drive is unplugged: changes you make here happen on it when it's plugged in."}`
     : "";
   if (!r.items.length) { $("#trashBox").innerHTML = `<div class="note">Trash is empty. Photos you trash (for example extra shots in Similar shots) show up here until you empty it.</div>`; return; }
   $("#trRestoreAll").hidden = $("#trEmpty").hidden = false;
@@ -1665,8 +1666,11 @@ async function renderTrash() {
   };
   $("#trRestoreAll").onclick = async () => { await post("/api/trash/restore", {ids: r.items.map(i => i.id)}); toast(`Put back ${plural(r.items.length, "item")}`); renderTrash(); };
   $("#trEmpty").onclick = async () => {
-    if (!await confirmDialog("Empty trash?", `Permanently deletes ${plural(r.items.length, "file")} (${size(r.bytes)}) from the drive. This can't be undone on the drive. The copies in your Telegram channel are kept.`, "Delete from drive")) return;
-    try { const x = await post("/api/trash/empty"); toast(`Deleted ${plural(x.deleted, "file")} from the drive · ${size(x.bytes)} freed`); } catch (err) { toast(esc(err.message)); }
+    if (!await confirmDialog("Empty trash?", `Permanently deletes ${plural(r.items.length, "file")} (${size(r.bytes)}) from the drive and this Mac${r.drive ? "" : " (from the drive when it's next plugged in)"}. This can't be undone. The copies in your Telegram channel are kept.`, "Delete")) return;
+    try {
+      const x = await post("/api/trash/empty");
+      toast(`Deleted ${plural(x.deleted, "file")}` + (x.waiting ? ` · ${plural(x.waiting, "file")} will be deleted from the drive when it's plugged in` : ` · ${size(x.bytes)} freed`));
+    } catch (err) { toast(esc(err.message)); }
     renderTrash();
   };
 }
@@ -1959,6 +1963,17 @@ async function toggleFav() {
   const f = feed?.items.find(x => x.id === it.id); if (f) f.fav = it.fav;
 }
 $("#vFav").onclick = toggleFav;
+async function trashCurrent() {           // the next photo slides in; Undo in the toast puts it back
+  const list = curList(), it = list[viewerIdx];
+  if (!it || document.body.classList.contains("member")) return;
+  try { await trashItems([it.id]); } catch (e) { return toast(esc(e.message)); }
+  list.splice(viewerIdx, 1);
+  reorderPending = true;                   // the grid behind redraws when the viewer closes
+  if (!list.length) return closeViewer();
+  viewerIdx = Math.min(viewerIdx, list.length - 1);
+  showItem();
+}
+$("#vTrash").onclick = trashCurrent;
 $("#vAlbum").onclick = () => { const it = curList()[viewerIdx]; if (it) addToAlbum([it.id]).then(() => renderInfo(it)); };
 
 async function renderInfo(it) {
@@ -2011,6 +2026,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "ArrowRight" && zoom.s === 1) step(1);
   else if (e.key === "i") toggleInfo();
   else if (e.key === "f") toggleFav();
+  else if (e.key === "Delete" || e.key === "Backspace") trashCurrent();
   else if (e.key === "l") $("#vLive").hidden || $("#vLive").click();
   else if (e.key === "+" || e.key === "=") setZoom(zoom.s * 1.5);
   else if (e.key === "-") setZoom(zoom.s / 1.5);

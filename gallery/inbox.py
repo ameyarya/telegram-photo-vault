@@ -41,10 +41,13 @@ def move_to_drive(log=print):
     """Move backed-up inbox files onto the drive under the same path. Returns how many moved."""
     if not DRIVE.is_dir() or not INBOX.is_dir():
         return 0
-    done, moved = backed_up(), 0
+    import trash
+    done, moved, held = backed_up(), 0, trash.queued_paths()
     for rel in files():
         if rel.split("/", 1)[0] in CLOUD_ONLY:
             continue                                   # Telegram only: never on the drive
+        if rel in held:
+            continue                                   # trashed: kept off the drive (emptying the trash deletes it)
         src, dst = INBOX / rel, DRIVE / rel
         if rel not in done and src.stat().st_size <= MAX:
             continue                                   # not in Telegram yet: the uploader may be reading it

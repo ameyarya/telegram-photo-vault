@@ -501,4 +501,4 @@ def test_top_bar_centred_search_account_menu_and_tall_rows(page):
 def test_share_is_the_last_button_in_the_viewer(page):
     open_first_photo(page)
     ids = page.evaluate("[...document.querySelectorAll('.v-top button, .v-top a')].filter(e => e.offsetParent).map(e => e.id)")
-    assert ids[-1] == "vShare" and ids[-2] == "vDl"
+    assert ids[-3:] == ["vDl", "vTrash", "vShare"]

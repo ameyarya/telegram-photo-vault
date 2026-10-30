@@ -1,9 +1,11 @@
 """Live Photos, the trash, cleaning up similar shots, and telling the face grouping who's who (liveworld)."""
 import hashlib
 import os
+import re
 import sqlite3
 import subprocess
 import time
+from pathlib import Path
 
 import httpx
 import numpy as np
@@ -583,3 +585,75 @@ def test_ui_similar_big_groups_fold_and_more_groups_load(page):
     page.click("#simMore")
     expect(page.locator(".sim-group")).to_have_count(61)
     expect(page.locator("#simMore")).to_have_count(0)
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_trash_from_the_viewer_and_undo(page):
+    page.goto(page.base + "/#/album/phone")
+    all_oldest_first(page)
+    tiles = page.locator("#days .tile")
+    tiles.first.wait_for()
+    before = tiles.count()
+    tiles.nth(0).click()
+    page.locator("#vMain .v-media").first.wait_for()
+    first = page.locator("#vMain .v-media").first.get_attribute("src")
+    shot(page, "viewer-trash-button")
+    page.click("#vTrash")
+    expect(page.locator(".toast")).to_contain_text("Moved 1 item to Trash")
+    expect(page.locator("#viewer")).to_have_class(re.compile(r"\bopen\b"))      # stays open on the next photo
+    page.wait_for_function("s => document.querySelector('#vMain .v-media')?.getAttribute('src') !== s", arg=first)
+    page.click("#undoTrash")
+    page.keyboard.press("Escape")
+    expect(tiles).to_have_count(before)                                          # put back
+    tiles.nth(0).click()
+    page.locator("#vMain .v-media").first.wait_for()
+    page.keyboard.press("Delete")                                                # the key does it too
+    expect(page.locator(".toast")).to_contain_text("Moved 1 item to Trash")
+    page.keyboard.press("Escape")
+    expect(tiles).to_have_count(before - 1)
+    page.goto(page.base + "/#/trash")
+    page.locator("#trRestoreAll").click()
+    page.locator("text=Trash is empty").wait_for()
+
+
+def test_trash_changes_wait_for_the_drive_and_keep_it_small(lapi, liveworld):
+    """Put back and empty trash work with the drive unplugged; the file changes happen when it's plugged in, and a
+    trashed photo still on the Mac never goes to the drive."""
+    drive, env = liveworld["drive"], liveworld["env"]
+    away = {**env, "GALLERY_DRIVE": str(drive) + "-missing"}
+    run = lambda code, e: subprocess.run([PY, "-c", "import trash; " + code], cwd=ROOT, env=e, check=True,
+                                         capture_output=True, text=True).stdout
+    a, b = item(lapi, "b_2.jpg"), item(lapi, "b_1.jpg")                      # the last test here: a is deleted for good
+    a["path"], b["path"] = "burst/b_2.jpg", "burst/b_1.jpg"
+    lapi.post("/api/trash", json={"ids": [b["id"]]})                          # in the drive's trash folder now
+    assert (drive / TRASH / b["path"]).is_file()
+    run(f"trash.restore_from_trash(trash.Ids(ids=[{b['id']}]))", away)          # put back with the drive away
+    ids = lambda: {i["id"] for i in lapi.get("/api/items").json()["items"]}
+    assert b["id"] in ids() and (drive / TRASH / b["path"]).is_file()           # shown now, file moves later
+    run(f"trash.trash(trash.Ids(ids=[{a['id']}]))", away)
+    out = run("print(trash.empty_trash())", away)                              # empty with the drive away
+    assert "'deleted': 1" in out and "'drive': False" in out
+    assert a["id"] not in ids() and (drive / a["path"]).is_file()              # gone from the gallery, file waits
+    run("trash.sync_drive()", env)                                             # plugged in
+    assert not (drive / a["path"]).exists() and not (drive / TRASH / a["path"]).exists()
+    assert (drive / b["path"]).is_file() and not (drive / TRASH / b["path"]).exists()
+    assert db(liveworld).execute("SELECT count(*) FROM drive_queue").fetchone()[0] == 0
+
+    inbox, state = Path(env["STATE_DIR"]) / "inbox", Path(env["STATE_DIR"])      # trashed while still on the Mac
+    (inbox / "phone").mkdir(parents=True, exist_ok=True)
+    for n in ("sent.jpg", "unsent.jpg"):
+        (inbox / "phone" / n).write_bytes(b"photo " + n.encode())
+    (state / "done.log").open("a").write("phone/sent.jpg\n")
+    con = db(liveworld)
+    con.executemany("INSERT INTO drive_queue(path, op, size) VALUES (?, 'delete', ?)",
+                    [("phone/sent.jpg", 15), ("phone/unsent.jpg", 17)])
+    con.commit()
+    subprocess.run([PY, "-c", "import inbox; inbox.move_to_drive()"], cwd=ROOT, env=env, check=True)
+    assert not (drive / "phone/sent.jpg").exists() and not (drive / "phone/unsent.jpg").exists()   # never copied
+    run("trash.sync_drive()", away)
+    assert not (inbox / "phone/sent.jpg").exists()                            # in Telegram: deleted from the Mac
+    assert (inbox / "phone/unsent.jpg").exists()                              # not yet: kept until it is
+    (state / "done.log").open("a").write("phone/unsent.jpg\n")
+    run("trash.sync_drive()", env)
+    assert not (inbox / "phone/unsent.jpg").exists()
+    assert db(liveworld).execute("SELECT count(*) FROM drive_queue").fetchone()[0] == 0

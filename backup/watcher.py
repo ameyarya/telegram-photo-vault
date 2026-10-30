@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE.parent / "gallery"))
 import config  # noqa: E402  (reads config.env)
 import inbox  # noqa: E402
 import phone_import  # noqa: E402
+import trash  # noqa: E402
 
 PY = sys.executable
 
@@ -204,6 +205,10 @@ class Watcher:
             backup_new("drive plugged in or hourly rescan" if scan else f"{len(waiting)} new in the inbox")
             if scan:
                 self.last_scan = time.time()
+        try:                                                         # trash changes made while the drive was away
+            trash.sync_drive(log=log)
+        except Exception as e:
+            log(f"trash sync failed: {e.__class__.__name__}: {e}")
         if mounted:
             big = [f for f in inbox.files() if (config.INBOX / f).stat().st_size > inbox.MAX]
             moved = inbox.move_to_drive(log)

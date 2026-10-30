@@ -46,8 +46,8 @@ async def sync_loop():
 async def lifespan(app):
     client, cfg = tg.client_from_env() if TELEGRAM else (None, state["cfg"])
     task = None
-    try:  # files trashed while the drive was unplugged go to its trash folder now
-        await asyncio.to_thread(trash.apply_pending)
+    try:  # trash changes made while the drive was unplugged happen now
+        await asyncio.to_thread(trash.sync_drive)
     except Exception:
         pass
     if client:

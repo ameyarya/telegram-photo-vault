@@ -29,7 +29,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | ↳ **Similar shots** — near-identical bursts grouped, best shot picked (favorite, else sharpest); "keep best, trash the rest" | ✅ optional |
 | ↳ **Fix dates** — edit or shift the date of one photo or a selection; suggested dates from file names and from matching originals (checked visually); stored in the gallery only, files untouched, undoable | ✅ tested |
 | ↳ **Live Photos** — the photo and its motion clip show as one item; a LIVE button plays the motion | ✅ |
-| ↳ **Trash** — trashed items are hidden and moved to `<drive>/.photo-vault-trash`; put back any time. "Empty trash" deletes them from the drive only — the Telegram copy is never touched | ✅ tested |
+| ↳ **Trash** — trashed items are hidden and moved to `<drive>/.photo-vault-trash`; put back any time. "Empty trash" deletes them from the drive only — the Telegram copy is never touched. Works with the drive unplugged: the file changes wait and happen when it's plugged in, and a photo trashed while still on the Mac never goes to the drive (also Delete in the photo viewer) | ✅ tested |
 | ↳ Viewer with **zoom & pan**, camera details (lens, exposure, ISO, GPS), **favorites**, **your own albums**, multi-select | ✅ |
 | ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
 | ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |

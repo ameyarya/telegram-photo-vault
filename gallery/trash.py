@@ -2,8 +2,12 @@
 
 The Telegram backup copy is never touched. Restore moves files back where they were. "Empty trash" is the only
 permanent step, and it deletes just the trashed files from the drive (they stay hidden, and Telegram still has them).
-A Live Photo's motion clip always goes (and comes back) with its photo. If the drive is unplugged, items are hidden
-right away and their files are moved the next time the drive is plugged in.
+A Live Photo's motion clip always goes (and comes back) with its photo.
+
+Nothing waits for the drive: with it unplugged, trash, put back and empty trash take effect in the gallery right away and
+the file changes are queued (drive_queue) and done the next time it's plugged in (sync_drive, run by the watcher). A
+trashed photo still in the Mac's inbox is never copied to the drive, and emptying the trash deletes it from the Mac
+once it's in Telegram, so as little as possible ends up on the drive.
 """
 import os
 from pathlib import Path
@@ -11,7 +15,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import DRIVE
+from config import DRIVE, INBOX
 from db import connect
 
 router = APIRouter()
@@ -50,6 +54,8 @@ def apply_pending(con=None):
             dst.parent.mkdir(parents=True, exist_ok=True)
             os.rename(src, dst)          # same drive: instant, nothing copied
             moved += 1
+        elif (INBOX / r["path"]).exists():
+            continue                     # still on the Mac: it never goes to the drive (inbox.py skips it)
         con.execute("UPDATE trash SET moved = 1 WHERE media_id = ?", (r["media_id"],))
     con.commit()
     return moved
@@ -105,42 +111,88 @@ def restore_from_trash(body: Ids):
                            WHERE t.media_id IN ({q})""", ids).fetchall()
     if any(r["emptied"] for r in rows):
         raise HTTPException(409, "Some of these were already deleted from the drive; use Restore (from Telegram) instead")
-    if any(r["moved"] for r in rows) and not DRIVE.is_dir():
-        raise HTTPException(409, "Plug in the drive to put these files back")
     for r in rows:
-        if r["moved"]:
-            src, dst = DRIVE / TRASH / r["path"], DRIVE / r["path"]
-            if src.is_file() and not dst.exists():
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                os.rename(src, dst)
+        if r["moved"]:                   # back out of the drive's trash folder, now or once it's plugged in
+            con.execute("INSERT OR REPLACE INTO drive_queue(path, op) VALUES (?, 'untrash')", (r["path"],))
         con.execute("DELETE FROM trash WHERE media_id = ?", (r["media_id"],))
     con.commit()
+    sync_drive(con)
     return {"restored": len(rows)}
 
 
 @router.post("/api/trash/empty")
 def empty_trash():
-    """Permanently delete the trashed files from the drive. They stay hidden; Telegram keeps its copy."""
-    if not DRIVE.is_dir():
-        raise HTTPException(409, "Plug in the drive to empty the trash")
+    """Permanently delete the trashed files: from the Mac now (once they're in Telegram), from the drive now or when it's
+    next plugged in. They stay hidden; Telegram keeps its copy."""
     con = connect()
     apply_pending(con)
     rows = con.execute("""SELECT t.media_id, m.path, m.size FROM trash t JOIN media m ON m.id = t.media_id
                           WHERE t.emptied = 0""").fetchall()
-    freed = 0
     for r in rows:
-        f = DRIVE / TRASH / r["path"]
-        if f.is_file():
-            freed += f.stat().st_size
-            f.unlink()
+        con.execute("INSERT OR REPLACE INTO drive_queue(path, op, size) VALUES (?, 'delete', ?)", (r["path"], r["size"]))
         con.execute("UPDATE trash SET emptied = 1 WHERE media_id = ?", (r["media_id"],))
     con.commit()
-    others, _ = _other_files(set())
-    for f in others:
-        freed += f.stat().st_size
-        f.unlink()
+    freed = 0
+    if DRIVE.is_dir():
+        others, _ = _other_files(set())
+        for f in others:
+            freed += f.stat().st_size
+            f.unlink()
+    done = sync_drive(con)
+    freed += done["bytes"]
+    return {"deleted": len(rows), "bytes": freed, "waiting": done["waiting"], "drive": DRIVE.is_dir()}
+
+
+def sync_drive(con=None, log=None):
+    """Do the queued file changes: deletes on the Mac (once in Telegram) and, with the drive plugged in, on the drive."""
+    import inbox
+    con = con or connect()
+    apply_pending(con)
+    mounted, backed_up, freed = DRIVE.is_dir(), inbox.backed_up(), 0
+    for r in con.execute("SELECT path, op, size FROM drive_queue").fetchall():
+        path, op, size = r["path"], r["op"], r["size"]
+        if op == "untrash":
+            if not mounted:
+                continue
+            src, dst = DRIVE / TRASH / path, DRIVE / path
+            if src.is_file() and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                os.rename(src, dst)
+            con.execute("DELETE FROM drive_queue WHERE path = ?", (path,))
+            continue
+        local = INBOX / path
+        if local.is_file() and path in backed_up:            # not in Telegram yet: delete it once it is
+            freed += local.stat().st_size
+            local.unlink()
+        if mounted:
+            for f in (DRIVE / TRASH / path, DRIVE / path):
+                if f.is_file() and (size is None or f.stat().st_size == size):   # never a newer file of that name
+                    freed += f.stat().st_size
+                    f.unlink()
+        if mounted and not local.exists():
+            con.execute("DELETE FROM drive_queue WHERE path = ?", (path,))
+    con.commit()
     root = DRIVE / TRASH
-    for d, _, _ in sorted(os.walk(root), key=lambda x: -len(x[0])) if root.is_dir() else []:
+    for d, _, _ in sorted(os.walk(root), key=lambda x: -len(x[0])) if mounted and root.is_dir() else []:
         if d != str(root) and not os.listdir(d):
             os.rmdir(d)          # tidy empty folders inside the trash
-    return {"deleted": len(rows), "bytes": freed}
+    waiting = con.execute("SELECT count(*) FROM drive_queue").fetchone()[0]
+    if log and freed:
+        log(f"trash: deleted {freed / 1e6:.0f} MB of emptied-trash files" + (f"; {waiting} wait for the drive" if waiting else ""))
+    return {"bytes": freed, "waiting": waiting}
+
+
+def queued_paths():
+    """Paths that must not be copied onto the drive: trashed, or waiting to be deleted."""
+    import sqlite3
+    from config import DB_PATH
+    if not DB_PATH.exists():
+        return set()
+    con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=30)
+    try:
+        return ({r[0] for r in con.execute("SELECT m.path FROM trash t JOIN media m ON m.id = t.media_id WHERE t.emptied = 0")}
+                | {r[0] for r in con.execute("SELECT path FROM drive_queue WHERE op = 'delete'")})
+    except sqlite3.OperationalError:          # an index made before the trash existed
+        return set()
+    finally:
+        con.close()
