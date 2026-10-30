@@ -27,6 +27,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "gallery"))
 import config  # noqa: E402  (reads config.env)
 import inbox  # noqa: E402
+import phone_import  # noqa: E402
 
 PY = sys.executable
 
@@ -184,6 +185,9 @@ class Watcher:
                 else:
                     self.retry_at = time.time() + 900               # try again in 15 minutes
                     log("iCloud Photos export failed (see icloud-export.log); trying again in 15 min")
+        imported = phone_import.run(log)
+        if imported:
+            log(f"{imported} new photos from an iPhone's sync")
         mounted = config.DRIVE.is_dir()
         scan = mounted and (not self.was_mounted or time.time() - self.last_scan >= RESCAN)
         if scan:
@@ -227,9 +231,7 @@ class Watcher:
 def check_phone_folders():
     """A phone's sync folder (Syncthing) needs its hidden .stfolder marker; without it Syncthing stops syncing that phone,
     to be safe. Put it back if it ever goes missing."""
-    if not config.INBOX.is_dir():
-        return
-    for d in config.INBOX.iterdir():
+    for d in [d for r in (config.INBOX, phone_import.ROOT) if r.is_dir() for d in r.iterdir()]:
         if d.is_dir() and (d / ".stignore").exists() and not (d / ".stfolder").exists():
             (d / ".stfolder").mkdir()
             notify(f"Fixed the phone sync for {d.name}: its Syncthing marker was missing")

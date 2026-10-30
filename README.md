@@ -181,6 +181,12 @@ backup of an Android phone, use [Syncthing](https://syncthing.net) (free, open s
    them from the drive. Never press "Revert Local Changes" on it, because that deletes files the phone doesn't have.
    Syncthing needs the hidden `.stfolder` inside that folder; the watcher puts it back if it ever goes missing.
 
+**iPhone:** [Möbius Sync](https://www.mobiussync.com) is a Syncthing app for iOS. Share its photo library folder as
+Send Only, and on the Mac put it in `<state>/phone-sync/<folder>` (e.g. `phone-sync/iphone`), not in the inbox: iPhone
+photo numbers wrap around, so `backup/phone_import.py` moves each new photo into `inbox/<folder>` under a name that was
+never used there, and sets aside photos that are already backed up (e.g. by iCloud Photos). iOS only lets the app sync
+while it's open or briefly in the background, so open it now and then on home Wi-Fi.
+
 Auto-backup then picks the photos up like anything else copied onto the drive.
 
 ### Optional: bot uploader (experimental)
