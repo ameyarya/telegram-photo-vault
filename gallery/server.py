@@ -9,9 +9,11 @@ import asyncio
 import mimetypes
 import sqlite3
 import os
+import re
 import subprocess
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
@@ -145,6 +147,24 @@ def months(album: str = "", sub: bool = True, order: str = "asc", filter: str = 
     rows = connect().execute(f"""SELECT substr(taken_at, 1, 7) m, count(*) n FROM media WHERE {where}
                                  GROUP BY m ORDER BY m {"DESC" if order == "desc" else "ASC"}""", args).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/memories")
+def memories(on: str = ""):
+    """On this day: photos from today's date (or on=MM-DD) in earlier years, newest year first. Only real camera dates."""
+    now = datetime.now()
+    day = on or now.strftime("%m-%d")
+    if not re.fullmatch(r"\d\d-\d\d", day):
+        raise HTTPException(400, "Expected MM-DD")
+    where, args = selection("", True, "photos", "", None, None)
+    rows = connect().execute(f"""SELECT {ITEM_COLS} FROM media WHERE {where} AND COALESCE(date_src, '') <> 'file'
+                                 AND substr(taken_at, 6, 5) = ? AND substr(taken_at, 1, 4) < ?
+                                 ORDER BY taken_at DESC, id DESC LIMIT 1000""",
+                             args + [day, str(now.year)]).fetchall()
+    years = {}
+    for r in rows:
+        years.setdefault(int(r["taken_at"][:4]), []).append(dict(r))
+    return {"years": [{"year": y, "ago": now.year - y, "items": its} for y, its in years.items()]}
 
 
 @app.get("/api/item/{media_id}")
@@ -301,7 +321,6 @@ async def download(request: Request, ids: str, name: str = "Photos"):
     if unavailable:
         raise HTTPException(503, f"{len(unavailable)} of these can't be downloaded right now (drive unplugged and "
                                  f"not in Telegram yet, or Telegram offline), e.g. {unavailable[0]}")
-    from datetime import datetime
     import zlib
     from stream_zip import ZIP_64, async_stream_zip
 

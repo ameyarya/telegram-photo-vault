@@ -324,6 +324,15 @@ body.signed-out>:not(.login,svg){display:none!important}
 .head-actions .filter-btn.on{background:var(--pill);color:var(--pill-ink)}
 .head-actions .sort-btn.oldest svg{transform:scaleY(-1)}
 .head-actions{gap:2px}  /* phones: Restore and Refresh as icons, so all fit */
+@media (max-width:600px){.page-head{flex-wrap:wrap}.head-actions{flex-wrap:wrap;justify-content:flex-end}}  /* a long title: the buttons take the next row */
+.tile img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}  /* hold a photo to select it */
+.mem-head{display:flex;align-items:center;justify-content:space-between}.mem-head .sec{margin:12px 0}
+.mem-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
+.mem-card{position:relative;flex:none;width:150px;height:190px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:pointer;background:var(--surface);color:#fff;font:inherit;text-align:left}
+.mem-card img{width:100%;height:100%;object-fit:cover;display:block}
+.mem-card span{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 8px;background:linear-gradient(transparent,rgb(0 0 0/.65));font-size:14px;font-weight:500}
+.mem-card small{display:block;font-weight:400;opacity:.85}
+#vPlay.on{color:var(--accent)}
 .loading{display:flex;align-items:center;gap:10px;color:var(--ink2);padding:24px 0}
 .spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -401,9 +410,9 @@ body.signed-out>:not(.login,svg){display:none!important}
 .info-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .info-chips a{background:rgb(255 255 255/.08);border-radius:12px;padding:2px 10px;font-size:12px}
 @media (max-width:900px){
-  .side{transform:translateX(-100%);transition:transform .2s;width:280px;box-shadow:0 0 24px rgb(0 0 0/.25);top:0;padding-top:0;z-index:31;
+  .side{transform:translateX(-100%);transition:transform .2s;width:280px;top:0;padding-top:0;z-index:31;
     border-radius:0 16px 16px 0}
-  .side.open{transform:none}
+  .side.open{transform:none;box-shadow:0 0 24px rgb(0 0 0/.25)}
   .side .side-brand{display:flex}
   .scrim.open{display:block;position:fixed;inset:0;background:rgb(0 0 0/.32);z-index:30}
   main{left:0}
@@ -519,6 +528,7 @@ body.signed-out>:not(.login,svg){display:none!important}
       <button class="icon-btn" id="vBack" aria-label="Back" title="Back (Esc)"><svg><use href="#i-back"/></svg></button>
       <div class="spacer"></div>
       <button class="icon-btn" id="vLive" aria-label="Play Live Photo" title="Play the Live Photo (l)" hidden><svg><use href="#i-live"/></svg>LIVE</button>
+      <button class="icon-btn" id="vPlay" aria-label="Slideshow" title="Slideshow (s)"><svg><use href="#i-play"/></svg></button>
       <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (click the photo, or + / − / 0)"><svg><use href="#i-zoom"/></svg></button>
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
@@ -619,7 +629,8 @@ function route() {
   if (h.startsWith("/ualbum/")) return openUserAlbum(+h.slice(8));
   if (h.startsWith("/person/")) return openPerson(+h.slice(8));
   if (h.startsWith("/search/")) return openSearch(h.slice(8));
-  return openFeed({title: "Photos", params: {}, noBack: true, noSub: true});
+  openFeed({title: "Photos", params: {}, noBack: true, noSub: true, pre: `<div id="memories"></div>`});
+  loadMemories();
 }
 window.addEventListener("hashchange", () => { if (viewerIdx < 0) route(); });
 
@@ -684,7 +695,7 @@ function openFolder(album, all = false) {
   const parent = parts.slice(0, -1).join("/");
   openFeed({
     title: albumTitle(album) + (all ? " · everything" : ""), crumbs, pre,
-    actions: all ? "" : `<button class="txt-btn owner-only" id="renameFolder" title="Rename in the gallery (the folder on the hard disk keeps its name)">${ico("edit")}Rename</button>`,
+    actions: all ? "" : `<button class="txt-btn owner-only" id="renameFolder" title="Rename in the gallery (the folder on the hard disk keeps its name)">${ico("edit")}<span class="lbl">Rename</span></button>`,
     params: {album, sub: all ? "true" : "false"}, restoreLabel: albumTitle(album),
     back: all ? "#/album/" + encodeURIComponent(album) : parent ? "#/album/" + encodeURIComponent(parent) : "#/photos",
     empty: kids.length && !direct ? `${plural(folderTotal(album), "item")} in ${plural(kids.length, "folder")}` : null,
@@ -813,12 +824,13 @@ function openFeed(o) {
       `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${filterChip === k ? ico("check") : ""}${label}</button>`).join("")}</div></div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="selectAll" aria-label="Select all" title="Select all (Ctrl/⌘ A)">${ico("check")}<span class="lbl">Select all</span></button>`}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub" ${o.noSub ? "hidden" : ""}></div>${o.pre || ""}
     <div class="sentinel" id="topSentinel"></div><div id="days">${loadingHtml()}</div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
   bindCards();
   $("#refreshBtn").onclick = () => refreshAll();
+  $("#selectAll") && ($("#selectAll").onclick = pickAll);
   bindViewMenu();
   $("#sortBtn") && ($("#sortBtn").onclick = () => {
     newestFirst = !newestFirst;
@@ -987,9 +999,24 @@ function thumbFailed(img) {
 $("#page").addEventListener("click", e => {
   const ds = e.target.closest("#days .day-sel"); if (ds) return pickDay(ds);
   const t = e.target.closest("#days .tile"); if (!t) return;
-  if (e.target.closest(".sel") || picked.size) { togglePick(+t.dataset.id, t); return; }
+  if (heldTile) { heldTile = false; return; }       // that was a long press: it already selected the photo
+  if (e.target.closest(".sel") || picked.size) {
+    const id = +t.dataset.id;
+    e.shiftKey && lastPicked !== null ? pickRange(lastPicked, id) : togglePick(id, t);
+    lastPicked = id;
+    return;
+  }
   openViewer(+t.dataset.i);
 });
+// phones: hold a photo to start selecting
+let holdTimer = null, heldTile = false, lastPicked = null;
+$("#page").addEventListener("touchstart", e => {
+  heldTile = false; clearTimeout(holdTimer);
+  const t = e.target.closest("#days .tile"); if (!t || e.touches.length > 1) return;
+  holdTimer = setTimeout(() => { heldTile = true; togglePick(+t.dataset.id, t); lastPicked = +t.dataset.id; navigator.vibrate?.(10); }, 450);
+}, {passive: true});
+["touchmove", "touchend", "touchcancel"].forEach(n => $("#page").addEventListener(n, () => clearTimeout(holdTimer), {passive: true}));
+$("#page").addEventListener("contextmenu", e => { if (heldTile) e.preventDefault(); });
 let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { renderSections(true); drawScrubber(); }, 120); });
 $("#main").addEventListener("scroll", () => {
   $("#topbar").classList.toggle("scrolled", $("#main").scrollTop > 0);
@@ -999,11 +1026,49 @@ $("#main").addEventListener("scroll", () => {
 new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#main"), rootMargin: "2000px"}).observe($("#sentinel"));
 const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadPrev(), {root: $("#main"), rootMargin: "1200px"});
 
+// ---------- on this day: this date in earlier years, at the top of Photos (closing it hides it until tomorrow) ----------
+async function loadMemories() {
+  const today = new Date().toDateString();
+  try { if (localStorage.getItem("memoriesClosed") === today) return; } catch {}
+  let r; try { r = await api("/api/memories"); } catch { return; }
+  const box = $("#memories"); if (!box || !r.years.length) return;
+  box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></div>
+    <div class="mem-row">${r.years.map((y, i) => `<button class="mem-card" data-y="${i}"><img src="/thumb/${y.items[0].id}" alt="" loading="lazy">
+      <span>${y.ago === 1 ? "1 year ago" : y.ago + " years ago"}<small>${plural(y.items.length, "item")}</small></span></button>`).join("")}</div>`;
+  box.onclick = e => {
+    if (e.target.closest("#memClose")) { try { localStorage.setItem("memoriesClosed", today); } catch {} box.innerHTML = ""; return; }
+    const c = e.target.closest(".mem-card"); if (c) openViewerOn(r.years[+c.dataset.y].items, 0);
+  };
+}
+
 // ---------- selection ----------
 function togglePick(id, tile) {
   picked.has(id) ? picked.delete(id) : picked.add(id);
   tile?.classList.toggle("picked", picked.has(id));
   syncDaySel(); updateSelbar();
+}
+function pickRange(a, b) {                 // shift-click: everything between the last pick and this one
+  const ids = feed.items.map(it => it.id), i = ids.indexOf(a), j = ids.indexOf(b);
+  if (i < 0 || j < 0) return togglePick(b, document.querySelector(`#days .tile[data-id="${b}"]`));
+  ids.slice(Math.min(i, j), Math.max(i, j) + 1).forEach(id => picked.add(id));
+  markPicked();
+}
+function markPicked() {
+  document.querySelectorAll("#days .tile").forEach(t => t.classList.toggle("picked", picked.has(+t.dataset.id)));
+  syncDaySel(); updateSelbar();
+}
+async function pickAll() {                 // everything in this view, also what isn't loaded yet; again: nothing
+  const f = feed; if (!f) return;
+  if (f.total && picked.size >= f.total) return clearPicked();
+  try {
+    for (let offset = 0; ; offset += 2000) {
+      const r = await api(feedUrl("/api/items", {offset, limit: 2000}));
+      if (feed !== f) return;
+      r.items.forEach(it => picked.add(it.id));
+      if (r.items.length < 2000) break;
+    }
+  } catch (e) { return toast(esc(e.message)); }
+  markPicked();
 }
 async function pickDay(el) {
   // every item of that day in this view (also ones not loaded yet), not only those on screen
@@ -1011,8 +1076,7 @@ async function pickDay(el) {
   const r = await api(feedUrl("/api/items", {q, offset: 0, limit: 2000}));
   const ids = r.items.map(it => it.id), on = !ids.every(id => picked.has(id));
   ids.forEach(id => on ? picked.add(id) : picked.delete(id));
-  document.querySelectorAll("#days .tile").forEach(t => t.classList.toggle("picked", picked.has(+t.dataset.id)));
-  syncDaySel(); updateSelbar();
+  markPicked();
 }
 function syncDaySel() {
   document.querySelectorAll("#days .day").forEach(sec => {
@@ -1020,7 +1084,7 @@ function syncDaySel() {
     sec.querySelector(".day-sel")?.classList.toggle("on", tiles.length > 0 && tiles.every(t => picked.has(+t.dataset.id)));
   });
 }
-function clearPicked() { picked.clear(); document.querySelectorAll(".tile.picked").forEach(t => t.classList.remove("picked")); syncDaySel(); updateSelbar(); }
+function clearPicked() { picked.clear(); lastPicked = null; document.querySelectorAll(".tile.picked").forEach(t => t.classList.remove("picked")); syncDaySel(); updateSelbar(); }
 const inFavorites = () => !!feed && !!feedQuery().filter?.split(",").includes("favorites");
 function pickedAreFavs() {                 // then the star takes them out of favorites
   if (inFavorites()) return true;
@@ -1846,6 +1910,7 @@ let reorderPending = false;
 function closeViewer(fromPop = false) {
   if (viewerIdx < 0) return;
   if (reorderPending) { reorderPending = false; setTimeout(route, 0); }
+  slideshow(false);
   viewerIdx = -1; viewList = null; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
   $("#vMain").querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   if (!fromPop && history.state?.viewer) history.back();
@@ -1941,6 +2006,23 @@ function playLive() {
   box.prepend(v); $("#vLive").classList.add("on");
 }
 $("#vLive").onclick = () => $("#vMain .v-live") ? $("#vMain .v-live").onended() : playLive();
+// slideshow: the next photo every few seconds (videos are skipped), until the last one or the viewer closes
+const SLIDE_MS = 4000;
+let slideTimer = null;
+function slideshow(on = !slideTimer) {
+  clearInterval(slideTimer); slideTimer = null;
+  $("#vPlay").classList.toggle("on", on);
+  $("#vPlay").title = on ? "Stop the slideshow (s)" : "Slideshow (s)";
+  if (!on) return;
+  slideTimer = setInterval(() => {
+    if (zoom.s > 1) return;
+    const list = curList(); let n = viewerIdx + 1;
+    while (list[n]?.kind === "video") n++;
+    if (list[n]) { viewerIdx = n; showItem(); }
+    else if (viewList || (!feed.loading && feed.base + list.length >= feed.total)) slideshow(false);
+  }, SLIDE_MS);
+}
+$("#vPlay").onclick = () => slideshow();
 function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) { viewerIdx = n; showItem(); } }
 
 // zoom & pan: double-click, ctrl/pinch wheel, drag, + − 0
@@ -2035,12 +2117,17 @@ $("#vPrev").onclick = () => step(-1);
 $("#vNext").onclick = () => step(1);
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;
-  if (viewerIdx < 0) { if (e.key === "Escape" && picked.size) clearPicked(); return; }
+  if (viewerIdx < 0) {
+    if (e.key === "Escape" && picked.size) clearPicked();
+    if (e.key.toLowerCase() === "a" && (e.ctrlKey || e.metaKey) && $("#selectAll")) { e.preventDefault(); pickAll(); }
+    return;
+  }
   if (e.key === "Escape") zoom.s > 1 ? setZoom(1) : infoOpen && innerWidth < 900 ? toggleInfo(false) : closeViewer();
   else if (e.key === "ArrowLeft" && zoom.s === 1) step(-1);
   else if (e.key === "ArrowRight" && zoom.s === 1) step(1);
   else if (e.key === "i") toggleInfo();
   else if (e.key === "f") toggleFav();
+  else if (e.key === "s") slideshow();
   else if (e.key === "Delete" || e.key === "Backspace") trashCurrent();
   else if (e.key === "l") $("#vLive").hidden || $("#vLive").click();
   else if (e.key === "+" || e.key === "=") setZoom(zoom.s * 1.5);

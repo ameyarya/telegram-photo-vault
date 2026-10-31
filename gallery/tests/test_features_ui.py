@@ -95,6 +95,71 @@ def test_unfavorite_from_the_favorites_page(page, api, items):
 
 
 # ---------- selection + your albums ----------
+def test_select_all_range_and_hold(page, api, items):
+    ids = [i["id"] for i in list(items.values())[:3]]
+    api.post("/api/favorites", json={"ids": ids})
+    try:
+        go(page, "#/favorites")
+        tiles = page.locator("#days .tile")
+        expect(tiles).to_have_count(3)
+        page.click("#selectAll")
+        expect(page.locator("#selCount")).to_have_text("3 selected")
+        expect(page.locator("#days .tile.picked")).to_have_count(3)
+        page.click("#selectAll")                                  # again: nothing
+        expect(page.locator("#selbar")).to_be_hidden()
+        page.keyboard.press("Control+a")
+        expect(page.locator("#selCount")).to_have_text("3 selected")
+        page.keyboard.press("Escape")
+        tiles.nth(0).hover(); tiles.nth(0).locator(".sel").click()
+        tiles.nth(2).click(modifiers=["Shift"])                   # shift-click: the range between
+        expect(page.locator("#selCount")).to_have_text("3 selected")
+        page.keyboard.press("Escape")
+        tiles.nth(1).dispatch_event("touchstart", {"touches": []})  # hold a photo on a phone
+        expect(page.locator("#selCount")).to_have_text("1 selected")
+        expect(page.locator("#viewer")).to_be_hidden()
+    finally:
+        api.post("/api/favorites/remove", json={"ids": ids})
+
+
+def test_slideshow_moves_on_and_stops_with_the_viewer(page):
+    go(page, "#/album/vacation")
+    page.locator("#days .tile").first.click()
+    start = page.evaluate("viewerIdx")
+    page.click("#vPlay")
+    expect(page.locator("#vPlay")).to_have_class(re.compile(r"\bon\b"))
+    page.wait_for_function(f"viewerIdx > {start}", timeout=6000)
+    page.keyboard.press("Escape")
+    assert page.evaluate("slideTimer") is None
+
+
+def test_on_this_day_opens_the_photos_and_hides_until_tomorrow(page, api, items):
+    it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
+    day = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()
+    page.route("**/api/memories", lambda r: r.fulfill(json=day))
+    go(page)
+    expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+    page.locator(".mem-card").first.click()
+    expect(page.locator("#viewer")).to_be_visible()
+    page.keyboard.press("Escape")
+    page.click("#memClose")
+    expect(page.locator(".mem-card")).to_have_count(0)
+    page.reload()
+    page.wait_for_selector(".side a.active")
+    expect(page.locator(".mem-card")).to_have_count(0)
+    page.evaluate("localStorage.removeItem('memoriesClosed')")
+
+
+@pytest.mark.parametrize("page", [{"viewport": {"width": 360, "height": 740}}], indirect=True)
+def test_phone_headers_and_viewer_buttons_fit(page):
+    go(page, "#/album/vacation")
+    page.locator("#days .tile").first.wait_for()
+    fits = "sel => [...document.querySelectorAll(sel)].filter(e => e.offsetWidth).every(e => e.getBoundingClientRect().right <= innerWidth + 1)"
+    assert page.evaluate(fits, ".head-actions > *")
+    assert page.evaluate("getComputedStyle(document.querySelector('.side')).boxShadow") == "none"   # closed: no shadow
+    page.locator("#days .tile").first.click()
+    assert page.evaluate(fits, ".v-top > *")
+
+
 def test_select_add_to_new_album_remove_rename_delete(page):
     go(page, "#/album/vacation")
     tiles = page.locator("#days .tile")

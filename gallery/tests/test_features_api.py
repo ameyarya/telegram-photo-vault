@@ -103,6 +103,16 @@ def test_item_details_camera_and_location(api, items):
     assert api.get("/api/item/999999").status_code == 404
 
 
+# ---------- on this day ----------
+def test_memories_are_this_date_in_earlier_years(api, items):
+    it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
+    y = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()["years"]
+    assert it["id"] in [x["id"] for g in y for x in g["items"]]
+    assert all(g["ago"] > 0 and all(x["taken_at"].startswith(str(g["year"])) for x in g["items"]) for g in y)
+    assert [g["year"] for g in y] == sorted((g["year"] for g in y), reverse=True)
+    assert api.get("/api/memories", params={"on": "not-a-day"}).status_code == 400
+
+
 # ---------- favorites ----------
 def test_favorites(api, items):
     ids = [items["beach.jpg"]["id"], items["clip.mp4"]["id"]]
