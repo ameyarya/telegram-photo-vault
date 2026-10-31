@@ -73,6 +73,27 @@ def test_favorite_from_viewer_and_favorites_page(page):
     expect(page.locator("#days .empty")).to_be_visible()
 
 
+def test_unfavorite_from_the_favorites_page(page, api, items):
+    ids = [i["id"] for i in list(items.values())[:2]]
+    api.post("/api/favorites", json={"ids": ids})
+    try:
+        go(page, "#/favorites")
+        tiles = page.locator("#days .tile")
+        expect(tiles).to_have_count(2)
+        tiles.nth(0).hover(); tiles.nth(0).locator(".sel").click()
+        expect(page.locator("#selFav")).to_have_attribute("title", "Remove from favorites")
+        page.click("#selFav")
+        expect(tiles).to_have_count(1)                            # gone from the page, still in the library
+        page.click("#undoFav")
+        expect(tiles).to_have_count(2)
+        tiles.nth(0).click()                                      # or from the viewer: gone when it closes
+        page.click("#vFav")
+        page.keyboard.press("Escape")
+        expect(tiles).to_have_count(1)
+    finally:
+        api.post("/api/favorites/remove", json={"ids": ids})
+
+
 # ---------- selection + your albums ----------
 def test_select_add_to_new_album_remove_rename_delete(page):
     go(page, "#/album/vacation")

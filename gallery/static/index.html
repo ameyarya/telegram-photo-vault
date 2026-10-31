@@ -1021,17 +1021,30 @@ function syncDaySel() {
   });
 }
 function clearPicked() { picked.clear(); document.querySelectorAll(".tile.picked").forEach(t => t.classList.remove("picked")); syncDaySel(); updateSelbar(); }
+const inFavorites = () => !!feed && !!feedQuery().filter?.split(",").includes("favorites");
+function pickedAreFavs() {                 // then the star takes them out of favorites
+  if (inFavorites()) return true;
+  const favs = new Set(feed?.items.filter(it => it.fav).map(it => it.id));
+  return [...picked].every(id => favs.has(id));
+}
 function updateSelbar() {
   $("#selbar").hidden = picked.size === 0;
   $("#selCount").textContent = `${picked.size} selected`;
   $("#selRemove").hidden = !feed?.o?.userAlbum;
+  const off = pickedAreFavs(), label = off ? "Remove from favorites" : "Add to favorites";
+  $("#selFav").innerHTML = ico(off ? "star" : "star-o"); $("#selFav").title = label; $("#selFav").setAttribute("aria-label", label);
   $("#days")?.classList.toggle("selecting", picked.size > 0);
 }
 $("#selClose").onclick = clearPicked;
 $("#selFav").onclick = async () => {
-  const ids = [...picked]; await post("/api/favorites", {ids});
-  feed?.items.forEach(it => { if (picked.has(it.id)) it.fav = 1; });
-  toast(`Added ${plural(ids.length, "item")} to <a href="#/favorites">Favorites</a>`); clearPicked(); renderSections(true);
+  const ids = [...picked], off = pickedAreFavs(), page = inFavorites();
+  await post(off ? "/api/favorites/remove" : "/api/favorites", {ids});
+  feed?.items.forEach(it => { if (picked.has(it.id)) it.fav = off ? 0 : 1; });
+  if (off) {
+    const t = toast(`Removed ${plural(ids.length, "item")} from Favorites <a id="undoFav">Undo</a>`, 8000);
+    t.querySelector("#undoFav").onclick = async () => { await post("/api/favorites", {ids}); t.remove(); route(); };
+  } else toast(`Added ${plural(ids.length, "item")} to <a href="#/favorites">Favorites</a>`);
+  clearPicked(); page ? route() : renderSections(true);
 };
 $("#selAlbum").onclick = async () => { if (await addToAlbum([...picked])) clearPicked(); };
 $("#selRemove").onclick = async () => {
@@ -1961,6 +1974,7 @@ async function toggleFav() {
   const on = !it.fav;
   await post(on ? "/api/favorites" : "/api/favorites/remove", {ids: [it.id]});
   it.fav = on ? 1 : 0; setFavIcon(on);
+  if (inFavorites()) viewerIdx < 0 ? route() : reorderPending = true;  // the grid behind redraws when the viewer closes
   const f = feed?.items.find(x => x.id === it.id); if (f) f.fav = it.fav;
 }
 $("#vFav").onclick = toggleFav;
