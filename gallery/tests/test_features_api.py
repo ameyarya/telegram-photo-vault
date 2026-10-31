@@ -195,3 +195,5 @@ def test_only_real_screenshots_count_as_screenshots():
     con.executemany("INSERT INTO media(name, ext, width, height, make) VALUES (?,?,?,?,?)", [(n, *v[:4]) for n, v in rows.items()])
     got = {r[0] for r in con.execute(f"SELECT name FROM media WHERE {SCREENSHOT}")}
     assert got == {n for n, v in rows.items() if v[4]}
+    rest = {r[0] for r in con.execute(f"SELECT name FROM media WHERE NOT {SCREENSHOT}")}    # regression: unknown shot hid them
+    assert rest == {n for n, v in rows.items() if not v[4]}

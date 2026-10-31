@@ -16,7 +16,7 @@ APPLE_SCREENS = ((640, 960), (640, 1136), (750, 1334), (768, 1024), (828, 1792),
                  (2048, 2732), (2064, 2752))
 _SIZES = ", ".join(f"({a}, {b})" for a, b in APPLE_SCREENS)
 SCREENSHOT = ("(lower(name) LIKE '%screenshot%' OR lower(name) LIKE '%screen shot%' OR "
-              "shot = 1 OR "
+              "shot IS 1 OR "
               f"(make IS NULL AND width > 0 AND height > 0 AND (min(width, height), max(width, height)) IN (VALUES {_SIZES}) "
               "AND (ext = 'png' OR (ext IN ('heic', 'heif') AND max(width, height) > 2 * min(width, height)))))")
 
