@@ -74,7 +74,7 @@ def exif_batch(paths):
             ["exiftool", "-j", "-fast", "-api", "QuickTimeUTC", "-d", "%Y-%m-%dT%H:%M:%S",
              "-DateTimeOriginal", "-CreationDate", "-CreateDate", "-MediaCreateDate", "-ImageWidth#", "-ImageHeight#",
              "-Duration#", "-Orientation#", "-Rotation#", "-Make", "-Model", "-LensModel", "-ISO#", "-FNumber#",
-             "-ExposureTime#", "-FocalLength#", "-GPSLatitude#", "-GPSLongitude#", "-@", argfile],
+             "-ExposureTime#", "-FocalLength#", "-GPSLatitude#", "-GPSLongitude#", "-UserComment", "-@", argfile],
             capture_output=True, text=True).stdout
         rows = json.loads(out or "[]")
     finally:
@@ -101,10 +101,23 @@ def details(e):
     iso = _num(e.get("ISO"))
     return (str(e["Make"]).strip() if e.get("Make") else None, str(e["Model"]).strip() if e.get("Model") else None,
             str(e["LensModel"]).strip() if e.get("LensModel") else None, int(iso) if iso else None,
-            _num(e.get("FNumber")), _num(e.get("ExposureTime")), _num(e.get("FocalLength")), lat, lon)
+            _num(e.get("FNumber")), _num(e.get("ExposureTime")), _num(e.get("FocalLength")), lat, lon,
+            1 if e.get("UserComment") == "Screenshot" else 0)
 
 
-DETAIL_COLS = ("make", "model", "lens", "iso", "fnumber", "exposure", "focal", "lat", "lon")
+DETAIL_COLS = ("make", "model", "lens", "iso", "fnumber", "exposure", "focal", "lat", "lon", "shot")
+
+
+def backfill_screenshots(con):
+    """Camera-less JPEGs indexed before the "Screenshot" marker was read. Ones only in Telegram stay unknown."""
+    old = [r["path"] for r in con.execute("""SELECT path FROM media WHERE shot IS NULL AND kind = 'image' AND make IS NULL
+                                             AND ext IN ('jpg', 'jpeg')""") if local_path(r["path"]).exists()]
+    for i in range(0, len(old), 500):
+        exif = exif_batch(old[i:i + 500])
+        con.executemany("UPDATE media SET shot = ? WHERE path = ?",
+                        [(details(exif.get(p, {}))[-1], p) for p in old[i:i + 500]])
+        con.commit()
+    return len(old)
 
 
 def valid_date(v):
@@ -242,6 +255,7 @@ def main():
         con.commit()
         print(f"details backfill {min(i + 500, len(old))}/{len(old)}", flush=True)
 
+    backfill_screenshots(con)
     gone = prune_missing(con)
     if gone:
         print(f"{gone} items removed: their files are gone from the drive and were never backed up", flush=True)

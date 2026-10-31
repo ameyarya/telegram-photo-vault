@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT,
 """
 
 # photo details read from EXIF (camera, settings, location); exif2 = 1 once read
-EXTRA_COLUMNS = {"live_id": "INTEGER", "live_of": "INTEGER",  # Live Photo: still -> its motion clip, clip -> its still
+EXTRA_COLUMNS = {"shot": "INTEGER", "live_id": "INTEGER", "live_of": "INTEGER",  # Live Photo: still -> its motion clip, clip -> its still
                  "orient": "INTEGER", "make": "TEXT", "model": "TEXT", "lens": "TEXT", "iso": "INTEGER",
                  "fnumber": "REAL", "exposure": "REAL", "focal": "REAL", "lat": "REAL", "lon": "REAL", "exif2": "INTEGER"}
 

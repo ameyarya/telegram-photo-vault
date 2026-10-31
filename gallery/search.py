@@ -7,6 +7,8 @@ import re
 # A screenshot is what a phone saves when you take one, not anything screen-shaped (Snapchat saves, downloads and AI
 # images are tall JPGs/PNGs too):
 #  * iPhone / iPad: a PNG with no camera, at the exact pixel size of an Apple screen (portrait or landscape)
+#  * iPhone, drawn on before saving, which stops it being a PNG: a JPEG marked "Screenshot" in its EXIF (shot = 1), or a
+#    HEIC with no camera at the size of a tall iPhone screen (it has no marker; a 16:9 HEIC is more likely from an app)
 #  * Android and anything else: "screenshot" in the file name (Screenshot_2024-..., Screen Shot ...)
 APPLE_SCREENS = ((640, 960), (640, 1136), (750, 1334), (768, 1024), (828, 1792), (1080, 1920), (1080, 2340), (1125, 2436),
                  (1170, 2532), (1179, 2556), (1206, 2622), (1242, 2208), (1242, 2688), (1260, 2736), (1284, 2778), (1290, 2796),
@@ -14,7 +16,9 @@ APPLE_SCREENS = ((640, 960), (640, 1136), (750, 1334), (768, 1024), (828, 1792),
                  (2048, 2732), (2064, 2752))
 _SIZES = ", ".join(f"({a}, {b})" for a, b in APPLE_SCREENS)
 SCREENSHOT = ("(lower(name) LIKE '%screenshot%' OR lower(name) LIKE '%screen shot%' OR "
-              f"(ext = 'png' AND make IS NULL AND width > 0 AND height > 0 AND (min(width, height), max(width, height)) IN (VALUES {_SIZES})))")
+              "shot = 1 OR "
+              f"(make IS NULL AND width > 0 AND height > 0 AND (min(width, height), max(width, height)) IN (VALUES {_SIZES}) "
+              "AND (ext = 'png' OR (ext IN ('heic', 'heif') AND max(width, height) > 2 * min(width, height)))))")
 
 FILTERS = {
     "photos": f"kind = 'image' AND NOT {SCREENSHOT}",

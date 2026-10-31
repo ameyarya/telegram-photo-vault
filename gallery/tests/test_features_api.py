@@ -182,7 +182,7 @@ def test_only_real_screenshots_count_as_screenshots():
     import sqlite3
     from search import SCREENSHOT
     con = sqlite3.connect(":memory:")
-    con.execute("CREATE TABLE media (name TEXT, ext TEXT, width INT, height INT, make TEXT)")
+    con.execute("CREATE TABLE media (name TEXT, ext TEXT, width INT, height INT, make TEXT, shot INT)")
     rows = {"IMG_0001.PNG": ("png", 1179, 2556, None, True),        # iPhone screenshot
             "IMG_0002.PNG": ("png", 2556, 1179, None, True),        # ... taken sideways
             "IMG_0003.PNG": ("png", 1640, 2360, None, True),        # iPad screenshot
@@ -192,6 +192,6 @@ def test_only_real_screenshots_count_as_screenshots():
             "IMG_0004.JPG": ("jpg", 1242, 2208, None, False),        # screen-sized JPG: saved from an app, not a screenshot
             "IMG_0005.PNG": ("png", 1024, 1536, None, False),        # AI image / download
             "IMG_0006.PNG": ("png", 1179, 2556, "Apple", False)}     # a camera made it
-    con.executemany("INSERT INTO media VALUES (?,?,?,?,?)", [(n, *v[:4]) for n, v in rows.items()])
+    con.executemany("INSERT INTO media(name, ext, width, height, make) VALUES (?,?,?,?,?)", [(n, *v[:4]) for n, v in rows.items()])
     got = {r[0] for r in con.execute(f"SELECT name FROM media WHERE {SCREENSHOT}")}
     assert got == {n for n, v in rows.items() if v[4]}
