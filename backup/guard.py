@@ -5,7 +5,8 @@ or copy a folder, and every file looks new. Before uploading, each new file is c
 Telegram (same file name, same size):
   * the old copy is gone from the drive and the file kept its date  -> it was MOVED/RENAMED: the backup records and the
     gallery (faces, favorites, albums ...) follow it to its new path; nothing is uploaded
-  * the old copy is still there and the bytes are identical          -> it's a COPY: skipped as a duplicate
+  * another file already in Telegram has identical bytes, under any name -> it's a COPY: skipped as a duplicate, and
+    moved to the gallery's Trash once it's indexed (trash.sync_drive), so it never shows twice or stays on the drive
 And if a drive scan still finds more than HOLD new files at once (a big surprise), they're held back and you're asked
 on the Backup page (watcher.py notifies you); phone/iCloud photos in the inbox keep flowing meanwhile.
 """
@@ -48,10 +49,11 @@ def reconcile(todo, log=print):
     if not todo or not DB_PATH.exists():
         return todo
     con = sqlite3.connect(DB_PATH, timeout=60)
-    known = collections.defaultdict(list)
+    known, same_size = collections.defaultdict(list), collections.defaultdict(list)
     for mid, path, name, size, mtime, msg in con.execute(
             "SELECT id, path, name, size, mtime, msg_id FROM media WHERE msg_id IS NOT NULL"):
         known[(name.lower(), size)].append((mid, path, mtime, msg))
+        same_size[size].append(path)
     new, moves, copies = [], [], []
     for rel in todo:
         p = local_path(rel)
@@ -64,8 +66,12 @@ def reconcile(todo, log=print):
         there = [c for c in cands if local_path(c[1]).exists()]
         gone = [c for c in cands if not local_path(c[1]).exists() and abs((c[2] or 0) - st.st_mtime) <= 2
                 and DRIVE.is_dir()]                       # with the drive unplugged everything on it looks "gone"
-        if there and _same_bytes(p, local_path(there[0][1])):
-            copies.append((rel, there[0][1]))
+        twin = next((c[1] for c in there if _same_bytes(p, local_path(c[1]))), None)
+        if twin is None and len(gone) != 1:           # the same photo under another name
+            others = [o for o in same_size.get(st.st_size, []) if o != rel and local_path(o).exists()]
+            twin = next((o for o in others[:20] if _same_bytes(p, local_path(o))), None)
+        if twin is not None:
+            copies.append((rel, twin))
         elif len(gone) == 1:
             moves.append((rel, gone[0]))
         else:
@@ -91,6 +97,7 @@ def reconcile(todo, log=print):
     if copies:
         _append("duplicates.tsv", [f"{rel}\t{kept}" for rel, kept in copies])
         _append("skip.txt", [rel for rel, _ in copies])
+        _append("copies-to-trash.tsv", [f"{rel}\t{kept}" for rel, kept in copies])
         log(f"guard: {len(copies)} identical copies of photos already in Telegram skipped")
     con.close()
     return new

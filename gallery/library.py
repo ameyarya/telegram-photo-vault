@@ -46,7 +46,8 @@ def list_albums():
     rows = connect().execute("""
         SELECT a.id, a.name, a.created, count(i.media_id) n,
                (SELECT i2.media_id FROM user_album_items i2 JOIN media m ON m.id = i2.media_id
-                WHERE i2.album_id = a.id AND m.thumb != -1 ORDER BY m.taken_at LIMIT 1) cover
+                WHERE i2.album_id = a.id AND m.thumb != -1 AND m.id NOT IN (SELECT media_id FROM trash)
+                ORDER BY m.id = a.cover_id DESC, m.taken_at LIMIT 1) cover
         FROM user_albums a LEFT JOIN user_album_items i ON i.album_id = a.id
         GROUP BY a.id ORDER BY a.created DESC, a.id DESC""").fetchall()
     return [dict(r) for r in rows]
@@ -101,6 +102,19 @@ def add_to_album(album_id: int, body: Ids):
                     [(album_id, i) for i in ids])
     con.commit()
     return {"added": len(ids)}
+
+
+@router.post("/api/user-albums/{album_id}/cover")
+def set_album_cover(album_id: int, body: Ids):
+    """The chosen photo is the album's cover while it's in the album; otherwise its oldest photo is."""
+    con = connect()
+    _album(con, album_id)
+    if len(body.ids) != 1 or not con.execute("SELECT 1 FROM user_album_items WHERE album_id = ? AND media_id = ?",
+                                             (album_id, body.ids[0])).fetchone():
+        raise HTTPException(400, "Pick one photo from this album")
+    con.execute("UPDATE user_albums SET cover_id = ? WHERE id = ?", (body.ids[0], album_id))
+    con.commit()
+    return {"cover": body.ids[0]}
 
 
 @router.post("/api/user-albums/{album_id}/remove")

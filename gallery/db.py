@@ -82,6 +82,8 @@ def connect(timeout=30):
         ucols = {r["name"] for r in con.execute("PRAGMA table_info(users)")}
         if "folder" not in ucols:  # where their phone uploads go on the drive (upload.py)
             con.execute("ALTER TABLE users ADD COLUMN folder TEXT")
+        if "cover_id" not in {r["name"] for r in con.execute("PRAGMA table_info(user_albums)")}:  # the photo you chose
+            con.execute("ALTER TABLE user_albums ADD COLUMN cover_id INTEGER")
         cols = {r["name"] for r in con.execute("PRAGMA table_info(media)")}
         # orient: 1 = stored sideways (EXIF orientation 5-8 / video rotation 90/270): swap w/h for display
         for col, typ in EXTRA_COLUMNS.items():

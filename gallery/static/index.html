@@ -333,6 +333,21 @@ body.signed-out>:not(.login,svg){display:none!important}
 .mem-card span{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 8px;background:linear-gradient(transparent,rgb(0 0 0/.65));font-size:14px;font-weight:500}
 .mem-card small{display:block;font-weight:400;opacity:.85}
 #vPlay.on{color:var(--accent)}
+@media (max-width:600px){#vZoom,#vDl{display:none}}  /* phones: pinch to zoom; Share saves it */
+.editor{position:fixed;inset:0;z-index:120;background:#000;color:#e3e3e3;display:flex;flex-direction:column}
+.editor[hidden]{display:none}
+.ed-top{display:flex;align-items:center;gap:8px;padding:8px 12px}.ed-top .spacer{flex:1}
+.ed-top .txt-btn{color:#e3e3e3}
+.ed-stage{flex:1;min-height:0;display:grid;place-items:center;padding:12px;position:relative}
+.ed-frame{position:relative;overflow:hidden;touch-action:none;line-height:0}
+.ed-crop{position:absolute;border:1px solid #fff;box-shadow:0 0 0 9999px rgb(0 0 0/.55);cursor:move;touch-action:none}
+.ed-crop i{position:absolute;width:28px;height:28px;margin:-14px}
+.ed-crop i::after{content:"";position:absolute;inset:9px;background:#fff;border-radius:50%}
+.ed-crop i[data-h=nw]{left:0;top:0;cursor:nwse-resize}.ed-crop i[data-h=ne]{left:100%;top:0;cursor:nesw-resize}
+.ed-crop i[data-h=sw]{left:0;top:100%;cursor:nesw-resize}.ed-crop i[data-h=se]{left:100%;top:100%;cursor:nwse-resize}
+.ed-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 16px;padding:8px 16px 16px}
+.ed-tools label{display:grid;gap:2px;font-size:12px;width:160px}.ed-tools input{width:100%}
+#edRotL svg{transform:scaleX(-1)}
 .loading{display:flex;align-items:center;gap:10px;color:var(--ink2);padding:24px 0}
 .spin.inline{display:inline-block;width:14px;height:14px;vertical-align:-2px;margin-right:6px}
 .spin{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex:none}
@@ -471,6 +486,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
   <symbol id="i-restore" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.48z"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></symbol>
   <symbol id="i-delete" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
   <symbol id="i-remove" viewBox="0 0 24 24"><path d="M7 11v2h10v-2H7zm5-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></symbol>
@@ -495,6 +511,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <b id="selCount"></b>
   <button class="icon-btn" id="selFav" title="Add to favorites" aria-label="Add to favorites"><svg><use href="#i-star-o"/></svg></button>
   <button class="icon-btn" id="selAlbum" title="Add to album" aria-label="Add to album"><svg><use href="#i-add-album"/></svg></button>
+  <button class="icon-btn" id="selCover" title="Use as album cover" aria-label="Use as album cover" hidden><svg><use href="#i-photo"/></svg></button>
   <button class="icon-btn" id="selRemove" title="Remove from this album" aria-label="Remove from this album" hidden><svg><use href="#i-remove"/></svg></button>
   <button class="icon-btn" id="selDownload" title="Download" aria-label="Download"><svg><use href="#i-download"/></svg></button>
   <button class="icon-btn owner-only" id="selName" title="Name what's in these photos (a pet or thing, e.g. your dog)" aria-label="Name what's in these photos"><svg><use href="#i-tag"/></svg></button>
@@ -503,6 +520,19 @@ body.signed-out>:not(.login,svg){display:none!important}
   <button class="icon-btn owner-only" id="selTrash" title="Move to trash" aria-label="Move to trash"><svg><use href="#i-trash"/></svg></button>
 </div>
 
+<div class="editor" id="editor" hidden>
+  <div class="ed-top"><button class="txt-btn" id="edCancel">Cancel</button><span class="spacer"></span>
+    <button class="txt-btn" id="edReset">Reset</button><button class="fill-btn" id="edSave">Save a copy</button></div>
+  <div class="ed-stage" id="edStage"><div class="ed-frame" id="edFrame"><canvas id="edCanvas"></canvas>
+    <div class="ed-crop" id="edCrop"><i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i></div></div></div>
+  <div class="ed-tools">
+    <button class="icon-btn" id="edRotL" aria-label="Rotate left" title="Rotate left"><svg><use href="#i-rotate"/></svg></button>
+    <button class="icon-btn" id="edRotR" aria-label="Rotate right" title="Rotate right"><svg><use href="#i-rotate"/></svg></button>
+    <label>Brightness<input type="range" id="edB" min="50" max="150" value="100"></label>
+    <label>Contrast<input type="range" id="edC" min="50" max="150" value="100"></label>
+    <label>Saturation<input type="range" id="edS" min="0" max="200" value="100"></label>
+  </div>
+</div>
 <div class="scrim" id="scrim"></div>
 <nav class="side" id="side">
   <div class="logo side-brand"><svg><use href="#i-photo"/></svg><span style="display:inline">Photos</span></div>
@@ -532,6 +562,7 @@ body.signed-out>:not(.login,svg){display:none!important}
       <button class="icon-btn" id="vZoom" aria-label="Zoom" title="Zoom (click the photo, or + / − / 0)"><svg><use href="#i-zoom"/></svg></button>
       <button class="icon-btn" id="vFav" aria-label="Favorite" title="Favorite (f)"><svg><use href="#i-star-o"/></svg></button>
       <button class="icon-btn" id="vAlbum" aria-label="Add to album" title="Add to album"><svg><use href="#i-add-album"/></svg></button>
+      <button class="icon-btn owner-only" id="vEdit" aria-label="Edit" title="Edit a copy (e)"><svg><use href="#i-edit"/></svg></button>
       <button class="icon-btn" id="vInfoBtn" aria-label="Info" title="Info (i)"><svg><use href="#i-info"/></svg></button>
       <a class="icon-btn" id="vDl" aria-label="Download original" title="Download original" download><svg><use href="#i-download"/></svg></a>
       <button class="icon-btn owner-only" id="vTrash" aria-label="Move to trash" title="Move to trash (Delete)"><svg><use href="#i-trash"/></svg></button>
@@ -1095,6 +1126,7 @@ function updateSelbar() {
   $("#selbar").hidden = picked.size === 0;
   $("#selCount").textContent = `${picked.size} selected`;
   $("#selRemove").hidden = !feed?.o?.userAlbum;
+  $("#selCover").hidden = !feed?.o?.userAlbum || picked.size !== 1;
   const off = pickedAreFavs(), label = off ? "Remove from favorites" : "Add to favorites";
   $("#selFav").innerHTML = ico(off ? "star" : "star-o"); $("#selFav").title = label; $("#selFav").setAttribute("aria-label", label);
   $("#days")?.classList.toggle("selecting", picked.size > 0);
@@ -1114,6 +1146,10 @@ $("#selAlbum").onclick = async () => { if (await addToAlbum([...picked])) clearP
 $("#selRemove").onclick = async () => {
   const a = feed.o.userAlbum; await post(`/api/user-albums/${a.id}/remove`, {ids: [...picked]});
   await loadUserAlbums(); clearPicked(); route();
+};
+$("#selCover").onclick = async () => {
+  await post(`/api/user-albums/${feed.o.userAlbum.id}/cover`, {ids: [...picked]});
+  await loadUserAlbums(); clearPicked(); toast("Album cover changed");
 };
 $("#selRestore").onclick = () => { startRestore({ids: [...picked]}, "Selected"); };
 $("#selName").onclick = async () => {
@@ -1910,7 +1946,7 @@ let reorderPending = false;
 function closeViewer(fromPop = false) {
   if (viewerIdx < 0) return;
   if (reorderPending) { reorderPending = false; setTimeout(route, 0); }
-  slideshow(false);
+  slideshow(false); closeEditor();
   viewerIdx = -1; viewList = null; $("#viewer").classList.remove("open"); document.body.style.overflow = "";
   $("#vMain").querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
   if (!fromPop && history.state?.viewer) history.back();
@@ -1960,7 +1996,7 @@ function showItem() {
   clearTimeout(sharePrefetch);       // a photo you stay on is fetched quietly, so Share opens straight away
   if (it.kind !== "video") sharePrefetch = setTimeout(() => shareFile(it).catch(() => {}), 1200);
   setFavIcon(it.fav);
-  $("#vZoom").hidden = it.kind === "video";
+  $("#vZoom").hidden = $("#vEdit").hidden = it.kind === "video";
   $("#vLive").hidden = !it.live_id; $("#vLive").classList.remove("on");
   renderInfo(it);
   if (it.kind === "video") {
@@ -2023,6 +2059,112 @@ function slideshow(on = !slideTimer) {
   }, SLIDE_MS);
 }
 $("#vPlay").onclick = () => slideshow();
+// the photo editor: everything happens here on a full-size copy; the server only stores the result (editor.py)
+let ed = null;
+const edSize = () => ed.rot % 180 ? [ed.img.naturalHeight, ed.img.naturalWidth] : [ed.img.naturalWidth, ed.img.naturalHeight];
+function edPaint(ctx, w, h, full) {        // the photo, turned, on a canvas w x h showing the whole turned photo at scale `full`
+  ctx.save();
+  ctx.translate(w / 2, h / 2); ctx.rotate(ed.rot * Math.PI / 180); ctx.scale(full, full);
+  ctx.drawImage(ed.img, -ed.img.naturalWidth / 2, -ed.img.naturalHeight / 2);
+  ctx.restore();
+}
+function edDraw() {
+  const [sw, sh] = edSize(), st = $("#edStage"), cs = getComputedStyle(st);
+  const k = Math.min((st.clientWidth - parseFloat(cs.paddingLeft) * 2) / sw, (st.clientHeight - parseFloat(cs.paddingTop) * 2) / sh, 1);
+  const c = $("#edCanvas"); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+  edPaint(c.getContext("2d"), c.width, c.height, k);
+  edLook(); edCropBox();
+}
+function edLook() { $("#edCanvas").style.filter = `brightness(${ed.b}) contrast(${ed.c}) saturate(${ed.s})`; }
+function edCropBox() {
+  const s = $("#edCrop").style, {x, y, w, h} = ed.crop;
+  s.left = x * 100 + "%"; s.top = y * 100 + "%"; s.width = w * 100 + "%"; s.height = h * 100 + "%";
+}
+function edReset() {
+  Object.assign(ed, {rot: 0, b: 1, c: 1, s: 1, crop: {x: 0, y: 0, w: 1, h: 1}});
+  $("#edB").value = $("#edC").value = $("#edS").value = 100;
+  edDraw();
+}
+const edChanged = () => ed.rot || ed.b !== 1 || ed.c !== 1 || ed.s !== 1 || ed.crop.w < 1 || ed.crop.h < 1;
+async function openEditor() {
+  const it = curList()[viewerIdx]; if (!it || it.kind === "video") return;
+  slideshow(false);
+  const img = new Image(); img.src = `/share/${it.id}`;
+  $("#editor").hidden = false; $("#edSave").disabled = true;
+  $("#edFrame").hidden = true; $("#edStage").insertAdjacentHTML("beforeend", `<div class="spinner"></div>`);
+  try { await img.decode(); }
+  catch { closeEditor(); return toast("Couldn't open this photo for editing"); }
+  finally { $("#edStage .spinner")?.remove(); }
+  if ($("#editor").hidden) return;         // cancelled while it loaded
+  $("#edFrame").hidden = false; $("#edSave").disabled = false;
+  ed = {it, img}; edReset();
+}
+function closeEditor() { ed = null; $("#editor").hidden = true; }
+function edApply(data) {                   // the same sums as the CSS filters on the preview
+  const d = data.data, {b, c, s} = ed;
+  const rr = .2126 + .7874 * s, rg = .7152 - .7152 * s, rb = .0722 - .0722 * s;
+  const gr = .2126 - .2126 * s, gg = .7152 + .2848 * s, gb = .0722 - .0722 * s;
+  const br = .2126 - .2126 * s, bg = .7152 - .7152 * s, bb = .0722 + .9278 * s;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = (d[i] * b - 127.5) * c + 127.5, g = (d[i + 1] * b - 127.5) * c + 127.5, l = (d[i + 2] * b - 127.5) * c + 127.5;
+    d[i] = rr * r + rg * g + rb * l; d[i + 1] = gr * r + gg * g + gb * l; d[i + 2] = br * r + bg * g + bb * l;
+  }
+}
+async function edExport() {                // full size; a phone that can't hold a canvas that big gets a slightly smaller one
+  const [sw, sh] = edSize(), {x, y, w, h} = ed.crop;
+  for (const k of [1, .75, .5]) {
+    const c = document.createElement("canvas"), W = c.width = Math.round(sw * w * k), H = c.height = Math.round(sh * h * k);
+    const ctx = c.getContext("2d");
+    try {
+      ctx.translate(-x * sw * k, -y * sh * k);
+      edPaint(ctx, sw * k, sh * k, k);
+      if (ed.b !== 1 || ed.c !== 1 || ed.s !== 1) {
+        const data = ctx.getImageData(0, 0, W, H); edApply(data); ctx.putImageData(data, 0, 0);
+      }
+      const blob = await new Promise(res => c.toBlob(res, "image/jpeg", .92));
+      if (blob) return blob;
+    } catch {}
+  }
+  throw new Error("This photo is too big to edit on this device");
+}
+$("#vEdit").onclick = openEditor;
+$("#edCancel").onclick = closeEditor;
+$("#edReset").onclick = () => ed && edReset();
+$("#edRotR").onclick = () => { if (!ed) return; const c = ed.crop; ed.crop = {x: 1 - c.y - c.h, y: c.x, w: c.h, h: c.w}; ed.rot = (ed.rot + 90) % 360; edDraw(); };
+$("#edRotL").onclick = () => { if (!ed) return; const c = ed.crop; ed.crop = {x: c.y, y: 1 - c.x - c.w, w: c.h, h: c.w}; ed.rot = (ed.rot + 270) % 360; edDraw(); };
+[["#edB", "b"], ["#edC", "c"], ["#edS", "s"]].forEach(([id, k]) => $(id).oninput = e => { if (ed) { ed[k] = e.target.value / 100; edLook(); } });
+addEventListener("resize", () => { if (ed) edDraw(); });
+$("#edCrop").addEventListener("pointerdown", e => {
+  if (!ed) return;
+  e.preventDefault(); e.target.setPointerCapture(e.pointerId);
+  const h = e.target.dataset.h, r = $("#edFrame").getBoundingClientRect(), s = {...ed.crop}, x0 = e.clientX, y0 = e.clientY, MIN = .05;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const move = m => {
+    const dx = (m.clientX - x0) / r.width, dy = (m.clientY - y0) / r.height, c = {...s};
+    if (!h) { c.x = clamp(s.x + dx, 0, 1 - s.w); c.y = clamp(s.y + dy, 0, 1 - s.h); }
+    else {
+      if (h.includes("w")) { c.x = clamp(s.x + dx, 0, s.x + s.w - MIN); c.w = s.x + s.w - c.x; }
+      else c.w = clamp(s.w + dx, MIN, 1 - s.x);
+      if (h.includes("n")) { c.y = clamp(s.y + dy, 0, s.y + s.h - MIN); c.h = s.y + s.h - c.y; }
+      else c.h = clamp(s.h + dy, MIN, 1 - s.y);
+    }
+    ed.crop = c; edCropBox();
+  };
+  const up = () => { e.target.removeEventListener("pointermove", move); e.target.removeEventListener("pointerup", up); e.target.removeEventListener("pointercancel", up); };
+  e.target.addEventListener("pointermove", move); e.target.addEventListener("pointerup", up); e.target.addEventListener("pointercancel", up);
+});
+$("#edSave").onclick = async () => {
+  if (!ed) return;
+  if (!edChanged()) return toast("Nothing changed yet");
+  const btn = $("#edSave"); btn.disabled = true;
+  try {
+    const fd = new FormData(); fd.append("file", await edExport(), "edited.jpg");
+    await api(`/api/edit/${ed.it.id}`, {method: "POST", body: fd});
+    closeEditor();
+    toast("Saved as a new photo next to the original. It appears in the gallery in a moment.");
+  } catch (e) { toast(esc(e.message)); }
+  finally { btn.disabled = false; }
+};
 function step(d) { const n = viewerIdx + d; if (n >= 0 && n < curList().length) { viewerIdx = n; showItem(); } }
 
 // zoom & pan: double-click, ctrl/pinch wheel, drag, + − 0
@@ -2117,6 +2259,7 @@ $("#vPrev").onclick = () => step(-1);
 $("#vNext").onclick = () => step(1);
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;
+  if (ed || !$("#editor").hidden) { if (e.key === "Escape") closeEditor(); return; }
   if (viewerIdx < 0) {
     if (e.key === "Escape" && picked.size) clearPicked();
     if (e.key.toLowerCase() === "a" && (e.ctrlKey || e.metaKey) && $("#selectAll")) { e.preventDefault(); pickAll(); }
@@ -2128,6 +2271,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "i") toggleInfo();
   else if (e.key === "f") toggleFav();
   else if (e.key === "s") slideshow();
+  else if (e.key === "e") $("#vEdit").hidden || document.body.classList.contains("member") || openEditor();
   else if (e.key === "Delete" || e.key === "Backspace") trashCurrent();
   else if (e.key === "l") $("#vLive").hidden || $("#vLive").click();
   else if (e.key === "+" || e.key === "=") setZoom(zoom.s * 1.5);

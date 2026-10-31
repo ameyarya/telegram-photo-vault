@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import DRIVE, INBOX
+from config import DRIVE, INBOX, STATE
 from db import connect
 
 router = APIRouter()
@@ -143,10 +143,34 @@ def empty_trash():
     return {"deleted": len(rows), "bytes": freed, "waiting": done["waiting"], "drive": DRIVE.is_dir()}
 
 
+def trash_new_copies(con, log=None):
+    """Exact copies the backup found (backup/guard.py) go to the trash once they're in the gallery, as long as the photo
+    they copy is still there. A copy that isn't indexed yet waits for the next round; putting one back is final."""
+    f = STATE / "copies-to-trash.tsv"
+    if not f.exists():
+        return 0
+    wait, n = [], 0
+    for line in f.read_text().splitlines():
+        rel, kept = line.split("\t", 1)
+        row = con.execute("SELECT id FROM media WHERE path = ?", (rel,)).fetchone()
+        if not row:
+            if (INBOX / rel).exists() or (DRIVE / rel).exists():
+                wait.append(line)
+        elif con.execute("SELECT 1 FROM media WHERE path = ? AND id NOT IN (SELECT media_id FROM trash)", (kept,)).fetchone():
+            con.executemany("INSERT OR IGNORE INTO trash(media_id) VALUES (?)", [(i,) for i in _with_live_clips(con, [row["id"]])])
+            n += 1
+    con.commit()
+    f.write_text("".join(l + "\n" for l in wait))
+    if n and log:
+        log(f"guard: {n} identical copies moved to the Trash")
+    return n
+
+
 def sync_drive(con=None, log=None):
     """Do the queued file changes: deletes on the Mac (once in Telegram) and, with the drive plugged in, on the drive."""
     import inbox
     con = con or connect()
+    trash_new_copies(con, log)
     apply_pending(con)
     mounted, backed_up, freed = DRIVE.is_dir(), inbox.backed_up(), 0
     for r in con.execute("SELECT path, op, size FROM drive_queue").fetchall():
