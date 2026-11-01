@@ -222,6 +222,102 @@ def test_maybe_same_suggestions_and_not_same(lapi, liveworld):
         con.commit()
 
 
+def test_choosing_a_persons_photo_survives_reanalysis(lapi, liveworld):
+    pid = lapi.get("/api/people").json()[0]["id"]
+    other = lapi.get("/api/people").json()[1]["id"]
+    r = lapi.get(f"/api/people/{pid}/faces").json()
+    assert r["total"] == len(r["faces"]) >= 2
+    assert lapi.get(f"/api/people/{pid}/faces", params={"limit": 1, "offset": 1}).json()["faces"] == r["faces"][1:2]
+    now = next(p for p in lapi.get("/api/people").json() if p["id"] == pid)["cover_face"]
+    pick = next(f for f in r["faces"] if f != now)
+    assert lapi.post(f"/api/people/{pid}/cover", json={"face": pick}).status_code == 200
+    assert next(p for p in lapi.get("/api/people").json() if p["id"] == pid)["cover_face"] == pick
+    theirs = lapi.get(f"/api/people/{other}/faces").json()["faces"][0]
+    assert lapi.post(f"/api/people/{pid}/cover", json={"face": theirs}).status_code == 400  # someone else's face
+    subprocess.run([PY, "ml.py", "run", "people"], cwd=ROOT, env=liveworld["env"], check=True, capture_output=True)
+    assert next(p for p in lapi.get("/api/people").json() if p["id"] == pid)["cover_face"] == pick
+
+
+def test_only_the_owner_changes_a_persons_photo():
+    import auth
+    assert auth.owner_only("/api/people/3/cover") and auth.owner_only("/api/people/not-same/undo")
+    assert not auth.owner_only("/api/people/3/faces") and not auth.owner_only("/api/user-albums/3/cover")
+
+
+def fake_matches(page, person, n):
+    """The page's view of the model: n possible matches for this person, answered like the real API."""
+    me = {"id": person, "name": "Alice", "n": 9, "cover_face": None, "faces": []}
+    state = {"pairs": [{"a": me, "b": {"id": 1000 + i, "name": None, "n": 20, "cover_face": None, "faces": []}, "similarity": 0.6}
+                       for i in range(n)], "posts": []}
+    page.route("**/api/people/suggestions*", lambda r: r.fulfill(json={"total": len(state["pairs"]), "pairs": state["pairs"]}))
+
+    def answer(route):
+        body = route.request.post_data_json
+        state["posts"].append((route.request.url.split("/api/people/")[1], body))
+        if "merge" in route.request.url:
+            state["pairs"] = [x for x in state["pairs"] if x["b"]["id"] not in body["ids"]]
+        route.fulfill(json={"ok": True, "into": person})
+    page.route("**/api/people/merge", answer)
+    page.route("**/api/people/not-same*", answer)
+    page.route("**/api/people/not-same/undo", answer)
+    return state
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_maybe_also_is_one_line_and_review_goes_one_at_a_time(page, lapi):
+    pid = lapi.get("/api/people").json()[0]["id"]
+    state = fake_matches(page, pid, 40)
+    page.goto(f"{page.base}/#/person/{pid}")
+    box = page.locator("#maybe")
+    box.wait_for()
+    assert "40 possible matches" in box.inner_text()
+    assert box.locator(".stack > *").count() == 5
+    assert box.bounding_box()["height"] < 70                                 # no wall of faces above the photos
+    box.locator("text=Review").click()
+    page.wait_for_url(f"**/#/people/review/{pid}")
+    card = page.locator("#rvCard")
+    card.wait_for()
+    assert page.locator("#pgSub").inner_text().startswith("40 matches left")
+    assert card.locator("[data-act=back]").is_hidden()
+    card.locator("[data-act=no]").click()
+    page.locator("#pgSub", has_text="39 matches left").wait_for()
+    assert state["posts"][-1] == ("not-same", {"a": pid, "b": 1000})
+    card.locator("[data-act=back]").click()                                 # changed your mind
+    page.locator("#pgSub", has_text="40 matches left").wait_for()
+    assert state["posts"][-1] == ("not-same/undo", {"a": pid, "b": 1000})
+    page.keyboard.press("ArrowRight")                                       # not sure: comes back at the end
+    page.locator("#pgSub", has_text="39 matches left").wait_for()
+    page.keyboard.press("s")
+    page.locator("#pgSub", has_text="38 matches left").wait_for()
+    assert state["posts"][-1] == ("merge", {"ids": [pid, 1001], "into": pid})
+    assert card.locator("[data-act=back]").is_hidden()                      # a merge can't be taken back
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_review_ends_with_what_was_skipped(page, lapi):
+    pid = lapi.get("/api/people").json()[0]["id"]
+    fake_matches(page, pid, 1)
+    page.goto(f"{page.base}/#/people/review/{pid}")
+    page.locator("#rvCard [data-act=skip]").click()
+    page.locator("text=You skipped 1 match").wait_for()
+    page.locator("[data-act=again]").click()
+    page.locator("#rvCard").wait_for()
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_ui_change_a_persons_photo(page, lapi):
+    people = lapi.get("/api/people").json()
+    p = people[0]
+    faces = lapi.get(f"/api/people/{p['id']}/faces").json()["faces"]
+    pick = next(f for f in faces if f != p["cover_face"])
+    page.goto(f"{page.base}/#/person/{p['id']}")
+    page.locator("#pPhoto").click()
+    assert page.locator(".face-pick button.on").get_attribute("data-face") == str(p["cover_face"])
+    page.locator(f'.face-pick [data-face="{pick}"]').click()
+    page.locator("text=Photo changed").wait_for()
+    assert next(x for x in lapi.get("/api/people").json() if x["id"] == p["id"])["cover_face"] == pick
+
+
 def test_maybe_same_ranking_unit():
     import ml
     e = np.eye(4, dtype=np.float32)

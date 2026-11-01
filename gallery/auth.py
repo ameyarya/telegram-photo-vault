@@ -106,7 +106,8 @@ def _epoch(sqlite_ts):
 
 def owner_only(path):
     return path.startswith(OWNER_ONLY) or (path.startswith(("/api/people/", "/api/user-albums/"))
-                                           and path.endswith(OWNER_ONLY_RE))
+                                           and path.endswith(OWNER_ONLY_RE)) or (
+        path.startswith("/api/people/") and path.endswith("/cover"))
 
 
 def gate(request):

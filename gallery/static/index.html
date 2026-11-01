@@ -270,9 +270,28 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .pair .who span{color:var(--ink2);font-size:12px}
 .pair .q{color:var(--ink2);font-size:13px;margin:0 4px}
 .pair .acts{margin-left:auto;display:flex;gap:4px}
-.maybe{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0 10px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
-.maybe .m{display:flex;align-items:center;gap:6px}
-.maybe .m img,.maybe .m .ph{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--tile);cursor:pointer}
+.maybe{display:flex;gap:12px;align-items:center;margin:6px 0 10px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.maybe .stack{display:flex;flex:none}
+.maybe .stack img,.maybe .stack .ph{width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--tile);border:2px solid var(--surface);margin-left:-10px}
+.maybe .stack :first-child{margin-left:0}
+.maybe .what{flex:1;min-width:0;color:var(--ink2)}
+.maybe .what b{color:var(--ink);font-weight:500}
+.maybe .fill-btn{flex:none;display:inline-flex;align-items:center;text-decoration:none}
+.rv-card{max-width:760px;margin:12px 0;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.rv-sides{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rv-who b{display:block;font-weight:500}
+.rv-who .sub{display:block;color:var(--ink2);font-size:13px;margin-bottom:10px}
+.rv-who .sub a{color:var(--accent)}
+.rv-faces{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rv-faces img,.rv-faces .ph{display:block;width:100%;aspect-ratio:1;border-radius:12px;object-fit:cover;background:var(--tile)}
+.rv-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}
+.rv-acts .back{margin-left:auto}
+.face-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px;margin:8px 0}
+.face-pick button{padding:0;border-radius:50%;overflow:hidden;aspect-ratio:1;background:var(--tile);border:3px solid transparent}
+.face-pick button:hover{border-color:var(--line)}
+.face-pick button.on{border-color:var(--accent)}
+.face-pick img{display:block;width:100%;height:100%;object-fit:cover}
+.dialog:has(.face-pick){width:min(640px,92vw)}
 .people.selecting .person{opacity:.75}
 .person.picked{opacity:1!important}
 .person.picked img,.person.picked .ph{outline:4px solid var(--accent);outline-offset:3px}
@@ -324,7 +343,8 @@ body.signed-out>:not(.login,svg){display:none!important}
 .head-actions .filter-btn.on{background:var(--pill);color:var(--pill-ink)}
 .head-actions .sort-btn.oldest svg{transform:scaleY(-1)}
 .head-actions{gap:2px}  /* phones: Restore and Refresh as icons, so all fit */
-@media (max-width:600px){.page-head{flex-wrap:wrap}.head-actions{flex-wrap:wrap;justify-content:flex-end}}  /* a long title: the buttons take the next row */
+.page-head{flex-wrap:wrap}.head-actions{flex-wrap:wrap;justify-content:flex-end}  /* no room: the buttons take the next row */
+.head-actions .txt-btn{white-space:nowrap}
 .tile img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}  /* hold a photo to select it */
 .mem-head{display:flex;align-items:center;justify-content:space-between}.mem-head .sec{margin:12px 0}
 .mem-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
@@ -639,7 +659,7 @@ function route() {
   const folder = /^\/(album|all)\//.test(h) &&
     [...document.querySelectorAll(".side a[data-folder]")].find(a => inPath === a.dataset.folder || inPath.startsWith(a.dataset.folder + "/"));
   const section = folder ? null
-    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") ? "people" : h.startsWith("/search/") ? null : "photos");
+    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") || h.startsWith("/people/review/") ? "people" : h.startsWith("/search/") ? null : "photos");
   document.querySelectorAll(".side a").forEach(a =>
     a.classList.toggle("active", a === folder || (!a.dataset.folder && a.dataset.route === section)));
   $("#main").scrollTop = 0;
@@ -648,6 +668,7 @@ function route() {
   if (h === "/albums") return renderAlbums();
   if (h === "/people") return renderPeople();
   if (h === "/people/review") return renderPeopleReview();
+  if (h.startsWith("/people/review/")) return renderPersonReview(+h.slice(15));
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
   if (h === "/dates") return renderDates();
@@ -764,16 +785,17 @@ function openUserAlbum(id) {
 
 const faceImg = p => p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`;
 async function openPerson(id) {
-  const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).then(r => r.pairs).catch(() => [])]);
+  const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).catch(() => ({total: 0, pairs: []}))]);
   const p = people.find(x => x.id === id);
   if (!p) { $("#page").innerHTML = `<div class="empty">This person isn't in the list any more (people are regrouped as photos are analysed).</div>`; return; }
-  const pre = maybe.length ? `<div class="maybe owner-only" id="maybe"><span class="muted">Maybe also ${esc(p.name || "this person")}?</span>${maybe.map(m => `
-      <span class="m owner-only" data-b="${m.b.id}"><a href="#/person/${m.b.id}" title="${esc(m.b.name || "Unnamed")} · ${plural(m.b.n, "photo")}">${faceImg(m.b)}</a>
-      <button class="txt-btn" data-same="${m.b.id}">Same</button><button class="txt-btn" data-diff="${m.b.id}">No</button></span>`).join("")}</div>` : "";
+  const pre = maybe.total ? `<div class="maybe owner-only" id="maybe"><span class="stack">${maybe.pairs.slice(0, 5).map(m => faceImg(m.b)).join("")}</span>
+      <span class="what"><b>Maybe also ${esc(p.name || "this person")}?</b> ${maybe.total === 1 ? "1 possible match" : nf(maybe.total) + " possible matches"}</span>
+      <a class="fill-btn" href="#/people/review/${id}">Review</a></div>` : "";
   openFeed({
     title: p.name || "Unnamed person", params: {person: id}, back: "#/people", restoreLabel: p.name || "Person", pre,
     extraSub: p.aliases ? ` · also “${p.aliases}” in search` : "",
     actions: `<button class="txt-btn" id="pName">${ico("edit")}${p.name ? "Rename" : "Add a name"}</button>
+              <button class="txt-btn owner-only" id="pPhoto">Change photo</button>
               <button class="txt-btn" id="pAliases" title="Other names search knows them by">${ico("tag")}Other names</button>
               <button class="txt-btn owner-only" id="pMerge">Same person as…</button>`,
   });
@@ -793,11 +815,96 @@ async function openPerson(id) {
     if (!into) return;
     await post(`/api/people/${id}/merge`, {into}); location.hash = "#/person/" + into;
   };
-  $("#maybe")?.addEventListener("click", async e => {
-    const same = e.target.closest("[data-same]"), diff = e.target.closest("[data-diff]");
-    if (same) { await post("/api/people/merge", {ids: [id, +same.dataset.same], into: id}); toast("Merged"); route(); }
-    if (diff) { await post("/api/people/not-same", {a: id, b: +diff.dataset.diff}); diff.closest(".m").remove(); if (!$("#maybe .m")) $("#maybe").remove(); }
-  });
+  $("#pPhoto").onclick = () => changePersonPhoto(p);
+}
+
+async function changePersonPhoto(p) {
+  const r = await api(`/api/people/${p.id}/faces?limit=90`);
+  const btn = f => `<button data-face="${f}" class="${f === p.cover_face ? "on" : ""}" aria-label="Use this photo"><img loading="lazy" src="/face/${f}" alt=""></button>`;
+  const d = dialog(`<h2>Choose ${esc(p.name ? p.name + "'s" : "their")} photo</h2><div class="face-pick">${r.faces.map(btn).join("")}</div>
+    <div class="actions"><button class="txt-btn" data-more ${r.faces.length < r.total ? "" : "hidden"}>Show more</button><button class="txt-btn" data-x>Cancel</button></div>`);
+  let shown = r.faces.length;
+  d.onclick = async e => {
+    if (e.target === d || e.target.closest("[data-x]")) return d.remove();
+    if (e.target.closest("[data-more]")) {
+      const more = await api(`/api/people/${p.id}/faces?limit=90&offset=${shown}`);
+      shown += more.faces.length;
+      d.querySelector(".face-pick").insertAdjacentHTML("beforeend", more.faces.map(btn).join(""));
+      d.querySelector("[data-more]").hidden = shown >= more.total;
+      return;
+    }
+    const b = e.target.closest("[data-face]"); if (!b) return;
+    await post(`/api/people/${p.id}/cover`, {face: +b.dataset.face});
+    d.remove(); toast("Photo changed"); route();
+  };
+}
+
+// One person's possible matches, one at a time and big enough to judge: joining two people can't be undone.
+let reviewKey = null;
+async function renderPersonReview(id) {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button><h1>Same person?</h1></div>
+    <div class="page-sub" id="pgSub"></div><div id="rvBox">${loadingHtml("Finding matches…")}</div>`;
+  $("#pgBack").onclick = () => location.hash = "#/person/" + id;
+  const box = $("#rvBox"), skipped = new Set(), matches = n => n === 1 ? "1 match" : nf(n) + " matches";
+  let queue = [], left = 0, answered = [], busy = false;   // answered: what the Back button can take back
+  const load = async () => {
+    const r = await api(`/api/people/suggestions?person=${id}`);
+    queue = r.pairs.filter(x => !skipped.has(x.b.id));
+    left = r.total - skipped.size;
+    if (queue[0]) queue.slice(0, 3).forEach(x => [x.b.cover_face, ...x.b.faces].forEach(f => { if (f) new Image().src = `/face/${f}`; }));
+  };
+  const side = (p, link) => {
+    const faces = [p.cover_face, ...p.faces].filter(Boolean).slice(0, 4);
+    return `<div class="rv-who"><b>${esc(p.name || "Unnamed")}</b>
+      <span class="sub">${link ? `<a href="#/person/${p.id}">${plural(p.n, "photo")}</a>` : plural(p.n, "photo")}</span>
+      <div class="rv-faces">${faces.map(f => `<img src="/face/${f}" alt="">`).join("") || `<span class="ph"></span>`}</div></div>`;
+  };
+  const draw = () => {
+    const x = queue[0];
+    $("#pgSub").textContent = x ? `${matches(left)} left, most likely first. Choosing Same person joins them, and that can't be undone.` : "";
+    if (x) {
+      box.innerHTML = `<div class="rv-card" id="rvCard"><div class="rv-sides">${side(x.a)}${side(x.b, true)}</div>
+        <div class="rv-acts"><button class="fill-btn" data-act="same">Same person</button><button class="txt-btn" data-act="no">Not the same</button>
+        <button class="txt-btn" data-act="skip">Not sure</button><button class="txt-btn back" data-act="back" ${answered.length ? "" : "hidden"}>${ico("back")}Back</button></div></div>`;
+    } else if (skipped.size) {
+      box.innerHTML = `<div class="note">You skipped ${matches(skipped.size)}. <button class="txt-btn" data-act="again">Go through them again</button></div>`;
+    } else {
+      box.innerHTML = `<div class="note">No more possible matches. <a href="#/person/${id}">Back to their photos</a></div>`;
+    }
+  };
+  const act = async what => {
+    if (busy) return;
+    busy = true;
+    try {
+      const x = queue[0];
+      if (what === "same" && x) {
+        await post("/api/people/merge", {ids: [id, x.b.id], into: id});
+        toast("Joined"); answered = []; await load();     // their faces changed, so the matches can too
+      } else if (what === "no" && x) {
+        await post("/api/people/not-same", {a: id, b: x.b.id});
+        answered.push({pair: queue.shift(), no: true}); left--;
+      } else if (what === "skip" && x) {
+        skipped.add(x.b.id); answered.push({pair: queue.shift(), no: false}); left--;
+      } else if (what === "back" && answered.length) {
+        const last = answered.pop();
+        if (last.no) await post("/api/people/not-same/undo", {a: id, b: last.pair.b.id});
+        else skipped.delete(last.pair.b.id);
+        queue.unshift(last.pair); left++;
+      } else if (what === "again") {
+        skipped.clear(); answered = []; await load();
+      }
+      if (!queue.length && left > 0) await load();   // past the first page
+      draw();
+    } finally { busy = false; }
+  };
+  box.onclick = e => { const b = e.target.closest("[data-act]"); if (b) act(b.dataset.act); };
+  reviewKey = e => {
+    const what = {s: "same", n: "no", ArrowRight: "skip", ArrowLeft: "back"}[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (what) { e.preventDefault(); act(what); }
+  };
+  await load();
+  draw();
 }
 
 async function openSearch(q) {
@@ -2268,6 +2375,7 @@ document.addEventListener("keydown", e => {
   if (viewerIdx < 0) {
     if (e.key === "Escape" && picked.size) clearPicked();
     if (e.key.toLowerCase() === "a" && (e.ctrlKey || e.metaKey) && $("#selectAll")) { e.preventDefault(); pickAll(); }
+    if (reviewKey && $("#rvCard") && !$(".dialog-bg") && !e.ctrlKey && !e.metaKey && !e.altKey) reviewKey(e);
     return;
   }
   if (e.key === "Escape") zoom.s > 1 ? setZoom(1) : infoOpen && innerWidth < 900 ? toggleInfo(false) : closeViewer();

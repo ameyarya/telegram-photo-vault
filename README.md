@@ -25,7 +25,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photos.local`, this Mac only | ✅ tested, incl. headless-browser tests |
 | ↳ **Date scrubber**, oldest/newest-first, **filter chips** (photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date) | ✅ |
 | ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
-| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
+| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions, choose their photo; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
 | ↳ **Similar shots** — near-identical bursts grouped, best shot picked (favorite, else sharpest); "keep best, trash the rest" | ✅ optional |
 | ↳ **Fix dates** — edit or shift the date of one photo or a selection; suggested dates from file names (including timestamps like `FB_IMG_1471116064495.jpg`) and from matching originals (checked visually); stored in the gallery only, files untouched, undoable | ✅ tested |
 | ↳ **Live Photos** — the photo and its motion clip show as one item; a LIVE button plays the motion | ✅ |

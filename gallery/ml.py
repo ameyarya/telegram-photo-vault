@@ -691,6 +691,41 @@ def not_same(body: Pair):
     return {"ok": True}
 
 
+@router.post("/api/people/not-same/undo")
+def not_same_undo(body: Pair):
+    """Take back 'these two are different people'."""
+    con = connect()
+    con.execute("DELETE FROM people_not_same WHERE a = ? AND b = ?", (min(body.a, body.b), max(body.a, body.b)))
+    con.commit()
+    return {"ok": True}
+
+
+class Cover(BaseModel):
+    face: int
+
+
+@router.get("/api/people/{person_id}/faces")
+def person_faces(person_id: int, limit: int = 90, offset: int = 0):
+    """Their faces to choose a photo from, the clearest first."""
+    con = connect()
+    shown = "FROM faces WHERE person = ? AND media_id IN (SELECT id FROM media) AND media_id NOT IN (SELECT media_id FROM trash)"
+    total = con.execute(f"SELECT count(*) {shown}", (person_id,)).fetchone()[0]
+    rows = con.execute(f"SELECT id {shown} ORDER BY score DESC, w DESC, id LIMIT ? OFFSET ?",
+                       (person_id, min(limit, 300), max(offset, 0))).fetchall()
+    return {"total": total, "faces": [r[0] for r in rows]}
+
+
+@router.post("/api/people/{person_id}/cover")
+def person_cover(person_id: int, body: Cover):
+    """The photo shown for them. Stays while the face is theirs, through merges and new analysis."""
+    con = connect()
+    if not con.execute("SELECT 1 FROM faces WHERE id = ? AND person = ?", (body.face, person_id)).fetchone():
+        raise HTTPException(400, "That face isn't this person")
+    con.execute("UPDATE people SET cover_face = ? WHERE id = ?", (body.face, person_id))
+    con.commit()
+    return {"ok": True}
+
+
 class PersonName(BaseModel):
     name: str
 
