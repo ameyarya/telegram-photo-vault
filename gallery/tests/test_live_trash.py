@@ -319,6 +319,44 @@ def test_dates_from_file_names():
     assert dates.base_name("IMG_0018 1.JPG") == "img_0018"
 
 
+def test_dates_from_timestamps_in_file_names():
+    import dates
+    from datetime import datetime
+    local = datetime.fromtimestamp(1414095926).strftime(dates.FMT)
+    for name in ("PicsArt_1414095926551.jpg", "PicsArt_1414095926551-edited.jpg", "FB_IMG_1414095926551.jpg",
+                 "received_m_mid_1414095926551_e652d3984ba3885d61_0.jpeg"):
+        assert dates.date_from_name(name) == local
+    # random numbers that only look like a time
+    for name in ("Snapchat-1698219730.jpg", "IMG_57056690823320.jpeg", "10804928_870936576280073_820048862_n.jpg",
+                 "IMG_9999999999999.jpg"):
+        assert dates.date_from_name(name) is None
+
+
+def test_file_name_without_a_year_takes_it_from_the_file_date():
+    import dates
+    name = "PicsArt_01-26-07.06.28.jpg"
+    assert dates.date_from_name(name) is None
+    assert dates.date_from_name(name, "2016-02-19T04:57:22") == "2016-01-26T07:06:28"
+    assert dates.date_from_name(name, "2016-01-20T00:00:00") == "2015-01-26T07:06:28"       # not yet that day: the year before
+    assert dates.date_from_name("PicsArt_12-07-10.26.32.jpg", "2016-12-06T21:49:08") == "2016-12-07T10:26:32"  # a time zone apart
+    assert dates.date_from_name("PicsArt_02-29-10.00.00.jpg", "2017-06-01T00:00:00") == "2016-02-29T10:00:00"
+    assert dates.date_from_name("PicsArt_13-45-10.00.00.jpg", "2017-06-01T00:00:00") is None
+
+
+@pytest.mark.parametrize("page", [{"world": "liveworld"}], indirect=True)
+def test_fix_dates_page_explains_when_there_is_nothing_to_suggest(page):
+    """A count on Backup, then an empty Fix dates page, looked broken: it says why and leads to the photos."""
+    page.route("**/api/dates/suggestions", lambda r: r.fulfill(json={"items": [], "undated": 3}))
+    page.goto(page.base + "/#/dates")
+    page.locator("#fixBox .note").wait_for()
+    assert "their names hold no date" in page.locator("#fixBox .note").inner_text()
+    assert page.locator("#fxAll").is_hidden()
+    page.click("#seeUndated")
+    page.wait_for_url("**/#/photos")
+    page.locator(".note", has_text="These have no camera date").wait_for()
+    assert page.locator(".chip.on").get_attribute("data-f") == "undated"
+
+
 def test_edit_shift_suggest_and_undo_dates(lapi, liveworld):
     con = db(liveworld)
     still = item(lapi, "IMG_0100.JPG")

@@ -1610,7 +1610,12 @@ async function renderDates() {
     ${r.items.length ? `For ${nf(r.items.length)} there's a better date: in the file name, or from the same photo with a camera date.` : ""}
     <a href="#/photos" id="seeUndated">See them all</a> to fix the rest by hand (select, then ${ico("cal-edit")}).`;
   $("#seeUndated").onclick = () => { filterChip = "undated"; lastPath = "/photos"; };
-  if (!r.items.length) { $("#fixBox").innerHTML = `<div class="note">No suggestions right now.</div>`; return; }
+  if (!r.items.length) {
+    $("#fixBox").innerHTML = r.undated
+      ? `<div class="note">Nothing to suggest: ${r.undated === 1 ? "its name holds" : "their names hold"} no date, and no matching photo has a camera date. Only you can date ${r.undated === 1 ? "it" : "these"}.</div>`
+      : `<div class="note">All your photos have a date.</div>`;
+    return;
+  }
   $("#fxAll").hidden = false;
   $("#fixBox").innerHTML = `<div class="fixes">${r.items.map((it, i) => `<div class="fix" data-id="${it.id}" data-i="${i}">
       <img src="/thumb/${it.id}" alt="" loading="lazy">${it.twin ? `<img src="/thumb/${it.twin}" alt="" loading="lazy" title="The photo it was matched with">` : ""}

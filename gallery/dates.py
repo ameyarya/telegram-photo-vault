@@ -2,7 +2,7 @@
 
 * Edit one photo or a selection: set a date, or shift them all by the same amount (keeps their order and spacing).
 * Suggestions where there's a clue: a date in the file name (20220513_152109.MOV, IMG-20210305-WA0001.jpg,
-  Screenshot 2023-01-02 at 10.11.12.png), or the same photo elsewhere with a camera date (an edited _DSC1291.jpg and
+  Screenshot 2023-01-02 at 10.11.12.png, FB_IMG_1471116064495.jpg), or the same photo elsewhere with a camera date (an edited _DSC1291.jpg and
   the camera's _DSC1291.ARW) that looks the same and was taken no later than the file itself (iPhone numbers repeat
   after IMG_9999, and two phones can both have an IMG_6164).
 Edited dates live in the gallery only (date_src = 'user'), so files stay byte-identical to the Telegram backup, and
@@ -20,6 +20,9 @@ router = APIRouter()
 FMT = "%Y-%m-%dT%H:%M:%S"
 NAME_DATE = re.compile(r"(?<!\d)((?:19|20)\d{2})[-_.]?(\d{2})[-_.]?(\d{2})"
                        r"(?:(?:[ _T-]|\sat\s)+(\d{2})[-_.:h]?(\d{2})[-_.:m]?(\d{2}))?")
+# 13 digits from 2008 on: milliseconds since 1970 (PicsArt_1414095926551, FB_IMG_1471116064495). Not 10 digits: Snapchat's are random.
+NAME_MILLIS = re.compile(r"(?<!\d)(1[2-9]\d{11})(?!\d)")
+NAME_NO_YEAR = re.compile(r"(?<!\d)(\d{2})-(\d{2})-(\d{2})\.(\d{2})\.(\d{2})(?!\d)")  # PicsArt_01-26-07.06.28
 COPY_SUFFIX = re.compile(r"(?:[\s_-]*(?:\(\d+\)|copy|edited|edit|final|~\d+|-\d{1,2}| \d{1,2}))+$", re.I)
 
 
@@ -27,17 +30,34 @@ COPY_SUFFIX = re.compile(r"(?:[\s_-]*(?:\(\d+\)|copy|edited|edit|final|~\d+|-\d{
 GENERIC = {"download", "image", "img", "photo", "picture", "video", "movie", "untitled", "screenshot", "file", "unknown"}
 
 
-def date_from_name(name):
-    """'2022-05-13T15:21:09' from a file name, or None. Noon when the name has a day but no time."""
+def date_from_name(name, file_date=None):
+    """'2022-05-13T15:21:09' from a file name, or None. Noon when the name has a day but no time.
+    file_date gives the year to a name that has none: the last time that day came round."""
     stem = name.rsplit(".", 1)[0]
+    latest = datetime.now() + timedelta(days=1)
     for m in NAME_DATE.finditer(stem):
         y, mo, d, h, mi, s = m.groups()
         try:
             dt = datetime(int(y), int(mo), int(d), int(h or 12), int(mi or 0), int(s or 0))
         except ValueError:
             continue
-        if datetime(1990, 1, 1) < dt <= datetime.now() + timedelta(days=1):
+        if datetime(1990, 1, 1) < dt <= latest:
             return dt.strftime(FMT)
+    for m in NAME_MILLIS.finditer(stem):
+        dt = datetime.fromtimestamp(int(m.group(1)) / 1000)  # local time, like the file dates
+        if dt <= latest:
+            return dt.strftime(FMT)
+    m = NAME_NO_YEAR.search(stem)
+    if m and file_date:
+        limit = datetime.fromisoformat(file_date) + timedelta(days=1)  # file dates can be a time zone behind the name
+        mo, d, h, mi, s = map(int, m.groups())
+        for y in range(limit.year, limit.year - 5, -1):  # 5: back past a 29 February
+            try:
+                dt = datetime(y, mo, d, h, mi, s)
+            except ValueError:
+                continue
+            if dt <= limit:
+                return dt.strftime(FMT)
     return None
 
 
@@ -57,7 +77,7 @@ def suggestions(con, ids=None):
         dated.setdefault(base_name(r["name"]), []).append(r)
     out = []
     for r in rows:
-        when = date_from_name(r["name"])
+        when = date_from_name(r["name"], r["taken_at"])
         if when:
             out.append({"id": r["id"], "suggested": when, "why": "Date in the file name"})
             continue
