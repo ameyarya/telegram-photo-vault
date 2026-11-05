@@ -100,7 +100,7 @@ def status(request: Request):
     con = connect()
     r = con.execute("""SELECT count(*) total, sum(msg_id IS NOT NULL) uploaded, sum(thumb=1) thumbs,
                        sum(date_src='file') undated FROM media""").fetchone()
-    return {**dict(r), "drive": DRIVE.is_dir(), "telegram": state["client"] is not None,
+    return {**dict(r), "drive": DRIVE.is_dir(), "telegram": state["client"] is not None, "features": features(con),
             "telegram_error": state["tg_error"], "last_sync": state["last_sync"],
             "user": getattr(request.state, "user", None)}
 
@@ -149,9 +149,32 @@ def months(album: str = "", sub: bool = True, order: str = "asc", filter: str = 
     return [dict(r) for r in rows]
 
 
+FEATURES = {"memories": True}  # the switches on the Settings page and their defaults, for everyone using the gallery
+
+
+def features(con=None):
+    saved = {r[0].removeprefix("feature:"): r[1] == "1"
+             for r in (con or connect()).execute("SELECT key, value FROM settings WHERE key LIKE 'feature:%'")}
+    return {k: saved.get(k, on) for k, on in FEATURES.items()}
+
+
+@app.post("/api/settings")
+def set_settings(body: dict):
+    """{feature: true/false}: turns features on or off on every device (owner only)."""
+    if not body or any(k not in FEATURES or not isinstance(v, bool) for k, v in body.items()):
+        raise HTTPException(400, f"Expected true or false for: {', '.join(FEATURES)}")
+    con = connect()
+    con.executemany("INSERT OR REPLACE INTO settings(key, value) VALUES (?, ?)",
+                    [(f"feature:{k}", "1" if v else "0") for k, v in body.items()])
+    con.commit()
+    return {"features": features(con)}
+
+
 @app.get("/api/memories")
 def memories(on: str = ""):
     """On this day: photos from today's date (or on=MM-DD) in earlier years, newest year first. Only real camera dates."""
+    if not features()["memories"]:
+        return {"years": [], "off": True}
     now = datetime.now()
     day = on or now.strftime("%m-%d")
     if not re.fullmatch(r"\d\d-\d\d", day):

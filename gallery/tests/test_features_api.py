@@ -104,6 +104,20 @@ def test_item_details_camera_and_location(api, items):
 
 
 # ---------- on this day ----------
+def test_features_switch_off_for_everyone(api, items):
+    assert api.get("/api/status").json()["features"] == {"memories": True}
+    assert api.post("/api/settings", json={"memories": "no"}).status_code == 400
+    assert api.post("/api/settings", json={"nonsense": True}).status_code == 400
+    assert api.post("/api/settings", json={}).status_code == 400
+    try:
+        assert api.post("/api/settings", json={"memories": False}).json() == {"features": {"memories": False}}
+        assert api.get("/api/status").json()["features"] == {"memories": False}
+        assert api.get("/api/memories", params={"on": "01-01"}).json() == {"years": [], "off": True}
+    finally:
+        api.post("/api/settings", json={"memories": True})
+    assert "off" not in api.get("/api/memories").json()
+
+
 def test_memories_are_this_date_in_earlier_years(api, items):
     it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
     y = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()["years"]

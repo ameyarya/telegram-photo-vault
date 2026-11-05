@@ -149,27 +149,32 @@ def test_on_this_day_opens_the_photos_and_hides_until_tomorrow(page, api, items)
     page.evaluate("localStorage.removeItem('memoriesClosed')")
 
 
-def test_on_this_day_turns_off_and_back_on(page, api, items):
+def test_on_this_day_is_switched_off_for_everyone_in_settings(page, api, items):
     it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
     day = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()
     page.route("**/api/memories", lambda r: r.fulfill(json=day))
-    go(page)
-    expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
-    page.click("#memOff")
-    expect(page.locator(".mem-card")).to_have_count(0)
-    page.reload()                                           # stays off, also on later days
-    page.wait_for_selector(".side a.active")
-    page.click("#viewBtn")
-    expect(page.locator('#viewMenu .seg[data-k="memories"].on')).to_have_text("Off")
-    expect(page.locator(".mem-card")).to_have_count(0)
-    page.click('#viewMenu .seg[data-k="memories"][data-v="on"]')
-    expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
-    page.click('#viewMenu .seg[data-k="memories"][data-v="off"]')          # the menu stays open
-    expect(page.locator(".mem-card")).to_have_count(0)
-    page.evaluate("localStorage.removeItem('pv-view')")
-    go(page, "#/album/vacation")                            # only Photos has it, so only its menu offers it
-    page.click("#viewBtn")
-    expect(page.locator('#viewMenu .seg[data-k="memories"]')).to_have_count(0)
+    try:
+        go(page)
+        expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+        page.click("#memOff")
+        expect(page.locator(".mem-card")).to_have_count(0)
+        assert api.get("/api/status").json()["features"]["memories"] is False      # stored on the Mac, not in this browser
+        page.evaluate("localStorage.clear()")
+        page.reload()
+        page.wait_for_selector(".side a.active")
+        expect(page.locator(".mem-card")).to_have_count(0)
+        page.click("#settingsBtn")
+        page.wait_for_url("**/#/settings")
+        switch = page.locator('#setBox [data-f="memories"]')
+        expect(switch).not_to_be_checked()
+        page.locator(".set-row", has_text="On this day").click()
+        expect(switch).to_be_checked()
+        page.locator("text=On this day is on for everyone").wait_for()
+        assert api.get("/api/status").json()["features"]["memories"] is True
+        page.click(".side a[data-route=photos]")
+        expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+    finally:
+        api.post("/api/settings", json={"memories": True})
 
 
 @pytest.mark.parametrize("page", [{"viewport": {"width": 360, "height": 740}}], indirect=True)

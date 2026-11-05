@@ -31,7 +31,7 @@ svg{width:24px;height:24px;fill:currentColor;flex:none}
 .logo{display:flex;align-items:center;gap:10px;font-size:20px;color:var(--ink2);min-width:0;white-space:nowrap}
 .logo svg{width:30px;height:30px;color:var(--accent)}
 .search{flex:0 1 720px;min-width:0;height:48px;border-radius:24px;background:var(--search);display:flex;align-items:center;gap:8px;padding:0 6px 0 20px}   /* centred */
-.top-right{flex:1 1 0;display:flex;justify-content:flex-end;min-width:0}
+.top-right{flex:1 1 0;display:flex;justify-content:flex-end;align-items:center;gap:6px;min-width:0}
 .acct-wrap{position:relative}
 .avatar{width:36px;height:36px;border-radius:50%;border:0;cursor:pointer;background:var(--accent);color:var(--bg);font:inherit;font-weight:600;font-size:15px;
   display:grid;place-items:center;padding:0}
@@ -419,6 +419,17 @@ body.signed-out>:not(.login,svg){display:none!important}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
+.settings{max-width:640px}
+.set-row{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+.set-row > span{flex:1;min-width:0}
+.set-row b{display:block;font-weight:500}
+.set-row .muted{font-size:13px}
+.toggle{appearance:none;flex:none;width:44px;height:24px;margin:0;border-radius:12px;background:var(--line);position:relative;cursor:pointer;transition:background .15s}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.toggle:checked{background:var(--accent)}
+.toggle:checked::after{transform:translateX(20px)}
+.toggle:disabled{opacity:.5;cursor:default}
+.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .big{font-size:32px;font-weight:400;line-height:1.1}
 .muted{color:var(--ink2);font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
@@ -502,6 +513,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <symbol id="i-phone" viewBox="0 0 24 24"><path d="M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
@@ -523,7 +535,7 @@ body.signed-out>:not(.login,svg){display:none!important}
     <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
     <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
   </form>
-  <div class="top-right"><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
+  <div class="top-right"><a class="icon-btn" id="settingsBtn" href="#/settings" aria-label="Settings" title="Settings"><svg><use href="#i-settings"/></svg></a><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
     <div class="acct-menu" id="acctMenu" hidden></div></span></div>
 </header>
 <div class="selbar" id="selbar" hidden>
@@ -659,7 +671,7 @@ function route() {
   const folder = /^\/(album|all)\//.test(h) &&
     [...document.querySelectorAll(".side a[data-folder]")].find(a => inPath === a.dataset.folder || inPath.startsWith(a.dataset.folder + "/"));
   const section = folder ? null
-    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") || h.startsWith("/people/review/") ? "people" : h.startsWith("/search/") ? null : "photos");
+    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") || h.startsWith("/people/review/") ? "people" : h.startsWith("/search/") || h === "/settings" ? null : "photos");
   document.querySelectorAll(".side a").forEach(a =>
     a.classList.toggle("active", a === folder || (!a.dataset.folder && a.dataset.route === section)));
   $("#main").scrollTop = 0;
@@ -671,6 +683,7 @@ function route() {
   if (h.startsWith("/people/review/")) return renderPersonReview(+h.slice(15));
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
+  if (h === "/settings") return renderSettings();
   if (h === "/dates") return renderDates();
   if (h === "/upload") return renderUpload();
   if (h === "/similar") return renderSimilar();
@@ -962,7 +975,7 @@ function openFeed(o) {
       `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${filterChip === k ? ico("check") : ""}${label}</button>`).join("")}</div></div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="selectAll" aria-label="Select all" title="Select all (Ctrl/⌘ A)">${ico("check")}<span class="lbl">Select all</span></button>`}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu(o.pre?.includes('id="memories"'))}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="selectAll" aria-label="Select all" title="Select all (Ctrl/⌘ A)">${ico("check")}<span class="lbl">Select all</span></button>`}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub" ${o.noSub ? "hidden" : ""}></div>${o.pre || ""}
     <div class="sentinel" id="topSentinel"></div><div id="days">${loadingHtml()}</div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
@@ -1058,17 +1071,16 @@ async function jumpTo(offset) {
 
 // How timelines look (remembered in this browser): grouped by day or one continuous grid, tile size, square or true shape
 const loadingHtml = (text = "Loading…") => `<div class="loading"><span class="spin"></span>${text}</div>`;
-const VIEW = {group: "day", size: "m", shape: "actual", memories: "on"};
+const VIEW = {group: "day", size: "m", shape: "actual"};
 try { Object.assign(VIEW, JSON.parse(localStorage.getItem("pv-view") || "{}")); } catch {}
 const SIZES = {s: .6, m: 1, l: 1.5};
 function rowHeight() { return Math.round((innerWidth < 600 ? 112 : innerWidth < 1200 ? 180 : 220) * (SIZES[VIEW.size] || 1)); }
-function viewMenu(memories) {
+function viewMenu() {
   const opt = (k, v, label) => `<button class="seg ${VIEW[k] === v ? "on" : ""}" data-k="${k}" data-v="${v}">${label}</button>`;
   return `<div class="view-menu" id="viewMenu" hidden>
     <div class="vm-row"><span>Layout</span>${opt("group", "day", "By date")}${opt("group", "none", "Continuous")}</div>
     <div class="vm-row"><span>Size</span>${opt("size", "s", "Small")}${opt("size", "m", "Medium")}${opt("size", "l", "Large")}</div>
-    <div class="vm-row"><span>Shape</span>${opt("shape", "square", "Square")}${opt("shape", "actual", "Actual")}</div>
-    ${memories ? `<div class="vm-row"><span>On this day</span>${opt("memories", "on", "On")}${opt("memories", "off", "Off")}</div>` : ""}</div>`;
+    <div class="vm-row"><span>Shape</span>${opt("shape", "square", "Square")}${opt("shape", "actual", "Actual")}</div></div>`;
 }
 function bindViewMenu() {
   const btn = $("#viewBtn"), menu = $("#viewMenu"); if (!btn || !menu) return;
@@ -1079,10 +1091,6 @@ function bindViewMenu() {
     VIEW[b.dataset.k] = b.dataset.v;
     try { localStorage.setItem("pv-view", JSON.stringify(VIEW)); } catch {}
     menu.querySelectorAll(`.seg[data-k="${b.dataset.k}"]`).forEach(x => x.classList.toggle("on", x === b));
-    if (b.dataset.k === "memories") {
-      try { localStorage.removeItem("memoriesClosed"); } catch {}
-      return VIEW.memories === "on" ? loadMemories() : ($("#memories").innerHTML = "");
-    }
     renderSections();
   };
   document.addEventListener("click", () => { if ($("#viewMenu")) $("#viewMenu").hidden = true; });
@@ -1169,23 +1177,21 @@ $("#main").addEventListener("scroll", () => {
 new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#main"), rootMargin: "2000px"}).observe($("#sentinel"));
 const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadPrev(), {root: $("#main"), rootMargin: "1200px"});
 
-// ---------- on this day: this date in earlier years, at the top of Photos (closing it hides it until tomorrow;
-// Turn off, or View → On this day, hides it in this browser until it's turned back on there) ----------
+// ---------- on this day: this date in earlier years, at the top of Photos (closing it hides it here until tomorrow;
+// Turn off switches it off for everyone, until it's turned back on in Settings) ----------
 async function loadMemories() {
   const today = new Date().toDateString();
-  if (VIEW.memories === "off") return;
+  if (status?.features?.memories === false) return;
   try { if (localStorage.getItem("memoriesClosed") === today) return; } catch {}
   let r; try { r = await api("/api/memories"); } catch { return; }
   const box = $("#memories"); if (!box || !r.years.length) return;
-  box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><span class="mem-acts"><button class="txt-btn" id="memOff" title="Turn it back on from View (the grid button)">Turn off</button><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></span></div>
+  box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><span class="mem-acts"><button class="txt-btn owner-only" id="memOff" title="For everyone; turn it back on in Settings">Turn off</button><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></span></div>
     <div class="mem-row">${r.years.map((y, i) => `<button class="mem-card" data-y="${i}"><img src="/thumb/${y.items[0].id}" alt="" loading="lazy">
       <span>${y.ago === 1 ? "1 year ago" : y.ago + " years ago"}<small>${plural(y.items.length, "item")}</small></span></button>`).join("")}</div>`;
-  box.onclick = e => {
+  box.onclick = async e => {
     if (e.target.closest("#memOff")) {
-      VIEW.memories = "off";
-      try { localStorage.setItem("pv-view", JSON.stringify(VIEW)); } catch {}
-      $("#viewMenu")?.querySelectorAll('.seg[data-k="memories"]').forEach(x => x.classList.toggle("on", x.dataset.v === "off"));
-      box.innerHTML = ""; toast("On this day is off. Turn it back on from View.");
+      status.features = (await post("/api/settings", {memories: false})).features;
+      box.innerHTML = ""; toast(`On this day is off for everyone. Turn it back on in Settings (${ico("settings")}, top right).`);
       return;
     }
     if (e.target.closest("#memClose")) { try { localStorage.setItem("memoriesClosed", today); } catch {} box.innerHTML = ""; return; }
@@ -1640,6 +1646,25 @@ const deviceName = ua => /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad"
   : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows PC" : "Device";
 const browserName = ua => /EdgA?\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "";
 const since = ts => { const t = Date.parse(ts.replace(" ", "T") + "Z"); return isNaN(t) ? "" : ago(t / 1000); };
+// ---------- settings: features switched on or off for everyone (stored on the Mac; the owner changes them) ----------
+const FEATURE_INFO = [["memories", "On this day", "Photos from this date in earlier years, at the top of Photos."]];
+function renderSettings() {
+  feed = null;
+  const owner = me?.role === "owner";
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Settings</h1></div>
+    <div class="page-sub">These apply to everyone, on every phone and computer that opens the gallery.${owner ? "" : " Only the owner can change them."}</div>
+    <div class="panel settings" id="setBox"><h3>Features</h3>${FEATURE_INFO.map(([k, name, what]) => `<label class="set-row">
+      <span><b>${name}</b><span class="muted">${what}</span></span>
+      <input type="checkbox" class="toggle" data-f="${k}" aria-label="${name}" ${status?.features?.[k] ? "checked" : ""} ${owner ? "" : "disabled"}></label>`).join("")}</div>`;
+  $("#setBox").onchange = async e => {
+    const t = e.target.closest("[data-f]"); if (!t) return;
+    try {
+      status.features = (await post("/api/settings", {[t.dataset.f]: t.checked})).features;
+      toast(`${FEATURE_INFO.find(f => f[0] === t.dataset.f)[1]} is ${t.checked ? "on" : "off"} for everyone`);
+    } catch { t.checked = !t.checked; }
+  };
+}
+
 async function renderSharing() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Sharing</h1></div>
