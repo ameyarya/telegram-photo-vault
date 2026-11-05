@@ -149,6 +149,29 @@ def test_on_this_day_opens_the_photos_and_hides_until_tomorrow(page, api, items)
     page.evaluate("localStorage.removeItem('memoriesClosed')")
 
 
+def test_on_this_day_turns_off_and_back_on(page, api, items):
+    it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
+    day = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()
+    page.route("**/api/memories", lambda r: r.fulfill(json=day))
+    go(page)
+    expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+    page.click("#memOff")
+    expect(page.locator(".mem-card")).to_have_count(0)
+    page.reload()                                           # stays off, also on later days
+    page.wait_for_selector(".side a.active")
+    page.click("#viewBtn")
+    expect(page.locator('#viewMenu .seg[data-k="memories"].on')).to_have_text("Off")
+    expect(page.locator(".mem-card")).to_have_count(0)
+    page.click('#viewMenu .seg[data-k="memories"][data-v="on"]')
+    expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+    page.click('#viewMenu .seg[data-k="memories"][data-v="off"]')          # the menu stays open
+    expect(page.locator(".mem-card")).to_have_count(0)
+    page.evaluate("localStorage.removeItem('pv-view')")
+    go(page, "#/album/vacation")                            # only Photos has it, so only its menu offers it
+    page.click("#viewBtn")
+    expect(page.locator('#viewMenu .seg[data-k="memories"]')).to_have_count(0)
+
+
 @pytest.mark.parametrize("page", [{"viewport": {"width": 360, "height": 740}}], indirect=True)
 def test_phone_headers_and_viewer_buttons_fit(page):
     go(page, "#/album/vacation")
