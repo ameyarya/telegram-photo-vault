@@ -149,30 +149,26 @@ def test_on_this_day_opens_the_photos_and_hides_until_tomorrow(page, api, items)
     page.evaluate("localStorage.removeItem('memoriesClosed')")
 
 
-def test_on_this_day_is_switched_off_for_everyone_in_settings(page, api, items):
+def test_on_this_day_button_switches_it_off_and_on_for_everyone(page, api, items):
     it = next(i for i in items.values() if i["kind"] != "video" and i["date_src"] != "file")
     day = api.get("/api/memories", params={"on": it["taken_at"][5:10]}).json()
     page.route("**/api/memories", lambda r: r.fulfill(json=day))
     try:
         go(page)
         expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
-        page.click("#memOff")
+        expect(page.locator("#memBtn")).to_have_class(re.compile(r"\bon\b"))
+        page.click("#memBtn")
         expect(page.locator(".mem-card")).to_have_count(0)
+        page.locator("text=On this day is off for everyone").wait_for()
         assert api.get("/api/status").json()["features"]["memories"] is False      # stored on the Mac, not in this browser
         page.evaluate("localStorage.clear()")
         page.reload()
         page.wait_for_selector(".side a.active")
         expect(page.locator(".mem-card")).to_have_count(0)
-        page.click("#settingsBtn")
-        page.wait_for_url("**/#/settings")
-        switch = page.locator('#setBox [data-f="memories"]')
-        expect(switch).not_to_be_checked()
-        page.locator(".set-row", has_text="On this day").click()
-        expect(switch).to_be_checked()
-        page.locator("text=On this day is on for everyone").wait_for()
-        assert api.get("/api/status").json()["features"]["memories"] is True
-        page.click(".side a[data-route=photos]")
+        expect(page.locator("#memBtn")).not_to_have_class(re.compile(r"\bon\b"))
+        page.click("#memBtn")
         expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
+        assert api.get("/api/status").json()["features"]["memories"] is True
     finally:
         api.post("/api/settings", json={"memories": True})
 

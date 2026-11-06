@@ -346,7 +346,7 @@ body.signed-out>:not(.login,svg){display:none!important}
 .page-head{flex-wrap:wrap}.head-actions{flex-wrap:wrap;justify-content:flex-end}  /* no room: the buttons take the next row */
 .head-actions .txt-btn{white-space:nowrap}
 .tile img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}  /* hold a photo to select it */
-.mem-head{display:flex;align-items:center;justify-content:space-between}.mem-acts{display:flex;align-items:center;gap:2px}.mem-head .sec{margin:12px 0}
+.mem-head{display:flex;align-items:center;justify-content:space-between}.mem-head .sec{margin:12px 0}
 .mem-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px}
 .mem-card{position:relative;flex:none;width:150px;height:190px;padding:0;border:0;border-radius:12px;overflow:hidden;cursor:pointer;background:var(--surface);color:#fff;font:inherit;text-align:left}
 .mem-card img{width:100%;height:100%;object-fit:cover;display:block}
@@ -419,17 +419,9 @@ body.signed-out>:not(.login,svg){display:none!important}
 .dash{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:12px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
-.settings{max-width:640px}
-.set-row{display:flex;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
-.set-row > span{flex:1;min-width:0}
-.set-row b{display:block;font-weight:500}
-.set-row .muted{font-size:13px}
-.toggle{appearance:none;flex:none;width:44px;height:24px;margin:0;border-radius:12px;background:var(--line);position:relative;cursor:pointer;transition:background .15s}
-.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
-.toggle:checked{background:var(--accent)}
-.toggle:checked::after{transform:translateX(20px)}
-.toggle:disabled{opacity:.5;cursor:default}
-.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#memBtn{position:relative}
+#memBtn.on{background:var(--pill);color:var(--pill-ink)}
+#memBtn:not(.on)::after{content:"";position:absolute;left:11px;right:11px;top:50%;height:2px;border-radius:1px;background:currentColor;transform:rotate(-45deg)}
 .big{font-size:32px;font-weight:400;line-height:1.1}
 .muted{color:var(--ink2);font-size:13px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}
@@ -513,7 +505,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <symbol id="i-phone" viewBox="0 0 24 24"><path d="M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></symbol>
   <symbol id="i-filter" viewBox="0 0 24 24"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></symbol>
-  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></symbol>
+  <symbol id="i-memories" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></symbol>
   <symbol id="i-view" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24"><path d="M21.41 11.58 12.41 2.58A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .55.22 1.05.59 1.42l9 9a2 2 0 0 0 2.83 0l7-7a2 2 0 0 0-.01-2.84zM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7z"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A5.99 5.99 0 0 1 12 18a6 6 0 1 1 0-12c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></symbol>
@@ -535,7 +527,7 @@ body.signed-out>:not(.login,svg){display:none!important}
     <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
     <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
   </form>
-  <div class="top-right"><a class="icon-btn" id="settingsBtn" href="#/settings" aria-label="Settings" title="Settings"><svg><use href="#i-settings"/></svg></a><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
+  <div class="top-right"><button class="icon-btn owner-only" id="memBtn" aria-label="On this day" aria-pressed="true"><svg><use href="#i-memories"/></svg></button><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
     <div class="acct-menu" id="acctMenu" hidden></div></span></div>
 </header>
 <div class="selbar" id="selbar" hidden>
@@ -671,7 +663,7 @@ function route() {
   const folder = /^\/(album|all)\//.test(h) &&
     [...document.querySelectorAll(".side a[data-folder]")].find(a => inPath === a.dataset.folder || inPath.startsWith(a.dataset.folder + "/"));
   const section = folder ? null
-    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") || h.startsWith("/people/review/") ? "people" : h.startsWith("/search/") || h === "/settings" ? null : "photos");
+    : NAV[h] ?? (/^\/(album|all|ualbum)\//.test(h) ? "albums" : h.startsWith("/person/") || h.startsWith("/people/review/") ? "people" : h.startsWith("/search/") ? null : "photos");
   document.querySelectorAll(".side a").forEach(a =>
     a.classList.toggle("active", a === folder || (!a.dataset.folder && a.dataset.route === section)));
   $("#main").scrollTop = 0;
@@ -683,7 +675,6 @@ function route() {
   if (h.startsWith("/people/review/")) return renderPersonReview(+h.slice(15));
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
-  if (h === "/settings") return renderSettings();
   if (h === "/dates") return renderDates();
   if (h === "/upload") return renderUpload();
   if (h === "/similar") return renderSimilar();
@@ -1178,22 +1169,30 @@ new IntersectionObserver(es => es[0].isIntersecting && loadMore(), {root: $("#ma
 const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadPrev(), {root: $("#main"), rootMargin: "1200px"});
 
 // ---------- on this day: this date in earlier years, at the top of Photos (closing it hides it here until tomorrow;
-// Turn off switches it off for everyone, until it's turned back on in Settings) ----------
+// the clock button at the top right switches it off, or on again, for everyone) ----------
+function paintMemBtn() {
+  const on = status?.features?.memories !== false, b = $("#memBtn");
+  b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+  b.title = on ? "On this day is on for everyone. Click to turn it off" : "On this day is off for everyone. Click to turn it on";
+}
+$("#memBtn").onclick = async () => {
+  const on = status?.features?.memories === false;      // the switch to make
+  try { status.features = (await post("/api/settings", {memories: on})).features; } catch { return; }
+  try { localStorage.removeItem("memoriesClosed"); } catch {}
+  paintMemBtn();
+  toast(`On this day is ${on ? "on" : "off"} for everyone`);
+  if ($("#memories")) { $("#memories").innerHTML = ""; if (on) loadMemories(); }
+};
 async function loadMemories() {
   const today = new Date().toDateString();
   if (status?.features?.memories === false) return;
   try { if (localStorage.getItem("memoriesClosed") === today) return; } catch {}
   let r; try { r = await api("/api/memories"); } catch { return; }
   const box = $("#memories"); if (!box || !r.years.length) return;
-  box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><span class="mem-acts"><button class="txt-btn owner-only" id="memOff" title="For everyone; turn it back on in Settings">Turn off</button><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></span></div>
+  box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></div>
     <div class="mem-row">${r.years.map((y, i) => `<button class="mem-card" data-y="${i}"><img src="/thumb/${y.items[0].id}" alt="" loading="lazy">
       <span>${y.ago === 1 ? "1 year ago" : y.ago + " years ago"}<small>${plural(y.items.length, "item")}</small></span></button>`).join("")}</div>`;
-  box.onclick = async e => {
-    if (e.target.closest("#memOff")) {
-      status.features = (await post("/api/settings", {memories: false})).features;
-      box.innerHTML = ""; toast(`On this day is off for everyone. Turn it back on in Settings (${ico("settings")}, top right).`);
-      return;
-    }
+  box.onclick = e => {
     if (e.target.closest("#memClose")) { try { localStorage.setItem("memoriesClosed", today); } catch {} box.innerHTML = ""; return; }
     const c = e.target.closest(".mem-card"); if (c) openViewerOn(r.years[+c.dataset.y].items, 0);
   };
@@ -1646,25 +1645,6 @@ const deviceName = ua => /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad"
   : /Macintosh/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows PC" : "Device";
 const browserName = ua => /EdgA?\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "";
 const since = ts => { const t = Date.parse(ts.replace(" ", "T") + "Z"); return isNaN(t) ? "" : ago(t / 1000); };
-// ---------- settings: features switched on or off for everyone (stored on the Mac; the owner changes them) ----------
-const FEATURE_INFO = [["memories", "On this day", "Photos from this date in earlier years, at the top of Photos."]];
-function renderSettings() {
-  feed = null;
-  const owner = me?.role === "owner";
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Settings</h1></div>
-    <div class="page-sub">These apply to everyone, on every phone and computer that opens the gallery.${owner ? "" : " Only the owner can change them."}</div>
-    <div class="panel settings" id="setBox"><h3>Features</h3>${FEATURE_INFO.map(([k, name, what]) => `<label class="set-row">
-      <span><b>${name}</b><span class="muted">${what}</span></span>
-      <input type="checkbox" class="toggle" data-f="${k}" aria-label="${name}" ${status?.features?.[k] ? "checked" : ""} ${owner ? "" : "disabled"}></label>`).join("")}</div>`;
-  $("#setBox").onchange = async e => {
-    const t = e.target.closest("[data-f]"); if (!t) return;
-    try {
-      status.features = (await post("/api/settings", {[t.dataset.f]: t.checked})).features;
-      toast(`${FEATURE_INFO.find(f => f[0] === t.dataset.f)[1]} is ${t.checked ? "on" : "off"} for everyone`);
-    } catch { t.checked = !t.checked; }
-  };
-}
-
 async function renderSharing() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Sharing</h1></div>
@@ -2496,6 +2476,7 @@ $("#q").addEventListener("input", () => { $("#qClear").hidden = !$("#q").value; 
 $("#qClear").onclick = () => { $("#q").value = ""; $("#qClear").hidden = true; $("#q").focus(); };
 
 function renderSide() {
+  paintMemBtn();
   const tops = {};
   for (const a of albums) { const t = a.album.split("/")[0]; tops[t] = (tops[t] || 0) + a.n; }
   $("#topFolders").innerHTML = Object.keys(tops).sort().map(t =>
