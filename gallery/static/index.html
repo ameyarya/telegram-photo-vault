@@ -383,6 +383,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   box-shadow:0 6px 24px rgb(0 0 0/.35);display:grid;gap:10px;min-width:300px}
 .vm-row{display:flex;align-items:center;gap:6px}
 @media (max-width:600px){.view-menu{position:fixed;left:8px;right:8px;top:120px;min-width:0}.vm-row{flex-wrap:wrap}}
+@media (max-width:600px){.filter-menu{right:auto;left:0}}  /* the filter button sits left on the row: open the menu rightwards */
 .vm-row>span{width:64px;color:var(--ink2);font-size:13px}
 .seg{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);color:var(--ink);background:none;cursor:pointer;font:inherit;font-size:13px}
 .seg.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
@@ -420,6 +421,7 @@ body.signed-out>:not(.login,svg){display:none!important}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
 .panel h3{margin:0 0 10px;font-size:15px;font-weight:500}
 #memBtn{position:relative}
+.head-actions #memBtn.on{background:var(--pill);color:var(--pill-ink)}
 #memBtn.on{background:var(--pill);color:var(--pill-ink)}
 #memBtn:not(.on)::after{content:"";position:absolute;left:11px;right:11px;top:50%;height:2px;border-radius:1px;background:currentColor;transform:rotate(-45deg)}
 .big{font-size:32px;font-weight:400;line-height:1.1}
@@ -527,7 +529,7 @@ body.signed-out>:not(.login,svg){display:none!important}
     <input id="q" placeholder="Search" aria-label="Search: places, things, dates, cameras" autocomplete="off" enterkeyhint="search">
     <button type="button" class="icon-btn" id="qClear" aria-label="Clear search" hidden><svg><use href="#i-close"/></svg></button>
   </form>
-  <div class="top-right"><button class="icon-btn owner-only" id="memBtn" aria-label="On this day" aria-pressed="true"><svg><use href="#i-memories"/></svg></button><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
+  <div class="top-right"><span class="acct-wrap"><button class="avatar" id="acctBtn" aria-label="Account" aria-haspopup="true" title="Account"></button>
     <div class="acct-menu" id="acctMenu" hidden></div></span></div>
 </header>
 <div class="selbar" id="selbar" hidden>
@@ -966,12 +968,13 @@ function openFeed(o) {
       `<button class="chip ${filterChip === k ? "on" : ""}" data-f="${k}">${filterChip === k ? ico("check") : ""}${label}</button>`).join("")}</div></div>`;
   const back = o.noBack ? "" : `<button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button>`;
   $("#page").innerHTML = `<div class="page-head ${o.noBack ? "no-back" : ""}">${back}<h1>${esc(o.title)}</h1>
-      <div class="head-actions">${o.empty ? "" : chips}${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="selectAll" aria-label="Select all" title="Select all (Ctrl/⌘ A)">${ico("check")}<span class="lbl">Select all</span></button>`}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
+      <div class="head-actions"><button class="txt-btn owner-only" id="memBtn" aria-label="On this day" aria-pressed="true">${ico("memories")}<span class="lbl">On this day</span></button>${o.empty ? "" : chips}${o.actions || ""}${o.empty ? "" : `<button class="txt-btn" id="selectAll" aria-label="Select all" title="Select all (Ctrl/⌘ A)">${ico("check")}<span class="lbl">Select all</span></button>`}<span class="view-wrap"><button class="txt-btn" id="viewBtn" aria-label="View options" title="Layout, size and shape">${ico("view")}<span class="lbl">View</span></button>${viewMenu()}</span><button class="txt-btn" id="refreshBtn" aria-label="Refresh" title="Load new photos and the latest backup status">${ico("refresh")}<span class="lbl">Refresh</span></button>${o.empty ? "" : sortBtn()}</div></div>
     ${o.crumbs ? `<div class="crumbs" id="crumbs">${o.crumbs}</div>` : ""}<div class="page-sub" id="pgSub" ${o.noSub ? "hidden" : ""}></div>${o.pre || ""}
     <div class="sentinel" id="topSentinel"></div><div id="days">${loadingHtml()}</div>`;
   if (o.back) $("#pgBack").onclick = () => location.hash = o.back;
   bindCards();
   $("#refreshBtn").onclick = () => refreshAll();
+  $("#memBtn").onclick = toggleMemories; paintMemBtn();
   $("#selectAll") && ($("#selectAll").onclick = pickAll);
   bindViewMenu();
   $("#sortBtn") && ($("#sortBtn").onclick = () => {
@@ -1171,18 +1174,18 @@ const topObserver = new IntersectionObserver(es => es[0].isIntersecting && loadP
 // ---------- on this day: this date in earlier years, at the top of Photos (closing it hides it here until tomorrow;
 // the clock button at the top right switches it off, or on again, for everyone) ----------
 function paintMemBtn() {
-  const on = status?.features?.memories !== false, b = $("#memBtn");
+  const on = status?.features?.memories !== false, b = $("#memBtn"); if (!b) return;
   b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
   b.title = on ? "On this day is on for everyone. Click to turn it off" : "On this day is off for everyone. Click to turn it on";
 }
-$("#memBtn").onclick = async () => {
+async function toggleMemories() {
   const on = status?.features?.memories === false;      // the switch to make
   try { status.features = (await post("/api/settings", {memories: on})).features; } catch { return; }
   try { localStorage.removeItem("memoriesClosed"); } catch {}
   paintMemBtn();
   toast(`On this day is ${on ? "on" : "off"} for everyone`);
   if ($("#memories")) { $("#memories").innerHTML = ""; if (on) loadMemories(); }
-};
+}
 async function loadMemories() {
   const today = new Date().toDateString();
   if (status?.features?.memories === false) return;
