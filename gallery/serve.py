@@ -83,7 +83,7 @@ async def main():
                                           ssl_certfile=CERT, ssl_keyfile=KEY, log_level="info"))
     http = uvicorn.Server(uvicorn.Config(redirect, host="0.0.0.0", port=HTTP_PORT, log_level="warning"))
     import server
-    tail = uvicorn.Server(uvicorn.Config(tailnet_app(server.app), host="127.0.0.1", port=TAILNET_PORT, log_level="warning",
+    tail = uvicorn.Server(uvicorn.Config(tailnet_app(server.app), host="127.0.0.1", port=TAILNET_PORT, log_level="warning", lifespan="off",
                                          proxy_headers=False))
     await asyncio.gather(https.serve(), http.serve(), tail.serve(), announce())
 
