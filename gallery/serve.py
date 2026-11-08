@@ -42,6 +42,20 @@ async def redirect(scope, receive, send):
     await resp(scope, receive, send)
 
 
+TAILNET_HOST = "tailnet"  # = auth.TAILNET (auth is imported later, once we are in the right folder)
+TAILNET_PORT = int(os.environ.get("GALLERY_TAILNET_PORT", 8444))
+
+
+def tailnet_app(app):
+    """The app as seen through `tailscale serve`, which forwards to 127.0.0.1:TAILNET_PORT. Everyone arriving here is a
+    remote device that must sign in, never "this Mac" (a proxy on the Mac would otherwise look like the Mac itself)."""
+    async def wrapped(scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            scope = {**scope, "client": (TAILNET_HOST, 0), "scheme": "wss" if scope["type"] == "websocket" else "https"}
+        await app(scope, receive, send)
+    return wrapped
+
+
 async def announce():
     """While sharing is on, tell the home network that photos.local (and any older address) is this Mac (follows IP
     changes)."""
@@ -68,7 +82,10 @@ async def main():
     https = uvicorn.Server(uvicorn.Config("server:app", host="0.0.0.0", port=HTTPS_PORT,
                                           ssl_certfile=CERT, ssl_keyfile=KEY, log_level="info"))
     http = uvicorn.Server(uvicorn.Config(redirect, host="0.0.0.0", port=HTTP_PORT, log_level="warning"))
-    await asyncio.gather(https.serve(), http.serve(), announce())
+    import server
+    tail = uvicorn.Server(uvicorn.Config(tailnet_app(server.app), host="127.0.0.1", port=TAILNET_PORT, log_level="warning",
+                                         proxy_headers=False))
+    await asyncio.gather(https.serve(), http.serve(), tail.serve(), announce())
 
 
 if __name__ == "__main__":

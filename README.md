@@ -127,6 +127,11 @@ certificate (so passwords and photos are encrypted on the Wi-Fi), then sign in a
 - Accounts are managed only on the Mac. "Sign out" a lost phone, or change a password to sign out all their devices.
 - View-only accounts can browse, favorite, add to albums and name people; trash, restore and merging are full access only.
 - Passwords are stored as scrypt hashes; wrong passwords are rate-limited. Works while the Mac is awake and on the same Wi-Fi.
+
+**From anywhere, privately (Tailscale):** install [Tailscale](https://tailscale.com) on the Mac and on each device, then run
+`tailscale serve --bg 8444` on the Mac. The gallery listens on `127.0.0.1:8444` for that proxy only; everyone arriving
+that way has to sign in (the Mac's own no-login access never applies to them) and failed sign-ins are counted per device.
+Nothing is opened to the public internet. The address is `https://<mac-name>.<tailnet>.ts.net`.
 - Trusting the certificate means the phone trusts this Mac's mkcert authority; remove it in the phone's settings to undo.
 
 ### Optional: smart search, people, similar shots

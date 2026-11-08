@@ -24,6 +24,7 @@ router = APIRouter()
 COOKIE = "pv_session"
 SESSION_DAYS = 180
 LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+TAILNET = "tailnet"  # what serve.py makes of a request that came through `tailscale serve`: a signed-in-only remote device
 # test-only: treat this server's loopback clients as phones on the home network
 LOOPBACK_IS_REMOTE = os.environ.get("GALLERY_LOOPBACK_IS_REMOTE") == "1"
 MAX_FAILURES, FAILURE_WINDOW = 5, 15 * 60
@@ -130,7 +131,7 @@ def gate(request):
         request.state.user = {"id": 0, "name": "This Mac", "role": "owner", "local": True}
         return None
     host = request.client.host if request.client else ""
-    if not is_home_network(host) or not sharing_on():
+    if host != TAILNET and (not is_home_network(host) or not sharing_on()):
         return Response("This gallery is only available on the Mac it runs on.", status_code=403)
     user = session_user(request)
     request.state.user = user
@@ -160,6 +161,8 @@ class Login(BaseModel):
 @router.post("/api/login")
 def login(body: Login, request: Request):
     ip = request.client.host if request.client else "?"
+    if ip == TAILNET:
+        ip = "tailnet:" + request.headers.get("x-forwarded-for", "?")[:64]  # which device, as Tailscale saw it
     name = body.name.strip().lower()
     if _too_many(ip) or _too_many("user:" + name):
         raise HTTPException(429, "Too many wrong passwords. Try again in 15 minutes.")
