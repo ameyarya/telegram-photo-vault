@@ -27,7 +27,8 @@ def tls(world, tmp_path_factory):
     ca = Path(subprocess.run([MKCERT, "-CAROOT"], capture_output=True, text=True).stdout.strip()) / "rootCA.pem"
     https_port, http_port = free_port(), free_port()
     env = {**world["env"], "GALLERY_CERT": str(cert), "GALLERY_KEY": str(key),
-           "GALLERY_HTTPS_PORT": str(https_port), "GALLERY_HTTP_PORT": str(http_port)}
+           "GALLERY_HTTPS_PORT": str(https_port), "GALLERY_HTTP_PORT": str(http_port),
+           "GALLERY_TAILNET_PORT": str(free_port())}
     proc = subprocess.Popen([sys.executable, "serve.py"], cwd=ROOT, env=env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(100):

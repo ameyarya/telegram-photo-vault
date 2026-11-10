@@ -300,6 +300,7 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .trash-tile .tg svg{width:18px;height:18px}
 .trash-grid{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
 .trash-grid .tile{width:150px;height:150px}
+.trash-grid .tile .sel{display:none}
 body.member .owner-only,body:not(.mac) .mac-only{display:none!important}
 body.signed-out>:not(.login,svg){display:none!important}
 .login{min-height:100vh;display:grid;place-items:center;padding:16px;box-sizing:border-box}
@@ -675,6 +676,7 @@ function route() {
   if (h === "/people") return renderPeople();
   if (h === "/people/review") return renderPeopleReview();
   if (h.startsWith("/people/review/")) return renderPersonReview(+h.slice(15));
+  if (h.startsWith("/memory/")) return renderMemory(+h.slice(8));
   if (h === "/trash") return renderTrash();
   if (h === "/sharing") return renderSharing();
   if (h === "/dates") return renderDates();
@@ -1197,7 +1199,7 @@ async function loadMemories() {
       <span>${y.ago === 1 ? "1 year ago" : y.ago + " years ago"}<small>${plural(y.items.length, "item")}</small></span></button>`).join("")}</div>`;
   box.onclick = e => {
     if (e.target.closest("#memClose")) { try { localStorage.setItem("memoriesClosed", today); } catch {} box.innerHTML = ""; return; }
-    const c = e.target.closest(".mem-card"); if (c) openViewerOn(r.years[+c.dataset.y].items, 0);
+    const c = e.target.closest(".mem-card"); if (c) location.hash = "#/memory/" + r.years[+c.dataset.y].ago;
   };
 }
 
@@ -1891,6 +1893,20 @@ async function uploadMissing() {
   try { await post("/api/upload/done"); } catch {}
   try { await lock?.release(); } catch {}
   drawUpload(true);
+}
+
+// ---------- one "On this day" year: all its photos as a grid, then tap one for the full view ----------
+async function renderMemory(ago) {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head"><button class="icon-btn" id="pgBack" aria-label="Back">${ico("back")}</button><h1>${ago === 1 ? "1 year ago" : ago + " years ago"}</h1></div>
+    <div class="page-sub" id="pgSub"></div><div id="memBox"></div>`;
+  $("#pgBack").onclick = () => location.hash = "#/photos";
+  let r; try { r = await api("/api/memories"); } catch { return; }
+  const y = r.years.find(y => y.ago === ago);
+  if (!y) { $("#memBox").innerHTML = `<div class="note">Nothing from this day to show.</div>`; return; }
+  $("#pgSub").textContent = `${plural(y.items.length, "item")} · ${new Date(y.items[0].taken_at).toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"})}`;
+  $("#memBox").innerHTML = `<div class="trash-grid">${y.items.map((it, i) => tileHtml(it, 150, 150, i)).join("")}</div>`;
+  $("#memBox").onclick = e => { const t = e.target.closest(".tile"); if (t) openViewerOn(y.items, +t.dataset.i); };
 }
 
 // ---------- trash ----------

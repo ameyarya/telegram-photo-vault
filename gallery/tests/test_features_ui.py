@@ -139,8 +139,12 @@ def test_on_this_day_opens_the_photos_and_hides_until_tomorrow(page, api, items)
     go(page)
     expect(page.locator(".mem-card")).to_have_count(len(day["years"]))
     page.locator(".mem-card").first.click()
-    expect(page.locator("#viewer")).to_be_visible()
+    expect(page.locator("#memBox .tile")).to_have_count(len(day["years"][0]["items"]))   # the year's photos as a grid first
+    expect(page.locator("#viewer")).not_to_be_visible()
+    page.locator("#memBox .tile").first.click()
+    expect(page.locator("#viewer")).to_be_visible()                                      # then the full view
     page.keyboard.press("Escape")
+    page.click("#pgBack")
     page.click("#memClose")
     expect(page.locator(".mem-card")).to_have_count(0)
     page.reload()
