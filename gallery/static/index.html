@@ -162,9 +162,16 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .filter-btn svg{width:18px;height:18px}
 .filter-btn.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
 .head-actions .chips{margin:0}
+.cat-stage{position:relative;height:340px;margin:6px 0 14px;overflow:hidden}
+#sphere img{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:5px;object-fit:cover;will-change:transform,opacity}
+#catFly{position:fixed;inset:0;pointer-events:none;z-index:60}#catFly img{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:4px;object-fit:cover;transform-origin:0 0}
+.cat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:30px}
+.cat-card{display:block;border:1px solid var(--line);border-radius:14px;padding:12px;color:var(--ink);text-decoration:none;transition:background .2s,box-shadow .2s}
+.cat-card:hover{background:var(--hover)}.cat-card.empty{opacity:.55}.cat-card.hit{box-shadow:0 0 0 2px var(--accent)}
+.cat-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.cat-card .cnt{background:var(--pill);color:var(--pill-ink);border-radius:10px;padding:1px 9px;font-size:13px}
+.cat-card .slots{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}.cat-card .slot{aspect-ratio:1;border-radius:4px;background:var(--tile) center/cover}
 .cat-stats{margin:14px 0;font-size:15px}.cat-actions{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.cat-hint{color:var(--ink2);font-size:13px;margin:8px 0 18px;max-width:640px}
 .cat-prog{display:flex;align-items:center;gap:12px;margin:8px 0 18px;flex-wrap:wrap}.cat-prog .bar{flex:1 1 240px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.cat-prog .bar i{display:block;height:100%;background:var(--accent);transition:width .4s}
-.cat-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.cat-chip{display:inline-flex;gap:8px;align-items:center;padding:10px 16px;border:1px solid var(--line);border-radius:20px;color:var(--ink);text-decoration:none}.cat-chip span{color:var(--ink2)}.cat-chip:hover{background:var(--hover)}
 #catBox button:disabled{opacity:.45;pointer-events:none}
 .filter-menu{position:absolute;right:0;top:42px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px;
   display:grid;min-width:200px;box-shadow:0 6px 24px rgb(0 0 0/.35)}
@@ -505,6 +512,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <symbol id="i-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
   <symbol id="i-add-album" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></symbol>
+  <symbol id="i-sorting" viewBox="0 0 24 24"><path d="M12 2 6.5 11h11L12 2zm5.5 11a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM3 21.5h8v-8H3v8z"/></symbol>
   <symbol id="i-similar" viewBox="0 0 24 24"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></symbol>
   <symbol id="i-share-ios" viewBox="0 0 24 24"><path d="M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z"/></symbol>
   <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></symbol>
@@ -571,7 +579,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <a href="#/albums" data-route="albums"><svg><use href="#i-albums"/></svg>Albums</a>
   <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
-  <a href="#/categories" data-route="categories" class="owner-only"><svg><use href="#i-albums"/></svg>Sort photos</a>
+  <a href="#/categories" data-route="categories" class="owner-only"><svg><use href="#i-sorting"/></svg>Sorting</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
@@ -1582,44 +1590,125 @@ async function renderPeopleReview() {
 
 async function renderCategories() {
   feed = null;
-  $("#page").innerHTML = `<div class="page-head no-back"><h1>Sort photos</h1></div>
-    <div class="page-sub">Claude looks at small previews of your photos and files each one under Selfies, People, Food, Travel, Nature,
-      Pets, Documents, Screens &amp; memes or Other. The categories then appear in the filter menu above your photos. Nothing is moved or copied.</div>
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Sorting</h1></div>
+    <div class="page-sub">Claude looks at small previews of your photos and files each one under a category (Selfies, Food, Travel...).
+      The categories then appear in the filter menu above your photos. Nothing is moved or copied.</div>
     <div class="note">${ico("cloud-done")} <span><b>Privacy:</b> the previews (small thumbnails, 30 to a sheet) are sent to Anthropic through Claude Code on this Mac.
       Nothing is sent unless you press a button below. Only photos are sorted, never videos.</span></div>
-    <div id="catBox">${loadingHtml()}</div>`;
-  let timer = null;
+    <div id="catBox">${loadingHtml()}</div>
+    <div class="cat-stage" id="catStage"><div id="sphere"></div></div>
+    <div class="cat-cards" id="catCards"></div>`;
+  const fly = document.getElementById("catFly") || document.body.appendChild(Object.assign(document.createElement("div"), {id: "catFly"}));
+  fly.innerHTML = "";
+  let timer = null, starting = null, wasRunning = false, since = null, cards = null, tiles = [], rot = 0, last = 0;
+  const queue = [], shown = {};        // queue: labelled photos waiting to fly; shown: what each card displays
+  const stage = $("#catStage"), sphere = $("#sphere");
+
+  // ---- the sphere: thumbnails spread over a ball (golden-angle spiral), turning slowly
+  api("/api/categories/sphere?n=150").then(r => {
+    const golden = Math.PI * (3 - Math.sqrt(5)), T = r.ids.length;
+    r.ids.forEach((id, i) => {
+      const y = T > 1 ? 1 - 2 * i / (T - 1) : 0, rr = Math.sqrt(1 - y * y), th = golden * i;
+      const img = Object.assign(new Image(), {src: `/thumb/${id}`, alt: "", draggable: false});
+      sphere.append(img);
+      tiles.push({el: img, x: Math.cos(th) * rr, y, z: Math.sin(th) * rr, alive: true, sx: 0, sy: 0, s: 1});
+    });
+  }).catch(() => {});
+  const frame = now => {
+    if (!document.body.contains(sphere)) { fly.innerHTML = ""; return; }   // left the page
+    const dt = Math.min(now - (last || now), 50); last = now;
+    rot += dt * 0.00035;
+    const tilt = Math.sin(now / 4000) * 0.35, w = stage.clientWidth, h = stage.clientHeight, R = Math.min(w, h) * 0.38;
+    const ca = Math.cos(rot), sa = Math.sin(rot), cb = Math.cos(tilt), sb = Math.sin(tilt);
+    for (const t of tiles) {
+      if (!t.alive) continue;
+      const x = t.x * ca + t.z * sa; let z = -t.x * sa + t.z * ca;
+      const y = t.y * cb - z * sb; z = t.y * sb + z * cb;
+      const d = (z + 1) / 2;
+      t.s = 0.5 + d * 0.8; t.sx = w / 2 + x * R; t.sy = h / 2 + y * R;
+      t.el.style.transform = `translate3d(${(t.sx - 18).toFixed(1)}px,${(t.sy - 18).toFixed(1)}px,0) scale(${t.s.toFixed(3)})`;
+      t.el.style.opacity = (0.25 + d * 0.75).toFixed(2); t.el.style.zIndex = Math.round(d * 100);
+    }
+    // sorted photos leave the sphere a few at a time
+    for (let n = Math.max(1, Math.ceil(queue.length / 40)); n-- && queue.length;) release(queue.shift());
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+
+  // ---- a photo flies from a sphere tile to the card of its category
+  const slotOf = (k) => { const c = cards[k]; return c.el.querySelectorAll(".slot")[(c.n++) % 6]; };
+  function release(it) {
+    const c = cards?.[it.cat]; if (!c) return;
+    const t = tiles.find(t => t.alive), slot = slotOf(it.cat), to = slot.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    if (t) { t.alive = false; t.el.style.opacity = 0; setTimeout(() => { if (wasRunning) t.alive = true; }, 2500); }   // a long run keeps the sphere full
+    const from = t ? {x: sr.left + t.sx - 18, y: sr.top + t.sy - 18, s: t.s} : {x: sr.left + sr.width / 2 - 18, y: sr.top + sr.height / 2 - 18, s: 1};
+    const img = Object.assign(new Image(), {src: `/thumb/${it.id}`, alt: ""});
+    fly.append(img);
+    const end = {transform: `translate(${to.left}px,${to.top}px) scale(${to.width / 36})`, opacity: 1};
+    img.animate([{transform: `translate(${from.x}px,${from.y}px) scale(${from.s})`, opacity: 1},
+                 {transform: `translate(${(from.x + to.left) / 2 + (Math.random() - .5) * 60}px,${Math.min(from.y, to.top) - 30}px) scale(1)`, opacity: 1}, end],
+                {duration: 650 + Math.random() * 400, easing: "cubic-bezier(.55,0,.25,1)"}).onfinish = () => {
+      img.remove(); slot.style.backgroundImage = `url(/thumb/${it.id})`; slot.classList.add("on");
+      c.count++; c.el.querySelector(".cnt").textContent = nf(c.count); c.el.classList.remove("empty"); c.el.classList.add("hit");
+      setTimeout(() => c.el.classList.remove("hit"), 300);
+    };
+  }
+  async function pull() {            // photos labelled since we last looked
+    if (since === null) return;
+    const r = await api(`/api/categories/recent?since=${since}`).catch(() => null); if (!r) return;
+    since = r.last; queue.push(...r.items);
+  }
+
   const draw = async () => {
     const box = $("#catBox"); if (!box) { clearInterval(timer); return; }
     let st; try { st = await api("/api/categories/status"); } catch { return; }
-    const j = st.job, running = j?.status === "running";
-    const err = j && j.status !== "running" && j.detail?.error;
-    const pct = j?.total ? Math.round(100 * j.done / j.total) : 0;
+    if (!cards) {                      // first time: the category cards, as they are now
+      cards = {};
+      $("#catCards").innerHTML = st.categories.map(c => `<a class="cat-card ${c.count ? "" : "empty"}" href="#/photos" data-k="${c.key}">
+          <div class="top"><b>${esc(c.label)}</b><span class="cnt">${nf(c.count)}</span></div>
+          <div class="slots">${[0, 1, 2, 3, 4, 5].map(i => `<i class="slot ${c.latest[i] ? "on" : ""}" ${c.latest[i] ? `style="background-image:url(/thumb/${c.latest[i]})"` : ""}></i>`).join("")}</div></a>`).join("");
+      $("#catCards").querySelectorAll(".cat-card").forEach(el => {
+        cards[el.dataset.k] = {el, n: 0, count: st.categories.find(c => c.key === el.dataset.k).count};
+        el.addEventListener("click", () => { filterChip = "cat:" + el.dataset.k; lastPath = "/photos"; });
+      });
+      since = st.last;
+    }
+    const j = st.job;
+    if (starting && (j?.id !== starting.id || Date.now() - starting.at > 20000)) starting = null;   // the new job appeared (or never did)
+    const running = j?.status === "running" || !!starting;
+    if (running || wasRunning) await pull();
+    if (!running && !queue.length && wasRunning) st.categories.forEach(c => {   // finished and everything has landed: show the real numbers
+      if (cards[c.key]) { cards[c.key].count = c.count; cards[c.key].el.querySelector(".cnt").textContent = nf(c.count); cards[c.key].el.classList.toggle("empty", !c.count); }
+    });
+    const wasOn = wasRunning; wasRunning = running;
+    if (wasOn && !running) loadCats();        // the filter menu offers the new categories
+    const err = !running && j?.detail?.error;
+    const pct = j?.total && j.status === "running" ? Math.round(100 * j.done / j.total) : 0;
     const n = st.unsorted, batch = st.calls_per;
     box.innerHTML = `
       ${!st.claude ? `<div class="note">The <code>claude</code> command was not found on this Mac. Install Claude Code and sign in, then reload.</div>` : ""}
       <div class="cat-stats"><b>${nf(st.labelled)}</b> of ${nf(st.photos)} photos sorted · <b>${nf(n)}</b> waiting</div>
       ${running ? `<div class="cat-prog"><div class="bar"><i style="width:${pct}%"></i></div>
-          <span>${j.total ? `Sorting… ${nf(j.done)} of ${nf(j.total)}` : "Getting ready…"}</span>
+          <span>${j?.status === "running" && j.total ? `Sorting… ${nf(j.done)} of ${nf(j.total)}` : "Getting ready…"}</span>
           <button class="txt-btn" id="catStop">Stop</button></div>` :
         `<div class="cat-actions">
-          <button class="fill-btn" id="catTry" ${!st.claude || !n ? "disabled" : ""}>Try it on ${nf(Math.min(batch, n))} photos</button>
-          <button class="txt-btn" id="catAll" ${!st.claude || !n ? "disabled" : ""}>Sort all ${nf(n)} waiting</button>
+          ${n ? `<button class="fill-btn" id="catTry" ${!st.claude ? "disabled" : ""}>Try it on ${nf(Math.min(batch, n))} photos</button>
+          <button class="txt-btn" id="catAll" ${!st.claude ? "disabled" : ""}>Sort all ${nf(n)} waiting</button>` : ""}
           ${st.labelled ? `<button class="txt-btn" id="catClear">Start over</button>` : ""}</div>
-        <div class="cat-hint">One Claude call sorts about ${batch} photos. "Try it" is a single call, to see how it does. "Sort all" runs about
-          ${nf(Math.ceil(n / batch))} calls and uses your Claude plan's usage; you can stop it at any time and what's done is kept.</div>
+        ${n ? `<div class="cat-hint">One Claude call sorts about ${batch} photos. "Try it" is a single call, to see how it does. "Sort all" runs about
+          ${nf(Math.ceil(n / batch))} calls and uses your Claude plan's usage; you can stop it at any time and what's done is kept.</div>` : ""}
         ${j?.status === "done" && j.detail?.failed_batches ? `<div class="note">${plural(j.detail.failed_batches, "call")} failed; those photos are still waiting. ${esc(j.detail.error || "")}</div>` : ""}
-        ${err ? `<div class="note">The last run stopped: ${esc(err)}${/auth|login|OAuth/i.test(err) ? ` Open Terminal, run <code>claude</code>, sign in, and try again.` : ""}</div>` : ""}`}
-      <div class="cat-list">${st.categories.filter(c => c.count).map(c =>
-        `<a class="cat-chip" href="#/photos" data-k="${c.key}">${esc(c.label)}<span>${nf(c.count)}</span></a>`).join("") || `<div class="empty">Nothing sorted yet.</div>`}</div>`;
-    const start = async limit => { try { await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); draw(); } catch (e) { toast(esc(e.message)); } };
+        ${err ? `<div class="note">The last run stopped: ${esc(err)}${/auth|login|OAuth/i.test(err) ? ` Open Terminal, run <code>claude</code>, sign in, and try again.` : ""}</div>` : ""}`}`;
+    const start = async limit => { try { starting = {id: j?.id, at: Date.now()}; await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); draw(); } catch (e) { starting = null; toast(esc(e.message)); } };
     $("#catTry")?.addEventListener("click", () => start(batch));
     $("#catAll")?.addEventListener("click", () => start(0));
-    $("#catStop")?.addEventListener("click", async () => { await post("/api/categories/stop"); draw(); });
-    $("#catClear")?.addEventListener("click", async () => { if (!confirm("Forget all categories and sort again from scratch?")) return; await post("/api/categories/clear"); await loadCats(); draw(); });
-    box.querySelectorAll(".cat-chip").forEach(a => a.addEventListener("click", () => { filterChip = "cat:" + a.dataset.k; lastPath = "/photos"; }));
-    if (!running && timer) { clearInterval(timer); timer = null; loadCats(); }
-    if (running && !timer) timer = setInterval(draw, 3000);
+    $("#catStop")?.addEventListener("click", async () => { starting = null; await post("/api/categories/stop"); draw(); });
+    $("#catClear")?.addEventListener("click", async () => {
+      if (!confirm("Forget all categories and sort again from scratch?")) return;
+      await post("/api/categories/clear"); await loadCats(); renderCategories();
+    });
+    if (!running && timer) { clearInterval(timer); timer = null; }
+    if (running && !timer) timer = setInterval(draw, 2000);
   };
   await draw();
 }

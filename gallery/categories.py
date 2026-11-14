@@ -213,10 +213,34 @@ def categories_status():
     con = connect()
     have = counts(con)
     eligible = con.execute(f"SELECT count(*) FROM media WHERE {ELIGIBLE}").fetchone()[0]
-    return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have.get(k, 0)} for k in CATEGORIES],
-            "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible,
+    latest = {k: [r[0] for r in con.execute("SELECT media_id FROM categories WHERE cat = ? ORDER BY rowid DESC LIMIT 6", (k,))]
+              for k in CATEGORIES}
+    last = con.execute("SELECT coalesce(max(rowid), 0) FROM categories").fetchone()[0]
+    return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have.get(k, 0), "latest": latest[k]} for k in CATEGORIES],
+            "last": last, "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible,
             "claude": bool(shutil.which(CLAUDE) or os.path.exists(CLAUDE)), "job": _running(),
             "calls_per": BATCH_SHEETS * SHEET_TILES}
+
+
+@router.get("/api/categories/sphere")
+def categories_sphere(n: int = 150):
+    """Photos for the sphere on the Sorting page: random ones still waiting (else any), as media ids."""
+    con = connect()
+    n = max(1, min(n, 400))
+    ids = [r[0] for r in con.execute(
+        f"SELECT id FROM media WHERE {ELIGIBLE} AND id NOT IN (SELECT media_id FROM categories) ORDER BY random() LIMIT ?", (n,))]
+    if len(ids) < n:
+        more = con.execute(f"SELECT id FROM media WHERE {ELIGIBLE} ORDER BY random() LIMIT ?", (n,))
+        ids += [r[0] for r in more if r[0] not in set(ids)][:n - len(ids)]
+    return {"ids": ids}
+
+
+@router.get("/api/categories/recent")
+def categories_recent(since: int = 0, limit: int = 400):
+    """Photos labelled after label number `since` (so the page can fly them into their folders as they are sorted)."""
+    rows = connect().execute("SELECT rowid, media_id, cat FROM categories WHERE rowid > ? ORDER BY rowid LIMIT ?",
+                             (since, min(limit, 2000))).fetchall()
+    return {"items": [{"id": r[1], "cat": r[2]} for r in rows], "last": rows[-1][0] if rows else since}
 
 
 class RunBody(BaseModel):
