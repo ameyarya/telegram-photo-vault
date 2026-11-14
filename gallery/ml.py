@@ -85,12 +85,12 @@ class Clip:
                                       for im in pil_images]).to(self.device)
             return _norm(self.model.encode_image(batch).float().cpu().numpy())
 
-    def text(self, q):
+    def text(self, q, template="a photo of {}"):
         if FAKE:
             words = q.lower()
             return _norm([("red" in words) * 1.0, ("green" in words) * 1.0, ("blue" in words) * 1.0, 0.02])
         with self.torch.no_grad():
-            tokens = self.tokenizer([f"a photo of {q}"]).to(self.device)
+            tokens = self.tokenizer([template.format(q)]).to(self.device)
             return _norm(self.model.encode_text(tokens).float().cpu().numpy())[0]
 
 

@@ -3,10 +3,10 @@
 **A private, self-hosted Google Photos for your Mac.** Point it at a folder or drive of photos and videos and browse
 them in your browser: a timeline with a date scrubber, albums, search, favorites, Live Photos, a trash and more.
 Optionally add a free off-site backup to a private Telegram channel, search by what's *in* the photos, group faces,
-and share with family on your home Wi-Fi.
+sort photos into Food, Travel and more, and share with family on your home Wi-Fi.
 
-Everything runs on your Mac. Nothing leaves it unless you turn on Telegram backup (to your own private channel) or the
-Claude sorting page (which says so before you press anything).
+Everything runs on your Mac. Nothing leaves it unless you turn on Telegram backup (to your own private channel).
+Search, people, similar shots and sorting all use models that run on your Mac.
 
 *Unofficial: not affiliated with Google or Telegram. Built for one person's 700 GB / 70,000-photo drive; it has a large
 test suite, and it is still a personal project, so read [the caveats](docs/telegram-backup.md#caveats) before trusting it
@@ -54,7 +54,7 @@ Each of these is optional and independent. Do them in any order, whenever you li
 | A free off-site copy of everything in a private Telegram channel | `./vault telegram` → [docs/telegram-backup.md](docs/telegram-backup.md) | 10 min + upload time |
 | Family browsing on their phones over your Wi-Fi, each with their own login | [docs/phones-and-family.md](docs/phones-and-family.md) | 5 min |
 | Automatic phone backup (Android, iPhone, iCloud Photos) | [docs/phones-and-family.md](docs/phones-and-family.md) | 10 min |
-| Photos sorted into Food, Selfies, Travel, … by Claude | the **Sorting** page → [docs/smart-features.md](docs/smart-features.md) | 5 min |
+| Photos sorted into Food, Selfies, Travel, … (on your Mac) | after `./vault smart`, the **Sorting** page → [docs/smart-features.md](docs/smart-features.md) | 2 min |
 
 ## What you get
 
@@ -65,7 +65,7 @@ Everything is listed in [docs/features.md](docs/features.md). The highlights:
 - **Search** by date, camera, lens or folder; with smart search, by what's in the picture.
 - **Viewer** with zoom, camera details, favorites, your own albums, slideshow, and a basic editor (the original is never changed).
 - **People, similar shots, On this day, Live Photos, Fix dates, Trash** (nothing is deleted until you empty it).
-- **Sorting**: let Claude file photos under categories, with a sphere of your photos flying into their folders.
+- **Sorting**: your Mac files photos under categories, with a sphere of your photos flying into their folders.
 - **Backup dashboard, restore, family accounts, upload from phones**: when Telegram backup is on.
 
 ## If something goes wrong

@@ -1,19 +1,33 @@
 """The Sorting page's photo sphere: it turns, photos fly into their category cards, and nothing leaks or overflows."""
+import shutil
+
 import httpx
 import pytest
 
-from conftest import SHOTS, build_big_drive, make_world, serve, stop
-from test_categories import FAKE
+from conftest import PY, ROOT, SHOTS, make_world, run, serve, stop
+
+
+def build_color_drive(d):
+    """240 small photos over two years, a third each red, green and blue (the stand-in model calls them Food, Nature, Travel)."""
+    (d / "years").mkdir(parents=True)
+    for color in ("red", "green", "blue"):
+        run("ffmpeg", "-nostdin", "-y", "-f", "lavfi", "-i", f"color=c={color}:size=120x80", "-frames:v", "1", str(d / f"{color}.jpg"))
+    for month in range(24):
+        y, m = 2022 + month // 12, month % 12 + 1
+        for k in range(10):
+            shutil.copyfile(d / f"{('red', 'green', 'blue')[(month * 10 + k) % 3]}.jpg", d / "years" / f"{y}-{m:02d}-{k + 1:02d} 120000.jpg")
+    for color in ("red", "green", "blue"):
+        (d / f"{color}.jpg").unlink()
+    run("exiftool", "-overwrite_original", "-DateTimeOriginal<Filename", "-q", str(d / "years"))
 
 
 @pytest.fixture(scope="module")
 def bigsort(tmp_path_factory):
     base = tmp_path_factory.mktemp("bigsort")
-    fake = base / "claude"
-    # one call at a time, two seconds each (like the real thing), so a run takes a few seconds and can be watched
-    fake.write_text(FAKE.replace("python3 -", "sleep 2\npython3 -", 1))
-    fake.chmod(0o755)
-    w = serve(make_world(base, build_big_drive, CLAUDE_BIN=str(fake), CLAUDE_WORKERS="1"))
+    # 30 photos every half second, so a run takes a few seconds and can be watched
+    w = make_world(base, build_color_drive, CATEGORIES_CHUNK="30", CATEGORIES_PACE="0.7")
+    run(PY, "ml.py", "run", cwd=ROOT, env=w["env"])
+    serve(w)
     yield w
     stop(w)
 
@@ -76,7 +90,7 @@ def test_photos_fly_into_cards_during_a_run(fresh, page):
     page.wait_for_function("document.querySelector('#catFly').children.length === 0 && !document.querySelector('#catStop')", timeout=60000)
     page.wait_for_timeout(1500)
     counts = {c.query_selector(".top b").inner_text(): int(c.query_selector(".cnt").inner_text().replace(",", "")) for c in page.query_selector_all(".cat-card")}
-    assert sum(counts.values()) == 240 and counts["Food"] + counts["Nature"] + counts["Other"] == 240
+    assert sum(counts.values()) == 240 and counts["Food"] == counts["Nature"] == counts["Travel"] == 80
     assert page.inner_text("#catBox").startswith("240 of 240 photos sorted")
     with httpx.Client(base_url=fresh["url"]) as c:
         api = {x["label"]: x["count"] for x in c.get("/api/categories").json()["categories"]}

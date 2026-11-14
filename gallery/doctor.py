@@ -85,7 +85,6 @@ def checks():
         add(False, "Telegram backup (off: the gallery works without it)", "./vault telegram", optional=True)
     add((MODELS / "clip").exists(), "Smart search, people and similar shots (models downloaded)",
         "pip install -r requirements-ml.txt, then: cd gallery && ../.venv/bin/python ml.py download", optional=True)
-    add(shutil.which("claude"), "Claude Code (only for the Sorting page)", "https://claude.com/claude-code, then run: claude auth login", optional=True)
     free = shutil.disk_usage(DATA if DATA.exists() else ROOT).free / 1e9
     add(free > 5, f"Free disk space for thumbnails: {free:,.0f} GB", "Free some space: thumbnails and caches live in " + str(DATA))
     return out

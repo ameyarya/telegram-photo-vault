@@ -14,15 +14,16 @@ cd gallery && ../.venv/bin/python ml.py download    # ~650 MB, once: OpenCLIP Vi
 
 Later runs only process new photos; the Backup page has an "Analyse new photos" button.
 
-## Sorting into categories (optional, uses Claude)
+## Sorting into categories (optional, on your Mac)
 
-The **Sorting** page has Claude Code look at small previews of your photos and file each one under Selfies, People, Food,
-Travel, Nature, Pets, Documents, Screens & memes or Other. The categories then appear in the filter menu above your photos.
+The **Sorting** page files each photo under Selfies, People, Food, Travel, Nature, Pets & animals, Documents, Screens & memes
+or Other. The categories then appear in the filter menu above your photos.
 
-1. Install [Claude Code](https://claude.com/claude-code) and sign in once in Terminal: `claude auth login`
-2. Open the **Sorting** page and press **Try it on 90 photos** (one Claude call), then **Sort all** if you like the result.
+1. Do the smart-search setup above once (`./vault smart`): sorting reuses its analysis of your photos.
+2. Open the **Sorting** page and press **Sort 100 at once**, then **Sort all** if you like the result.
 
-Unlike smart search, **this sends the previews to Anthropic** (through the `claude` command on your Mac), so nothing runs unless
-you press a button. It uses your Claude plan's usage (about one call per 90 photos) and only labels photos, never videos.
-Labels are stored in the gallery's database: no files are moved or copied. Idea from
-[claude-photo-sorter](https://github.com/kairothq/claude-photo-sorter).
+Nothing is sent anywhere. Each photo's CLIP fingerprint (already made for smart search) is compared with a few
+descriptions of every category, and the faces the gallery already found decide Selfies vs People. It's quick: a big
+library takes a minute or two. It only labels photos, never videos, and no files are moved or copied (labels live in the
+gallery's database). It's a good guess, not a perfect one: unusual photos land in Other. Idea from
+[claude-photo-sorter](https://github.com/kairothq/claude-photo-sorter), but done locally.

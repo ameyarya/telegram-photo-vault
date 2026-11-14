@@ -1597,16 +1597,16 @@ async function renderPeopleReview() {
 async function renderCategories() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Sorting</h1></div>
-    <div class="page-sub">Claude looks at small previews of your photos and files each one under a category (Selfies, Food, Travel...).
+    <div class="page-sub">Your Mac files each photo under a category (Selfies, Food, Travel...) using the same on-device model as smart search.
       The categories then appear in the filter menu above your photos. Nothing is moved or copied.</div>
-    <div class="note">${ico("cloud-done")} <span><b>Privacy:</b> the previews (small thumbnails, 30 to a sheet) are sent to Anthropic through Claude Code on this Mac.
-      Nothing is sent unless you press a button below. Only photos are sorted, never videos.</span></div>
+    <div class="note">${ico("cloud-done")} <span><b>Private:</b> this runs entirely on this Mac. Nothing about your photos is sent anywhere. Only photos are sorted, never videos.</span></div>
     <div id="catBox">${loadingHtml()}</div>
     <div class="cat-stage" id="catStage"><div id="sphere"></div></div>
     <div class="cat-cards" id="catCards"></div>`;
   const fly = document.getElementById("catFly") || document.body.appendChild(Object.assign(document.createElement("div"), {id: "catFly"}));
   fly.innerHTML = "";
   let timer = null, starting = null, wasRunning = false, seenLabelled = null, since = null, cards = null, tiles = [], rot = 0, last = 0;
+  let inflight = 0;               // photos in the air: the real numbers wait until they have landed
   const queue = [], shown = {};        // queue: labelled photos waiting to fly; shown: what each card displays
   const stage = $("#catStage"), sphere = $("#sphere");
 
@@ -1651,12 +1651,12 @@ async function renderCategories() {
     if (t && live.length > tiles.length * 0.4) { t.alive = false; t.el.style.opacity = 0; setTimeout(() => { t.alive = true; }, 600 + Math.random() * 1800); }
     const from = t ? {x: sr.left + t.sx - 15, y: sr.top + t.sy - 15, s: t.s} : {x: sr.left + sr.width / 2 - 15, y: sr.top + sr.height / 2 - 15, s: 1};
     const img = Object.assign(new Image(), {src: `/thumb/${it.id}`, alt: ""});
-    fly.append(img);
+    fly.append(img); inflight++;
     const end = {transform: `translate(${to.left}px,${to.top}px) scale(${to.width / 30})`, opacity: 1};
     img.animate([{transform: `translate(${from.x}px,${from.y}px) scale(${from.s})`, opacity: 1},
                  {transform: `translate(${(from.x + to.left) / 2 + (Math.random() - .5) * 60}px,${Math.min(from.y, to.top) - 30}px) scale(1)`, opacity: 1}, end],
                 {duration: 650 + Math.random() * 400, easing: "cubic-bezier(.55,0,.25,1)"}).onfinish = () => {
-      img.remove(); slot.style.backgroundImage = `url(/thumb/${it.id})`; slot.classList.add("on");
+      img.remove(); inflight--; slot.style.backgroundImage = `url(/thumb/${it.id})`; slot.classList.add("on");
       c.count++; c.el.querySelector(".cnt").textContent = nf(c.count); c.el.classList.remove("empty"); c.el.classList.add("hit");
       setTimeout(() => c.el.classList.remove("hit"), 300);
     };
@@ -1692,28 +1692,28 @@ async function renderCategories() {
     if (starting && (j?.id !== starting.id || Date.now() - starting.at > 20000)) starting = null;   // the new job appeared (or never did)
     const running = j?.status === "running" || !!starting;
     if (running || wasRunning) await pull();
-    if (!running && !queue.length && wasRunning) st.categories.forEach(c => {   // finished and everything has landed: show the real numbers
+    let settling = running || wasRunning;
+    if (!running && !queue.length && !inflight && wasRunning) { settling = false; st.categories.forEach(c => {   // finished and everything has landed: show the real numbers
       if (cards[c.key]) { cards[c.key].count = c.count; cards[c.key].el.querySelector(".cnt").textContent = nf(c.count); cards[c.key].el.classList.toggle("empty", !c.count); }
-    });
-    wasRunning = running;
+    }); }
+    wasRunning = settling;
     if (st.labelled !== seenLabelled) { seenLabelled = st.labelled; loadCats(); }   // the filter menu offers the new categories
     const err = !running && j?.detail?.error;
     const pct = j?.total && j.status === "running" ? Math.round(100 * j.done / j.total) : 0;
-    const n = st.unsorted, batch = st.calls_per;
+    const n = st.unsorted, batch = st.sample || 100;
     box.innerHTML = `
-      ${!st.claude ? `<div class="note">The <code>claude</code> command was not found on this Mac. Install Claude Code and sign in, then reload.</div>` : ""}
+      
+      ${st.ready && st.unanalysed ? `<div class="note">${nf(st.unanalysed)} photos haven't been analysed yet, so they can't be sorted. Run <code>./vault smart</code> to include them.</div>` : ""}
       <div class="cat-stats"><b>${nf(st.labelled)}</b> of ${nf(st.photos)} photos sorted · <b>${nf(n)}</b> waiting</div>
       ${running ? `<div class="cat-prog"><div class="bar"><i style="width:${pct}%"></i></div>
           <span>${j?.status === "running" && j.total ? `Sorting… ${nf(j.done)} of ${nf(j.total)}` : "Getting ready…"}</span>
           <button class="txt-btn" id="catStop">Stop</button></div>` :
         `<div class="cat-actions">
-          ${n ? `<button class="fill-btn" id="catTry" ${!st.claude ? "disabled" : ""}>Try it on ${nf(Math.min(batch, n))} photos</button>
-          <button class="txt-btn" id="catAll" ${!st.claude ? "disabled" : ""}>Sort all ${nf(n)} waiting</button>` : ""}
+          ${n ? `<button class="fill-btn" id="catTry">Sort ${nf(Math.min(batch, n))} at once</button>
+          <button class="txt-btn" id="catAll">Sort all ${nf(n)} waiting</button>` : ""}
           ${st.labelled ? `<button class="txt-btn" id="catClear">Start over</button>` : ""}</div>
-        ${n ? `<div class="cat-hint">One Claude call sorts about ${batch} photos. "Try it" is a single call, to see how it does. "Sort all" runs about
-          ${nf(Math.ceil(n / batch))} calls and uses your Claude plan's usage; you can stop it at any time and what's done is kept.</div>` : ""}
-        ${j?.status === "done" && j.detail?.failed_batches ? `<div class="note">${plural(j.detail.failed_batches, "call")} failed; those photos are still waiting. ${esc(j.detail.error || "")}</div>` : ""}
-        ${err ? `<div class="note">The last run stopped: ${esc(err)}${/auth|login|OAuth/i.test(err) ? ` Open Terminal, run <code>claude</code>, sign in, and try again.` : ""}</div>` : ""}`}`;
+        ${n ? `<div class="cat-hint">"Sort ${nf(Math.min(batch, n))} at once" is a small sample so you can see how it does. "Sort all" does everything that is waiting (a minute or two for a big library); you can stop at any time and what's done is kept.</div>` : ""}
+        ${err ? `<div class="note">The last run stopped: ${esc(err)}</div>` : ""}`}`;
     const start = async limit => { try { starting = {id: j?.id, at: Date.now()}; await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); timer ||= setInterval(draw, 2000); draw(); } catch (e) { starting = null; toast(esc(e.message)); } };
     $("#catTry")?.addEventListener("click", () => start(batch));
     $("#catAll")?.addEventListener("click", () => start(0));
@@ -1722,8 +1722,8 @@ async function renderCategories() {
       if (!confirm("Forget all categories and sort again from scratch?")) return;
       await post("/api/categories/clear"); await loadCats(); renderCategories();
     });
-    if (!running && timer) { clearInterval(timer); timer = null; }
-    if (running && !timer) timer = setInterval(draw, 2000);
+    if (!running && !wasRunning && timer) { clearInterval(timer); timer = null; }
+    if ((running || wasRunning) && !timer) timer = setInterval(draw, 2000);
   };
   await draw();
 }

@@ -1,7 +1,8 @@
-"""Photo categories (Food, Selfies, Travel...) chosen by Claude from contact sheets of the local thumbnails.
+"""Photo categories (Food, Selfies, Travel...) chosen on this Mac by the same CLIP model that powers smart search.
 
-Optional: it needs the `claude` command (Claude Code, signed in) and sends small previews (the 400px thumbnails,
-shrunk further, 30 to a sheet) to Anthropic through it. Nothing runs unless you start it:
+Nothing is sent anywhere. Each photo's CLIP fingerprint (made by "Analyse photos", see ml.py) is compared with a
+few descriptions of each category ("a meal on a restaurant table", "a sunset sky"...), and the faces the gallery
+already found decide Selfies vs People. Needs smart search set up (./vault smart). Nothing runs unless you start it:
 
     ../.venv/bin/python categories.py run [--limit 300]      label photos that have no category yet
     ../.venv/bin/python categories.py status
@@ -10,41 +11,41 @@ Labels live in the `categories` table; the gallery's filter menu then offers eac
 """
 import json
 import os
-import re
-import shutil
 import signal
 import subprocess
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor
 
+import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from build_index import make_thumb, thumb_path
-from config import BASE, DATA, local_path
+import ml
+from config import BASE
 from db import connect
 
 router = APIRouter()
 
-# key -> (menu label, what Claude is told it means)
+# key -> (menu label, how the model is told what it looks like: several short descriptions, averaged)
 CATEGORIES = {
-    "selfies": ("Selfies", "a selfie, or a close portrait of one or two people looking at the camera"),
-    "people": ("People", "people (not a selfie): groups, candid shots, events, family"),
-    "food": ("Food", "food, drinks, meals, restaurant tables"),
-    "travel": ("Travel", "landmarks, cities, buildings, streets, hotels, trips, sightseeing"),
-    "nature": ("Nature", "landscapes, sky, sunsets, beaches, mountains, plants, flowers"),
-    "pets": ("Pets & animals", "pets, wildlife and other animals"),
-    "documents": ("Documents", "papers, receipts, tickets, forms, whiteboards, slides, text-heavy photos"),
-    "screens": ("Screens & memes", "screenshots, memes, graphics, downloaded or app-made images"),
-    "other": ("Other", "anything that fits none of the above"),
+    "selfies": ("Selfies", ["a selfie", "a close-up portrait of a person looking at the camera"]),
+    "people": ("People", ["a group of people posing together", "friends and family at an event", "a candid photo of people"]),
+    "food": ("Food", ["food on a plate", "a meal on a restaurant table", "a drink in a glass", "a dessert"]),
+    "travel": ("Travel", ["a famous landmark", "a city street with buildings", "a hotel or resort", "tourists sightseeing"]),
+    "nature": ("Nature", ["a landscape", "a sunset over the sky", "mountains and trees", "a beach and the sea", "flowers and plants"]),
+    "pets": ("Pets & animals", ["a pet dog", "a cat", "a wild animal", "a bird"]),
+    "documents": ("Documents", ["a photo of a document or paper", "a receipt or a ticket", "a whiteboard or a page of text"]),
+    "screens": ("Screens & memes", ["a screenshot of a phone screen", "a meme with text", "a digital graphic or an illustration"]),
+    "other": ("Other", []),   # no description: it is what is left when nothing fits well
 }
-SHEET_TILES, SHEET_COLS, TILE = 30, 6, 220
-BATCH_SHEETS = 3          # sheets per Claude call (about 90 photos)
-WORKERS = int(os.environ.get("CLAUDE_WORKERS", 3))
-MODEL = os.environ.get("CLAUDE_MODEL", "sonnet")
-CLAUDE = os.environ.get("CLAUDE_BIN") or shutil.which("claude") or str(os.path.expanduser("~/.local/bin/claude"))
-WORK = DATA / "categories"
+LOGIT_SCALE = 100         # CLIP's own scale: turns similarities into confidences
+MIN_CONFIDENCE = 0.30     # below this the photo fits none of the categories well: "Other"
+FACE_SCORE = ml.MIN_FACE_SCORE
+FACE_MIN_WIDTH = 0.05     # smaller faces are background people
+SELFIE_FACE = 0.25        # one or two faces, one at least this wide (share of the photo): a selfie
+CHUNK = int(os.environ.get("CATEGORIES_CHUNK", 200))     # photos labelled per step
+PACE = float(os.environ.get("CATEGORIES_PACE", 0.25))    # seconds between steps, so the page can show them landing and Stop has time to work
+SAMPLE = 100              # "Try it": how many photos
 
 
 def ensure_table(con):  # (db.py makes it too; this covers a script run on an old index)
@@ -52,79 +53,56 @@ def ensure_table(con):  # (db.py makes it too; this covers a script run on an ol
     con.execute("CREATE INDEX IF NOT EXISTS categories_cat ON categories(cat)")
 
 
-def make_sheet(ids, out):
-    """One JPG with each thumbnail in a numbered tile (the number is the photo's position in this sheet)."""
-    from PIL import Image, ImageDraw, ImageFont, ImageOps
-    rows = -(-len(ids) // SHEET_COLS)
-    sheet = Image.new("RGB", (SHEET_COLS * TILE, rows * TILE), "white")
-    draw = ImageDraw.Draw(sheet)
-    try:
-        font = ImageFont.load_default(size=26)
-    except TypeError:  # older Pillow
-        font = ImageFont.load_default()
-    for n, mid in enumerate(ids):
-        x, y = (n % SHEET_COLS) * TILE, (n // SHEET_COLS) * TILE
-        try:
-            im = ImageOps.fit(ImageOps.exif_transpose(Image.open(thumb_path(mid))).convert("RGB"), (TILE - 4, TILE - 4))
-            sheet.paste(im, (x + 2, y + 2))
-        except OSError:
-            pass
-        draw.rectangle((x + 2, y + 2, x + 46, y + 34), fill="black")
-        draw.text((x + 6, y + 4), str(n + 1), fill="yellow", font=font)
-    sheet.save(out, quality=80)
+def prompt_matrix():
+    """(keys, one unit vector per category) from the descriptions above."""
+    keys = [k for k, (_, d) in CATEGORIES.items() if d]
+    if ml.FAKE:   # the stand-in model only knows colours: red is Food, green Nature, blue Travel
+        fake = {"food": (1, 0, 0), "nature": (0, 1, 0), "travel": (0, 0, 1)}
+        return keys, ml._norm([[*fake.get(k, (0, 0, 0)), 0.02] for k in keys])
+    clip = ml.Clip()
+    return keys, ml._norm([ml._norm([clip.text(d, template="{}") for d in CATEGORIES[k][1]]).mean(axis=0) for k in keys])
 
 
-def prompt_for(sheets):
-    cats = "\n".join(f'  "{k}": {desc}' for k, (_, desc) in CATEGORIES.items())
-    files = "\n".join(f"  {name}: photos numbered 1-{n}" for name, n in sheets)
-    return (f"Each of these image files is a contact sheet of numbered photo tiles (the number is in the tile's top-left corner):\n"
-            f"{files}\nOpen each one with the Read tool. Give every numbered photo exactly one category:\n{cats}\n"
-            'Reply with ONLY a JSON object mapping "<sheet file name>:<number>" to a category key, e.g. {"s1.jpg:1": "food"}. '
-            "No other text.")
+def pick(probs, keys, faces):
+    """The category for one photo. probs: confidence per key; faces: widths of the faces found in it (share of the photo)."""
+    top = keys[int(np.argmax(probs))]
+    if probs.max() < MIN_CONFIDENCE:
+        top = "other"
+    if faces and top in ("selfies", "people", "other"):
+        return "selfies" if len(faces) <= 2 and max(faces) >= SELFIE_FACE else "people"
+    if not faces and top == "selfies":
+        return "people"   # no face was found: not a selfie, but the model still thinks it shows a person
+    return top
 
 
-def ask_claude(prompt, cwd):
-    """Run Claude Code headless; returns the parsed {"sheet:number": category} answer or raises."""
-    cmd = [CLAUDE, "-p", prompt, "--model", MODEL, "--allowedTools", "Read", "--strict-mcp-config",
-           "--setting-sources", "project", "--no-session-persistence", "--output-format", "json"]
-    last = None
-    for attempt in range(3):
-        try:
-            r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
-            text = json.loads(r.stdout).get("result", "") if r.stdout.strip().startswith("{") else r.stdout
-            m = re.search(r"\{.*\}", text, re.S)
-            if m:
-                return json.loads(m.group(0))
-            last = f"no JSON in answer: {text[:200]!r} {r.stderr[:200]!r}"
-        except (subprocess.TimeoutExpired, ValueError) as e:
-            last = str(e)
-        time.sleep(2 * (attempt + 1))
-    raise RuntimeError(last)
+def classify(embs, keys, matrix, faces_by_row):
+    sims = np.asarray(embs, dtype=np.float32) @ matrix.T * LOGIT_SCALE
+    e = np.exp(sims - sims.max(axis=1, keepdims=True))
+    probs = e / e.sum(axis=1, keepdims=True)
+    return [pick(p, keys, f) for p, f in zip(probs, faces_by_row)]
 
 
-def label_batch(batch_no, groups, run_dir):
-    """groups: [[media ids of one sheet], ...] -> [(media_id, category)]"""
-    sheets, index = [], {}
-    for i, ids in enumerate(groups, 1):
-        name = f"b{batch_no}s{i}.jpg"
-        make_sheet(ids, run_dir / name)
-        sheets.append((name, len(ids)))
-        for n, mid in enumerate(ids, 1):
-            index[f"{name}:{n}"] = mid
-    answer = ask_claude(prompt_for(sheets), run_dir)
-    out = []
-    for key, mid in index.items():
-        cat = str(answer.get(key, "")).strip().lower()
-        out.append((mid, cat if cat in CATEGORIES else "other"))
-    return out
-
-
-ELIGIBLE = """kind = 'image' AND live_of IS NULL AND thumb != -1 AND id NOT IN (SELECT media_id FROM trash)"""
+# photos that can be sorted: real photos (not videos, trash or Live Photo clips) that the model has analysed
+BASE_ELIGIBLE = "kind = 'image' AND live_of IS NULL AND thumb != -1 AND id NOT IN (SELECT media_id FROM trash)"
+ELIGIBLE = BASE_ELIGIBLE + " AND id IN (SELECT media_id FROM clip)"
 
 
 def _job(con, job_id, **fields):
     con.execute(f"UPDATE jobs SET {', '.join(f'{k} = ?' for k in fields)} WHERE id = ?", [*fields.values(), job_id])
     con.commit()
+
+
+def label_chunk(con, ids, keys, matrix):
+    """[(media_id, category)] for these photos."""
+    marks = ",".join("?" * len(ids))
+    emb = {r["media_id"]: r["emb"] for r in con.execute(f"SELECT media_id, emb FROM clip WHERE media_id IN ({marks})", ids)}
+    ids = [i for i in ids if i in emb]
+    faces = {i: [] for i in ids}
+    for r in con.execute(f"SELECT media_id, w FROM faces WHERE score >= ? AND w >= ? AND media_id IN ({marks})",
+                         [FACE_SCORE, FACE_MIN_WIDTH, *ids]):
+        faces[r["media_id"]].append(r["w"])
+    vectors = ml._norm(np.stack([np.frombuffer(emb[i], dtype=np.float16).astype(np.float32) for i in ids]))
+    return list(zip(ids, classify(vectors, keys, matrix, [faces[i] for i in ids])))
 
 
 def run(limit=None, log=print):
@@ -139,42 +117,21 @@ def run(limit=None, log=print):
             f"SELECT id FROM media WHERE {ELIGIBLE} AND id NOT IN (SELECT media_id FROM categories) ORDER BY taken_at DESC")]
         if limit:
             todo = todo[:limit]
-        ready = []
-        for mid in todo:
-            if not thumb_path(mid).exists():
-                row = con.execute("SELECT id, path, kind FROM media WHERE id = ?", (mid,)).fetchone()
-                if local_path(row["path"]).is_file():
-                    make_thumb(dict(row))
-            if thumb_path(mid).exists():
-                ready.append(mid)
-        sheets = [ready[i:i + SHEET_TILES] for i in range(0, len(ready), SHEET_TILES)]
-        batches = [sheets[i:i + BATCH_SHEETS] for i in range(0, len(sheets), BATCH_SHEETS)]
-        log(f"{len(ready)} photos to label in {len(batches)} Claude calls")
-        _job(con, job, total=len(ready), done=0)
-        run_dir = WORK / f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"   # one folder per run: runs never share sheets
-        run_dir.mkdir(parents=True, exist_ok=True)
-        done = failed = 0
-        error = None
-        with ThreadPoolExecutor(WORKERS) as pool:
-            futures = [(b, pool.submit(label_batch, n, b, run_dir)) for n, b in enumerate(batches, 1)]
-            for b, f in futures:
-                try:
-                    rows = f.result()
-                except Exception as e:  # leave those photos unlabelled: the next run retries them
-                    failed += 1
-                    error = str(e)
-                    log(f"batch failed: {e}")
-                    continue
-                con.executemany("INSERT OR REPLACE INTO categories(media_id, cat) VALUES (?, ?)", rows)
-                con.commit()
-                done += len(rows)
-                _job(con, job, done=done)
-                log(f"labelled {done}/{len(ready)}")
-        shutil.rmtree(run_dir, ignore_errors=True)
-        detail.update(failed_batches=failed, **({"error": error} if error else {}))
-        _job(con, job, status="failed" if failed and not done else "done", detail=json.dumps(detail),
-             finished=time.strftime("%Y-%m-%dT%H:%M:%S"))
-        return {"labelled": done, "failed_batches": failed}
+        log(f"{len(todo)} photos to label")
+        _job(con, job, total=len(todo), done=0)
+        keys, matrix = prompt_matrix() if todo else ([], None)
+        done = 0
+        for i in range(0, len(todo), CHUNK):
+            rows = label_chunk(con, todo[i:i + CHUNK], keys, matrix)
+            con.executemany("INSERT OR REPLACE INTO categories(media_id, cat) VALUES (?, ?)", rows)
+            con.commit()
+            done += len(rows)
+            _job(con, job, done=done)
+            log(f"labelled {done}/{len(todo)}")
+            if PACE and i + CHUNK < len(todo):
+                time.sleep(PACE)
+        _job(con, job, status="done", detail=json.dumps(detail), finished=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        return {"labelled": done}
     except BaseException as e:
         _job(con, job, status="failed", detail=json.dumps({**detail, "error": str(e) or type(e).__name__}),
              finished=time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -213,13 +170,13 @@ def categories_status():
     con = connect()
     have = counts(con)
     eligible = con.execute(f"SELECT count(*) FROM media WHERE {ELIGIBLE}").fetchone()[0]
+    unanalysed = con.execute(f"SELECT count(*) FROM media WHERE {BASE_ELIGIBLE} AND id NOT IN (SELECT media_id FROM clip)").fetchone()[0]
     latest = {k: [r[0] for r in con.execute("SELECT media_id FROM categories WHERE cat = ? ORDER BY seq DESC LIMIT 6", (k,))]
               for k in CATEGORIES}
     last = con.execute("SELECT coalesce(max(seq), 0) FROM categories").fetchone()[0]
     return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have.get(k, 0), "latest": latest[k]} for k in CATEGORIES],
-            "last": last, "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible,
-            "claude": bool(shutil.which(CLAUDE) or os.path.exists(CLAUDE)), "job": _running(),
-            "calls_per": BATCH_SHEETS * SHEET_TILES}
+            "last": last, "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible + unanalysed,
+            "ready": ml.models_ready() and eligible > 0, "unanalysed": unanalysed, "job": _running(), "sample": SAMPLE}
 
 
 @router.get("/api/categories/sphere")
@@ -228,9 +185,9 @@ def categories_sphere(n: int = 150):
     con = connect()
     n = max(1, min(n, 400))
     ids = [r[0] for r in con.execute(
-        f"SELECT id FROM media WHERE {ELIGIBLE} AND id NOT IN (SELECT media_id FROM categories) ORDER BY random() LIMIT ?", (n,))]
+        f"SELECT id FROM media WHERE {BASE_ELIGIBLE} AND id NOT IN (SELECT media_id FROM categories) ORDER BY random() LIMIT ?", (n,))]
     if len(ids) < n:
-        more = con.execute(f"SELECT id FROM media WHERE {ELIGIBLE} ORDER BY random() LIMIT ?", (n,))
+        more = con.execute(f"SELECT id FROM media WHERE {BASE_ELIGIBLE} ORDER BY random() LIMIT ?", (n,))
         ids += [r[0] for r in more if r[0] not in set(ids)][:n - len(ids)]
     return {"ids": ids}
 
@@ -252,8 +209,8 @@ def categories_run(body: RunBody):
     job = _running()
     if job and job["status"] == "running":
         return {"started": False, "job": job}
-    if not (shutil.which(CLAUDE) or os.path.exists(CLAUDE)):
-        raise HTTPException(400, "Claude Code isn't installed on this Mac (the `claude` command was not found).")
+    if not ml.models_ready():
+        raise HTTPException(400, "Sorting uses the smart-search model, which isn't set up yet. Run ./vault smart first.")
     cmd = [sys.executable, str(BASE / "categories.py"), "run"] + (["--limit", str(max(1, body.limit))] if body.limit else [])
     subprocess.Popen(cmd, cwd=BASE, stdout=open(BASE / "categories.log", "a"), stderr=subprocess.STDOUT, start_new_session=True)
     return {"started": True}
@@ -264,7 +221,7 @@ def categories_stop():
     job = _running()
     if job and job["status"] == "running":
         try:
-            os.killpg(job["detail"]["pid"], signal.SIGTERM)  # the run and the `claude` calls it started
+            os.killpg(job["detail"]["pid"], signal.SIGTERM)  
         except OSError:
             pass
         con = connect()
