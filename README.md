@@ -23,7 +23,7 @@ still a personal project: read the [caveats](#caveats) before trusting it with a
 | **Timestamp manifest** (`backup/save_timestamps.sh`) — saves created/modified dates Telegram doesn't keep | ✅ tested |
 | **Upload verification** (`backup/verify_uploads.py`) — downloads samples back and compares SHA-256 with the originals | ✅ |
 | **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photos.local`, this Mac only | ✅ tested, incl. headless-browser tests |
-| ↳ **Date scrubber**, oldest/newest-first, **filter chips** (photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date) | ✅ |
+| ↳ **Date scrubber**, oldest/newest-first, **filters** (the page opens on All; photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date), a **Screenshots** button that hides or shows them on this device | ✅ |
 | ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
 | ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions, choose their photo; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
 | ↳ **Similar shots** — near-identical bursts grouped, best shot picked (favorite, else sharpest); "keep best, trash the rest" | ✅ optional |

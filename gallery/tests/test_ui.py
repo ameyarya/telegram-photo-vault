@@ -68,6 +68,7 @@ def test_rows_fill_the_width_and_keep_shapes(page):
         last = tiles[-1].bounding_box()
         assert last["x"] + last["width"] <= box["x"] + box["width"] + 1   # never overflows
     go(page, "#/album/family%2Fwedding%2Fday%201")
+    pick_filter(page, "photos")                       # the album also holds a video
     t = page.locator(".tile").first.bounding_box()
     assert t["height"] > t["width"]                   # the sideways-stored photo shows as portrait
 

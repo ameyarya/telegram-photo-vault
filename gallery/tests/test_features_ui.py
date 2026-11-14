@@ -33,7 +33,7 @@ def open_photo(page, album, name):
 # ---------- filter chips ----------
 def test_filter_chips(page):
     go(page)
-    expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
+    expect(page.locator(".chip.on")).to_have_text("All")   # pages open on All
     pick_filter(page, "")
     expect(page.locator("#days .tile")).to_have_count(10)
     pick_filter(page, "videos")
@@ -48,7 +48,7 @@ def test_filter_chips(page):
     expect(page.locator("#days .empty")).to_contain_text("Nothing matches this filter")
     page.click(".side a[data-route=albums]")                    # chips belong to a page
     page.click(".side a[data-route=photos]")
-    expect(page.locator(".chip.on")).to_have_text("Photos")   # pages open on Photos
+    expect(page.locator(".chip.on")).to_have_text("All")   # pages open on All
     pick_filter(page, "")
     expect(page.locator("#days .tile")).to_have_count(10)
 
@@ -557,7 +557,7 @@ def test_scrubber_drag_bubble_and_fair_spacing(page):
 
 def test_filters_are_one_dropdown(page):
     go(page)
-    expect(page.locator("#filterBtn")).to_have_text("Photos")          # the current filter, not rows of pills
+    expect(page.locator("#filterBtn")).to_have_text("All")          # the current filter, not rows of pills
     expect(page.locator("#filterMenu")).to_be_hidden()
     page.click("#filterBtn")
     expect(page.locator("#filterMenu .chip")).to_have_count(10)
@@ -597,8 +597,8 @@ def test_page_buttons_are_round_icons_on_the_right(page):
     page_right = page.locator("#days").bounding_box()
     assert abs((boxes[-1]["x"] + 40) - (page_right["x"] + page_right["width"])) <= 4   # flush with the right edge
     assert page.locator("#sortBtn").get_attribute("title").startswith("Newest first")    # names are tooltips
-    assert page.locator("#filterBtn").get_attribute("title") == "Showing: Photos"
-    expect(page.locator("#pgSub")).to_be_hidden()                                   # no count/date line on Photos
+    assert page.locator("#filterBtn").get_attribute("title") == "Showing: All"
+    expect(page.locator("#pgSub")).to_be_hidden()                                   # no count/date line on the main page
     shot(page, f"header-icons-{page.viewport_size['width']}")
 
 
@@ -618,3 +618,23 @@ def test_rows_and_buttons_line_up_with_the_scrubber(page):
     assert abs(sort - days) <= 2                               # the buttons end where the photos do
     if page.viewport_size["width"] < 600:
         assert 390 - sort <= 12                                # close to the phone's edge
+
+
+# ---------- show / hide screenshots ----------
+def test_screenshots_button_hides_and_shows_them(page):
+    go(page)
+    n_all = page.locator("#days .tile").count()
+    expect(page.locator("#shotsBtn")).to_have_attribute("aria-pressed", "true")
+    page.click("#shotsBtn")
+    expect(page.locator("#shotsBtn")).to_have_attribute("aria-pressed", "false")
+    expect(page.locator("#days .tile")).to_have_count(n_all - 1)     # the sample library has exactly one screenshot
+    page.reload()                                                     # remembered on this device
+    page.wait_for_selector("#days .tile")
+    expect(page.locator("#shotsBtn")).to_have_attribute("aria-pressed", "false")
+    expect(page.locator("#days .tile")).to_have_count(n_all - 1)
+    pick_filter(page, "screenshots")                                  # asking for screenshots shows them anyway
+    expect(page.locator("#days .tile")).to_have_count(1)
+    pick_filter(page, "")
+    page.click("#shotsBtn")
+    expect(page.locator("#days .tile")).to_have_count(n_all)
+    expect(page.locator("#shotsBtn")).to_have_attribute("aria-pressed", "true")

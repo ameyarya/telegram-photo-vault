@@ -25,6 +25,7 @@ FILTERS = {
     "videos": "kind = 'video'",
     "raw": "ext IN ('arw','cr2','cr3','nef','dng','raf','orf','rw2')",
     "screenshots": SCREENSHOT,
+    "noscreenshots": f"NOT {SCREENSHOT}",
     "backedup": "msg_id IS NOT NULL",
     "notbackedup": "msg_id IS NULL",
     "undated": "date_src = 'file'",
