@@ -48,7 +48,7 @@ WORK = DATA / "categories"
 
 
 def ensure_table(con):  # (db.py makes it too; this covers a script run on an old index)
-    con.execute("CREATE TABLE IF NOT EXISTS categories (media_id INTEGER PRIMARY KEY, cat TEXT NOT NULL)")
+    con.execute("CREATE TABLE IF NOT EXISTS categories (seq INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, cat TEXT NOT NULL)")
     con.execute("CREATE INDEX IF NOT EXISTS categories_cat ON categories(cat)")
 
 
@@ -151,7 +151,7 @@ def run(limit=None, log=print):
         batches = [sheets[i:i + BATCH_SHEETS] for i in range(0, len(sheets), BATCH_SHEETS)]
         log(f"{len(ready)} photos to label in {len(batches)} Claude calls")
         _job(con, job, total=len(ready), done=0)
-        run_dir = WORK / time.strftime("%Y%m%d-%H%M%S")
+        run_dir = WORK / f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"   # one folder per run: runs never share sheets
         run_dir.mkdir(parents=True, exist_ok=True)
         done = failed = 0
         error = None
@@ -213,9 +213,9 @@ def categories_status():
     con = connect()
     have = counts(con)
     eligible = con.execute(f"SELECT count(*) FROM media WHERE {ELIGIBLE}").fetchone()[0]
-    latest = {k: [r[0] for r in con.execute("SELECT media_id FROM categories WHERE cat = ? ORDER BY rowid DESC LIMIT 6", (k,))]
+    latest = {k: [r[0] for r in con.execute("SELECT media_id FROM categories WHERE cat = ? ORDER BY seq DESC LIMIT 6", (k,))]
               for k in CATEGORIES}
-    last = con.execute("SELECT coalesce(max(rowid), 0) FROM categories").fetchone()[0]
+    last = con.execute("SELECT coalesce(max(seq), 0) FROM categories").fetchone()[0]
     return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have.get(k, 0), "latest": latest[k]} for k in CATEGORIES],
             "last": last, "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible,
             "claude": bool(shutil.which(CLAUDE) or os.path.exists(CLAUDE)), "job": _running(),
@@ -238,7 +238,7 @@ def categories_sphere(n: int = 150):
 @router.get("/api/categories/recent")
 def categories_recent(since: int = 0, limit: int = 400):
     """Photos labelled after label number `since` (so the page can fly them into their folders as they are sorted)."""
-    rows = connect().execute("SELECT rowid, media_id, cat FROM categories WHERE rowid > ? ORDER BY rowid LIMIT ?",
+    rows = connect().execute("SELECT seq, media_id, cat FROM categories WHERE seq > ? ORDER BY seq LIMIT ?",
                              (since, min(limit, 2000))).fetchall()
     return {"items": [{"id": r[1], "cat": r[2]} for r in rows], "last": rows[-1][0] if rows else since}
 

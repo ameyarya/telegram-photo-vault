@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS trash (media_id INTEGER PRIMARY KEY, trashed_at TEXT 
 CREATE TABLE IF NOT EXISTS drive_queue (path TEXT PRIMARY KEY, op TEXT NOT NULL, size INTEGER);  -- waits for the drive
 CREATE TABLE IF NOT EXISTS similar_dismissed (group_key TEXT PRIMARY KEY);         -- "these aren't duplicates"
 CREATE TABLE IF NOT EXISTS people_not_same (a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY (a, b));  -- a < b
-CREATE TABLE IF NOT EXISTS categories (media_id INTEGER PRIMARY KEY, cat TEXT NOT NULL);  -- categories.py: Claude's label per photo
+CREATE TABLE IF NOT EXISTS categories (seq INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, cat TEXT NOT NULL);  -- categories.py: Claude's label per photo (seq = order labelled)
 CREATE INDEX IF NOT EXISTS categories_cat ON categories(cat);
 CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT, done INTEGER DEFAULT 0, total INTEGER DEFAULT 0,
   detail TEXT, started TEXT DEFAULT CURRENT_TIMESTAMP, finished TEXT);
@@ -81,6 +81,11 @@ def connect(timeout=30):
             con.execute("ALTER TABLE people ADD COLUMN confirmed INTEGER DEFAULT 0")
         if "aliases" not in pcols:    # other names search knows them by ("Me" is also "Sam"), comma separated
             con.execute("ALTER TABLE people ADD COLUMN aliases TEXT")
+        if "seq" not in {r["name"] for r in con.execute("PRAGMA table_info(categories)")}:  # the first version had no order column
+            con.executescript("""ALTER TABLE categories RENAME TO categories_old;
+                CREATE TABLE categories (seq INTEGER PRIMARY KEY AUTOINCREMENT, media_id INTEGER NOT NULL UNIQUE, cat TEXT NOT NULL);
+                INSERT INTO categories(media_id, cat) SELECT media_id, cat FROM categories_old;
+                DROP TABLE categories_old; CREATE INDEX IF NOT EXISTS categories_cat ON categories(cat);""")
         ucols = {r["name"] for r in con.execute("PRAGMA table_info(users)")}
         if "folder" not in ucols:  # where their phone uploads go on the drive (upload.py)
             con.execute("ALTER TABLE users ADD COLUMN folder TEXT")

@@ -162,9 +162,9 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .filter-btn svg{width:18px;height:18px}
 .filter-btn.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
 .head-actions .chips{margin:0}
-.cat-stage{position:relative;height:340px;margin:6px 0 14px;overflow:hidden}
-#sphere img{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:5px;object-fit:cover;will-change:transform,opacity}
-#catFly{position:fixed;inset:0;pointer-events:none;z-index:60}#catFly img{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:4px;object-fit:cover;transform-origin:0 0}
+.cat-stage{position:relative;height:360px;margin:6px 0 14px;overflow:hidden}
+#sphere img{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:5px;object-fit:cover;will-change:transform,opacity}
+#catFly{position:fixed;inset:0;pointer-events:none;z-index:60}#catFly img{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:4px;object-fit:cover;transform-origin:0 0}
 .cat-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:30px}
 .cat-card{display:block;border:1px solid var(--line);border-radius:14px;padding:12px;color:var(--ink);text-decoration:none;transition:background .2s,box-shadow .2s}
 .cat-card:hover{background:var(--hover)}.cat-card.empty{opacity:.55}.cat-card.hit{box-shadow:0 0 0 2px var(--accent)}
@@ -1600,7 +1600,7 @@ async function renderCategories() {
     <div class="cat-cards" id="catCards"></div>`;
   const fly = document.getElementById("catFly") || document.body.appendChild(Object.assign(document.createElement("div"), {id: "catFly"}));
   fly.innerHTML = "";
-  let timer = null, starting = null, wasRunning = false, since = null, cards = null, tiles = [], rot = 0, last = 0;
+  let timer = null, starting = null, wasRunning = false, seenLabelled = null, since = null, cards = null, tiles = [], rot = 0, last = 0;
   const queue = [], shown = {};        // queue: labelled photos waiting to fly; shown: what each card displays
   const stage = $("#catStage"), sphere = $("#sphere");
 
@@ -1618,7 +1618,7 @@ async function renderCategories() {
     if (!document.body.contains(sphere)) { fly.innerHTML = ""; return; }   // left the page
     const dt = Math.min(now - (last || now), 50); last = now;
     rot += dt * 0.00035;
-    const tilt = Math.sin(now / 4000) * 0.35, w = stage.clientWidth, h = stage.clientHeight, R = Math.min(w, h) * 0.38;
+    const tilt = Math.sin(now / 4000) * 0.35, w = stage.clientWidth, h = stage.clientHeight, R = Math.min(w, h) * 0.42;
     const ca = Math.cos(rot), sa = Math.sin(rot), cb = Math.cos(tilt), sb = Math.sin(tilt);
     for (const t of tiles) {
       if (!t.alive) continue;
@@ -1626,7 +1626,7 @@ async function renderCategories() {
       const y = t.y * cb - z * sb; z = t.y * sb + z * cb;
       const d = (z + 1) / 2;
       t.s = 0.5 + d * 0.8; t.sx = w / 2 + x * R; t.sy = h / 2 + y * R;
-      t.el.style.transform = `translate3d(${(t.sx - 18).toFixed(1)}px,${(t.sy - 18).toFixed(1)}px,0) scale(${t.s.toFixed(3)})`;
+      t.el.style.transform = `translate3d(${(t.sx - 15).toFixed(1)}px,${(t.sy - 15).toFixed(1)}px,0) scale(${t.s.toFixed(3)})`;
       t.el.style.opacity = (0.25 + d * 0.75).toFixed(2); t.el.style.zIndex = Math.round(d * 100);
     }
     // sorted photos leave the sphere a few at a time
@@ -1639,12 +1639,14 @@ async function renderCategories() {
   const slotOf = (k) => { const c = cards[k]; return c.el.querySelectorAll(".slot")[(c.n++) % 6]; };
   function release(it) {
     const c = cards?.[it.cat]; if (!c) return;
-    const t = tiles.find(t => t.alive), slot = slotOf(it.cat), to = slot.getBoundingClientRect(), sr = stage.getBoundingClientRect();
-    if (t) { t.alive = false; t.el.style.opacity = 0; setTimeout(() => { if (wasRunning) t.alive = true; }, 2500); }   // a long run keeps the sphere full
-    const from = t ? {x: sr.left + t.sx - 18, y: sr.top + t.sy - 18, s: t.s} : {x: sr.left + sr.width / 2 - 18, y: sr.top + sr.height / 2 - 18, s: 1};
+    const live = tiles.filter(t => t.alive), slot = slotOf(it.cat), to = slot.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const t = live[Math.floor(Math.random() * live.length)];
+    // a photo leaves its tile, which comes back a moment later; the ball never drops below 40% so it never looks empty
+    if (t && live.length > tiles.length * 0.4) { t.alive = false; t.el.style.opacity = 0; setTimeout(() => { t.alive = true; }, 600 + Math.random() * 1800); }
+    const from = t ? {x: sr.left + t.sx - 15, y: sr.top + t.sy - 15, s: t.s} : {x: sr.left + sr.width / 2 - 15, y: sr.top + sr.height / 2 - 15, s: 1};
     const img = Object.assign(new Image(), {src: `/thumb/${it.id}`, alt: ""});
     fly.append(img);
-    const end = {transform: `translate(${to.left}px,${to.top}px) scale(${to.width / 36})`, opacity: 1};
+    const end = {transform: `translate(${to.left}px,${to.top}px) scale(${to.width / 30})`, opacity: 1};
     img.animate([{transform: `translate(${from.x}px,${from.y}px) scale(${from.s})`, opacity: 1},
                  {transform: `translate(${(from.x + to.left) / 2 + (Math.random() - .5) * 60}px,${Math.min(from.y, to.top) - 30}px) scale(1)`, opacity: 1}, end],
                 {duration: 650 + Math.random() * 400, easing: "cubic-bezier(.55,0,.25,1)"}).onfinish = () => {
@@ -1659,8 +1661,15 @@ async function renderCategories() {
     since = r.last; queue.push(...r.items);
   }
 
+  let busy = false, again = false;
   const draw = async () => {
-    const box = $("#catBox"); if (!box) { clearInterval(timer); return; }
+    if (busy) { again = true; return; }      // one refresh at a time, or two would pull the same photos
+    busy = true;
+    try {
+      do { again = false; const box = $("#catBox"); if (!box) { clearInterval(timer); return; } await refresh(box); } while (again);
+    } finally { busy = false; }
+  };
+  const refresh = async box => {
     let st; try { st = await api("/api/categories/status"); } catch { return; }
     if (!cards) {                      // first time: the category cards, as they are now
       cards = {};
@@ -1680,8 +1689,8 @@ async function renderCategories() {
     if (!running && !queue.length && wasRunning) st.categories.forEach(c => {   // finished and everything has landed: show the real numbers
       if (cards[c.key]) { cards[c.key].count = c.count; cards[c.key].el.querySelector(".cnt").textContent = nf(c.count); cards[c.key].el.classList.toggle("empty", !c.count); }
     });
-    const wasOn = wasRunning; wasRunning = running;
-    if (wasOn && !running) loadCats();        // the filter menu offers the new categories
+    wasRunning = running;
+    if (st.labelled !== seenLabelled) { seenLabelled = st.labelled; loadCats(); }   // the filter menu offers the new categories
     const err = !running && j?.detail?.error;
     const pct = j?.total && j.status === "running" ? Math.round(100 * j.done / j.total) : 0;
     const n = st.unsorted, batch = st.calls_per;
@@ -1699,7 +1708,7 @@ async function renderCategories() {
           ${nf(Math.ceil(n / batch))} calls and uses your Claude plan's usage; you can stop it at any time and what's done is kept.</div>` : ""}
         ${j?.status === "done" && j.detail?.failed_batches ? `<div class="note">${plural(j.detail.failed_batches, "call")} failed; those photos are still waiting. ${esc(j.detail.error || "")}</div>` : ""}
         ${err ? `<div class="note">The last run stopped: ${esc(err)}${/auth|login|OAuth/i.test(err) ? ` Open Terminal, run <code>claude</code>, sign in, and try again.` : ""}</div>` : ""}`}`;
-    const start = async limit => { try { starting = {id: j?.id, at: Date.now()}; await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); draw(); } catch (e) { starting = null; toast(esc(e.message)); } };
+    const start = async limit => { try { starting = {id: j?.id, at: Date.now()}; await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); timer ||= setInterval(draw, 2000); draw(); } catch (e) { starting = null; toast(esc(e.message)); } };
     $("#catTry")?.addEventListener("click", () => start(batch));
     $("#catAll")?.addEventListener("click", () => start(0));
     $("#catStop")?.addEventListener("click", async () => { starting = null; await post("/api/categories/stop"); draw(); });
