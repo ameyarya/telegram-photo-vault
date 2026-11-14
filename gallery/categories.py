@@ -12,15 +12,17 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from build_index import make_thumb, thumb_path
-from config import DATA, local_path
+from config import BASE, DATA, local_path
 from db import connect
 
 router = APIRouter()
@@ -117,44 +119,66 @@ def label_batch(batch_no, groups, run_dir):
     return out
 
 
+ELIGIBLE = """kind = 'image' AND live_of IS NULL AND thumb != -1 AND id NOT IN (SELECT media_id FROM trash)"""
+
+
+def _job(con, job_id, **fields):
+    con.execute(f"UPDATE jobs SET {', '.join(f'{k} = ?' for k in fields)} WHERE id = ?", [*fields.values(), job_id])
+    con.commit()
+
+
 def run(limit=None, log=print):
     con = connect(timeout=600)
     ensure_table(con)
-    todo = [r["id"] for r in con.execute(
-        """SELECT id, path, kind FROM media WHERE kind = 'image' AND live_of IS NULL AND thumb != -1
-           AND id NOT IN (SELECT media_id FROM categories) AND id NOT IN (SELECT media_id FROM trash)
-           ORDER BY taken_at DESC""")]
-    if limit:
-        todo = todo[:limit]
-    ready = []
-    for mid in todo:
-        if not thumb_path(mid).exists():
-            row = con.execute("SELECT id, path, kind FROM media WHERE id = ?", (mid,)).fetchone()
-            if local_path(row["path"]).is_file():
-                make_thumb(dict(row))
-        if thumb_path(mid).exists():
-            ready.append(mid)
-    sheets = [ready[i:i + SHEET_TILES] for i in range(0, len(ready), SHEET_TILES)]
-    batches = [sheets[i:i + BATCH_SHEETS] for i in range(0, len(sheets), BATCH_SHEETS)]
-    log(f"{len(ready)} photos to label in {len(batches)} Claude calls")
-    run_dir = WORK / time.strftime("%Y%m%d-%H%M%S")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    done = failed = 0
-    with ThreadPoolExecutor(WORKERS) as pool:
-        futures = [pool.submit(label_batch, n, b, run_dir) for n, b in enumerate(batches, 1)]
-        for f in futures:
-            try:
-                rows = f.result()
-            except Exception as e:  # leave those photos unlabelled: the next run retries them
-                failed += 1
-                log(f"batch failed: {e}")
-                continue
-            con.executemany("INSERT OR REPLACE INTO categories(media_id, cat) VALUES (?, ?)", rows)
-            con.commit()
-            done += len(rows)
-            log(f"labelled {done}/{len(ready)}")
-    shutil.rmtree(run_dir, ignore_errors=True)
-    return {"labelled": done, "failed_batches": failed}
+    job = con.execute("INSERT INTO jobs(kind, status, detail) VALUES ('categories', 'running', ?)",
+                      (json.dumps({"pid": os.getpid()}),)).lastrowid
+    con.commit()
+    detail = {"pid": os.getpid()}
+    try:
+        todo = [r["id"] for r in con.execute(
+            f"SELECT id FROM media WHERE {ELIGIBLE} AND id NOT IN (SELECT media_id FROM categories) ORDER BY taken_at DESC")]
+        if limit:
+            todo = todo[:limit]
+        ready = []
+        for mid in todo:
+            if not thumb_path(mid).exists():
+                row = con.execute("SELECT id, path, kind FROM media WHERE id = ?", (mid,)).fetchone()
+                if local_path(row["path"]).is_file():
+                    make_thumb(dict(row))
+            if thumb_path(mid).exists():
+                ready.append(mid)
+        sheets = [ready[i:i + SHEET_TILES] for i in range(0, len(ready), SHEET_TILES)]
+        batches = [sheets[i:i + BATCH_SHEETS] for i in range(0, len(sheets), BATCH_SHEETS)]
+        log(f"{len(ready)} photos to label in {len(batches)} Claude calls")
+        _job(con, job, total=len(ready), done=0)
+        run_dir = WORK / time.strftime("%Y%m%d-%H%M%S")
+        run_dir.mkdir(parents=True, exist_ok=True)
+        done = failed = 0
+        error = None
+        with ThreadPoolExecutor(WORKERS) as pool:
+            futures = [(b, pool.submit(label_batch, n, b, run_dir)) for n, b in enumerate(batches, 1)]
+            for b, f in futures:
+                try:
+                    rows = f.result()
+                except Exception as e:  # leave those photos unlabelled: the next run retries them
+                    failed += 1
+                    error = str(e)
+                    log(f"batch failed: {e}")
+                    continue
+                con.executemany("INSERT OR REPLACE INTO categories(media_id, cat) VALUES (?, ?)", rows)
+                con.commit()
+                done += len(rows)
+                _job(con, job, done=done)
+                log(f"labelled {done}/{len(ready)}")
+        shutil.rmtree(run_dir, ignore_errors=True)
+        detail.update(failed_batches=failed, **({"error": error} if error else {}))
+        _job(con, job, status="failed" if failed and not done else "done", detail=json.dumps(detail),
+             finished=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        return {"labelled": done, "failed_batches": failed}
+    except BaseException as e:
+        _job(con, job, status="failed", detail=json.dumps({**detail, "error": str(e) or type(e).__name__}),
+             finished=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        raise
 
 
 def counts(con):
@@ -169,6 +193,69 @@ def list_categories():
     have = counts(con)
     return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have[k]} for k in CATEGORIES if have.get(k)],
             "labelled": sum(have.values())}
+
+
+def _running():
+    r = connect().execute("SELECT * FROM jobs WHERE kind = 'categories' ORDER BY id DESC LIMIT 1").fetchone()
+    if not r:
+        return None
+    job = {**dict(r), "detail": json.loads(r["detail"] or "{}")}
+    if job["status"] == "running":
+        try:
+            os.kill(job["detail"].get("pid", 0), 0)
+        except OSError:
+            job["status"] = "stopped"
+    return job
+
+
+@router.get("/api/categories/status")
+def categories_status():
+    con = connect()
+    have = counts(con)
+    eligible = con.execute(f"SELECT count(*) FROM media WHERE {ELIGIBLE}").fetchone()[0]
+    return {"categories": [{"key": k, "label": CATEGORIES[k][0], "count": have.get(k, 0)} for k in CATEGORIES],
+            "labelled": sum(have.values()), "unsorted": max(0, eligible - sum(have.values())), "photos": eligible,
+            "claude": bool(shutil.which(CLAUDE) or os.path.exists(CLAUDE)), "job": _running(),
+            "calls_per": BATCH_SHEETS * SHEET_TILES}
+
+
+class RunBody(BaseModel):
+    limit: int | None = None
+
+
+@router.post("/api/categories/run")
+def categories_run(body: RunBody):
+    job = _running()
+    if job and job["status"] == "running":
+        return {"started": False, "job": job}
+    if not (shutil.which(CLAUDE) or os.path.exists(CLAUDE)):
+        raise HTTPException(400, "Claude Code isn't installed on this Mac (the `claude` command was not found).")
+    cmd = [sys.executable, str(BASE / "categories.py"), "run"] + (["--limit", str(max(1, body.limit))] if body.limit else [])
+    subprocess.Popen(cmd, cwd=BASE, stdout=open(BASE / "categories.log", "a"), stderr=subprocess.STDOUT, start_new_session=True)
+    return {"started": True}
+
+
+@router.post("/api/categories/stop")
+def categories_stop():
+    job = _running()
+    if job and job["status"] == "running":
+        try:
+            os.killpg(job["detail"]["pid"], signal.SIGTERM)  # the run and the `claude` calls it started
+        except OSError:
+            pass
+        con = connect()
+        con.execute("UPDATE jobs SET status = 'stopped', finished = datetime('now') WHERE id = ?", (job["id"],))
+        con.commit()
+    return {"stopped": True}
+
+
+@router.post("/api/categories/clear")
+def categories_clear():
+    """Forget every label (the next run sorts everything again)."""
+    con = connect()
+    con.execute("DELETE FROM categories")
+    con.commit()
+    return {"cleared": True}
 
 
 if __name__ == "__main__":

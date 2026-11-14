@@ -58,3 +58,32 @@ def test_filter_menu_lists_categories(labelled, mlworld, page):
     page.click("#filterMenu .chip:has-text('Food')")
     page.wait_for_selector("#days .tile")
     assert page.locator("#days .tile").count() == 7
+
+
+def test_sort_page_runs_and_shows_progress(mlworld, page, tmp_path):
+    """The Sort photos page: press the button, the (fake) Claude labels the photos, the categories appear."""
+    fake = tmp_path / "claude"
+    fake.write_text(FAKE); fake.chmod(0o755)
+    with httpx.Client(base_url=mlworld["url"], timeout=30) as c:
+        c.post("/api/categories/clear")
+    # the test server doesn't know the fake claude, so run the same job the button starts, from a subprocess
+    page.goto(mlworld["url"] + "/#/categories")
+    page.wait_for_selector("#catTry")
+    assert "0 of 14 photos sorted" in page.inner_text("#catBox")
+    assert page.locator("#catTry").inner_text().startswith("Try it on")
+    r = subprocess.run([PY, "categories.py", "run"], cwd=ROOT, env={**mlworld["env"], "CLAUDE_BIN": str(fake)},
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    page.reload()
+    page.wait_for_selector(".cat-chip")
+    assert "14 of 14 photos sorted" in page.inner_text("#catBox")
+    page.click(".cat-chip:has-text('Food')")
+    page.wait_for_selector("#days .tile")
+    assert page.locator("#days .tile").count() == 7
+
+
+def test_run_endpoint_rejects_missing_claude(mlworld):
+    with httpx.Client(base_url=mlworld["url"], timeout=30) as c:
+        s = c.get("/api/categories/status").json()
+        assert s["photos"] == 14 and "job" in s and s["calls_per"] == 90
+        c.post("/api/categories/stop")      # nothing running: harmless

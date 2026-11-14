@@ -162,6 +162,10 @@ main{position:fixed;top:64px;bottom:0;left:256px;right:0;overflow-y:auto;overflo
 .filter-btn svg{width:18px;height:18px}
 .filter-btn.on{background:var(--pill);color:var(--pill-ink);border-color:transparent}
 .head-actions .chips{margin:0}
+.cat-stats{margin:14px 0;font-size:15px}.cat-actions{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.cat-hint{color:var(--ink2);font-size:13px;margin:8px 0 18px;max-width:640px}
+.cat-prog{display:flex;align-items:center;gap:12px;margin:8px 0 18px;flex-wrap:wrap}.cat-prog .bar{flex:1 1 240px;height:8px;border-radius:4px;background:var(--line);overflow:hidden}.cat-prog .bar i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.cat-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}.cat-chip{display:inline-flex;gap:8px;align-items:center;padding:10px 16px;border:1px solid var(--line);border-radius:20px;color:var(--ink);text-decoration:none}.cat-chip span{color:var(--ink2)}.cat-chip:hover{background:var(--hover)}
+#catBox button:disabled{opacity:.45;pointer-events:none}
 .filter-menu{position:absolute;right:0;top:42px;z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px;
   display:grid;min-width:200px;box-shadow:0 6px 24px rgb(0 0 0/.35)}
 .filter-menu .chip{border:0;border-radius:8px;height:38px;width:100%;justify-content:flex-start;padding:0 12px 0 34px;position:relative;background:none;cursor:pointer;font:inherit;font-size:14px;color:var(--ink)}
@@ -567,6 +571,7 @@ body.signed-out>:not(.login,svg){display:none!important}
   <a href="#/albums" data-route="albums"><svg><use href="#i-albums"/></svg>Albums</a>
   <a href="#/favorites" data-route="favorites"><svg><use href="#i-star-o"/></svg>Favorites</a>
   <a href="#/people" data-route="people"><svg><use href="#i-people"/></svg>People</a>
+  <a href="#/categories" data-route="categories" class="owner-only"><svg><use href="#i-albums"/></svg>Sort photos</a>
   <a href="#/similar" data-route="similar"><svg><use href="#i-similar"/></svg>Similar shots</a>
   <a href="#/backup" data-route="backup"><svg><use href="#i-cloud-done"/></svg>Backup</a>
   <a href="#/trash" data-route="trash" class="owner-only"><svg><use href="#i-trash"/></svg>Trash</a>
@@ -656,7 +661,7 @@ function toast(html, ms = 5000) {
 }
 
 // ---------- routing ----------
-const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup", "/upload": "backup"};
+const NAV = {"/photos": "photos", "/albums": "albums", "/favorites": "favorites", "/people": "people", "/people/review": "people", "/similar": "similar", "/categories": "categories", "/backup": "backup", "/trash": "trash", "/sharing": "sharing", "/dates": "backup", "/upload": "backup"};
 let lastPath = null;
 function route() {
   const h = decodeURIComponent(location.hash.slice(1)) || "/photos";
@@ -684,6 +689,7 @@ function route() {
   if (h === "/dates") return renderDates();
   if (h === "/upload") return renderUpload();
   if (h === "/similar") return renderSimilar();
+  if (h === "/categories") return renderCategories();
   if (h === "/backup") return renderBackup();
   if (h === "/favorites") return openFeed({title: "Favorites", params: {filter: "favorites"}, chips: false, restoreLabel: "Favorites", noBack: true});
   if (h.startsWith("/album/")) return openFolder(h.slice(7));
@@ -1574,6 +1580,49 @@ async function renderPeopleReview() {
   await draw();
 }
 
+async function renderCategories() {
+  feed = null;
+  $("#page").innerHTML = `<div class="page-head no-back"><h1>Sort photos</h1></div>
+    <div class="page-sub">Claude looks at small previews of your photos and files each one under Selfies, People, Food, Travel, Nature,
+      Pets, Documents, Screens &amp; memes or Other. The categories then appear in the filter menu above your photos. Nothing is moved or copied.</div>
+    <div class="note">${ico("cloud-done")} <span><b>Privacy:</b> the previews (small thumbnails, 30 to a sheet) are sent to Anthropic through Claude Code on this Mac.
+      Nothing is sent unless you press a button below. Only photos are sorted, never videos.</span></div>
+    <div id="catBox">${loadingHtml()}</div>`;
+  let timer = null;
+  const draw = async () => {
+    const box = $("#catBox"); if (!box) { clearInterval(timer); return; }
+    let st; try { st = await api("/api/categories/status"); } catch { return; }
+    const j = st.job, running = j?.status === "running";
+    const err = j && j.status !== "running" && j.detail?.error;
+    const pct = j?.total ? Math.round(100 * j.done / j.total) : 0;
+    const n = st.unsorted, batch = st.calls_per;
+    box.innerHTML = `
+      ${!st.claude ? `<div class="note">The <code>claude</code> command was not found on this Mac. Install Claude Code and sign in, then reload.</div>` : ""}
+      <div class="cat-stats"><b>${nf(st.labelled)}</b> of ${nf(st.photos)} photos sorted · <b>${nf(n)}</b> waiting</div>
+      ${running ? `<div class="cat-prog"><div class="bar"><i style="width:${pct}%"></i></div>
+          <span>${j.total ? `Sorting… ${nf(j.done)} of ${nf(j.total)}` : "Getting ready…"}</span>
+          <button class="txt-btn" id="catStop">Stop</button></div>` :
+        `<div class="cat-actions">
+          <button class="fill-btn" id="catTry" ${!st.claude || !n ? "disabled" : ""}>Try it on ${nf(Math.min(batch, n))} photos</button>
+          <button class="txt-btn" id="catAll" ${!st.claude || !n ? "disabled" : ""}>Sort all ${nf(n)} waiting</button>
+          ${st.labelled ? `<button class="txt-btn" id="catClear">Start over</button>` : ""}</div>
+        <div class="cat-hint">One Claude call sorts about ${batch} photos. "Try it" is a single call, to see how it does. "Sort all" runs about
+          ${nf(Math.ceil(n / batch))} calls and uses your Claude plan's usage; you can stop it at any time and what's done is kept.</div>
+        ${j?.status === "done" && j.detail?.failed_batches ? `<div class="note">${plural(j.detail.failed_batches, "call")} failed; those photos are still waiting. ${esc(j.detail.error || "")}</div>` : ""}
+        ${err ? `<div class="note">The last run stopped: ${esc(err)}${/auth|login|OAuth/i.test(err) ? ` Open Terminal, run <code>claude</code>, sign in, and try again.` : ""}</div>` : ""}`}
+      <div class="cat-list">${st.categories.filter(c => c.count).map(c =>
+        `<a class="cat-chip" href="#/photos" data-k="${c.key}">${esc(c.label)}<span>${nf(c.count)}</span></a>`).join("") || `<div class="empty">Nothing sorted yet.</div>`}</div>`;
+    const start = async limit => { try { await post("/api/categories/run", limit ? {limit} : {}); toast("Sorting started"); draw(); } catch (e) { toast(esc(e.message)); } };
+    $("#catTry")?.addEventListener("click", () => start(batch));
+    $("#catAll")?.addEventListener("click", () => start(0));
+    $("#catStop")?.addEventListener("click", async () => { await post("/api/categories/stop"); draw(); });
+    $("#catClear")?.addEventListener("click", async () => { if (!confirm("Forget all categories and sort again from scratch?")) return; await post("/api/categories/clear"); await loadCats(); draw(); });
+    box.querySelectorAll(".cat-chip").forEach(a => a.addEventListener("click", () => { filterChip = "cat:" + a.dataset.k; lastPath = "/photos"; }));
+    if (!running && timer) { clearInterval(timer); timer = null; loadCats(); }
+    if (running && !timer) timer = setInterval(draw, 3000);
+  };
+  await draw();
+}
 async function renderSimilar() {
   feed = null;
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Similar shots</h1><div class="head-actions"><button class="txt-btn owner-only" id="simAll" hidden>${ico("trash")}Keep the best in all groups below</button></div></div>

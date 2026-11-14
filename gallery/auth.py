@@ -33,7 +33,7 @@ _failures = {}  # ip or username -> [failure times]
 # paths anyone may load (no data in them): the app shell, signing in, phone setup
 PUBLIC = {"/", "/api/login", "/api/me", "/setup", "/ca.pem", "/favicon.ico"}
 # what only full-access accounts (and this Mac) may do
-OWNER_ONLY = ("/api/trash", "/api/restore", "/api/jobs", "/api/ml/run", "/api/people/merge", "/api/people/not-same",
+OWNER_ONLY = ("/api/trash", "/api/restore", "/api/jobs", "/api/ml/run", "/api/categories/", "/api/people/merge", "/api/people/not-same",
               "/api/similar/dismiss", "/api/dates", "/api/folder-names", "/api/subjects", "/api/backup/approve", "/api/users", "/api/sessions", "/api/sharing",
               "/api/shortcut/", "/api/edit/", "/api/settings")
 OWNER_ONLY_RE = ("/merge", "/delete")  # /api/people/{id}/merge, /api/user-albums/{id}/delete
