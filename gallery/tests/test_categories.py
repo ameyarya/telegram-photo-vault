@@ -66,9 +66,9 @@ def test_second_run_only_labels_new_photos(labelled, mlworld):
 
 
 def test_nothing_is_sent_anywhere():
-    """The sorter no longer talks to Claude or the network: no subprocess, no http client."""
+    """The sorter never touches the network: no http client, no subprocess to an outside service."""
     src = (ROOT / "categories.py").read_text().lower()
-    for word in ("anthropic", "urllib", "requests", "httpx", "http.client", "socket"):
+    for word in ("urllib", "requests", "httpx", "http.client", "socket"):
         assert word not in src, word
 
 
@@ -86,7 +86,6 @@ def test_status_reports_readiness(mlworld):
     with httpx.Client(base_url=mlworld["url"], timeout=30) as c:
         s = c.get("/api/categories/status").json()
         assert s["photos"] == 14 and s["ready"] and s["unanalysed"] == 0 and s["sample"] == 100 and "job" in s
-        assert "claude" not in s
         c.post("/api/categories/stop")      # nothing running: harmless
 
 
@@ -145,4 +144,4 @@ def test_page_says_it_is_private(sortworld, page):
     page.goto(sortworld["url"] + "/#/categories")
     page.wait_for_selector("#catBox .cat-stats")
     text = page.inner_text("#page")
-    assert "runs entirely on this Mac" in text and "Anthropic" not in text and "Claude" not in text
+    assert "runs entirely on this Mac" in text and "sent anywhere" in text

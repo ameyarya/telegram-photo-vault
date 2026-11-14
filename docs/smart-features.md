@@ -25,5 +25,4 @@ or Other. The categories then appear in the filter menu above your photos.
 Nothing is sent anywhere. Each photo's CLIP fingerprint (already made for smart search) is compared with a few
 descriptions of every category, and the faces the gallery already found decide Selfies vs People. It's quick: a big
 library takes a minute or two. It only labels photos, never videos, and no files are moved or copied (labels live in the
-gallery's database). It's a good guess, not a perfect one: unusual photos land in Other. Idea from
-[claude-photo-sorter](https://github.com/kairothq/claude-photo-sorter), but done locally.
+gallery's database). It's a good guess, not a perfect one: unusual photos land in Other.
