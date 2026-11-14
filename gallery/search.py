@@ -79,6 +79,8 @@ def selection(album="", sub=True, filter="", q="", user_album=None, person=None,
     for f in (filter or "").split(","):
         if f in FILTERS:
             clauses.append(FILTERS[f])
+        elif f.startswith("cat:") and re.fullmatch(r"[a-z]+", f[4:]):  # a category from categories.py
+            clauses.append("id IN (SELECT media_id FROM categories WHERE cat = ?)"); args.append(f[4:])
     if q:
         c, a, _ = parse_query(q)
         clauses += c; args += a

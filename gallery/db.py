@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS trash (media_id INTEGER PRIMARY KEY, trashed_at TEXT 
 CREATE TABLE IF NOT EXISTS drive_queue (path TEXT PRIMARY KEY, op TEXT NOT NULL, size INTEGER);  -- waits for the drive
 CREATE TABLE IF NOT EXISTS similar_dismissed (group_key TEXT PRIMARY KEY);         -- "these aren't duplicates"
 CREATE TABLE IF NOT EXISTS people_not_same (a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY (a, b));  -- a < b
+CREATE TABLE IF NOT EXISTS categories (media_id INTEGER PRIMARY KEY, cat TEXT NOT NULL);  -- categories.py: Claude's label per photo
+CREATE INDEX IF NOT EXISTS categories_cat ON categories(cat);
 CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT, done INTEGER DEFAULT 0, total INTEGER DEFAULT 0,
   detail TEXT, started TEXT DEFAULT CURRENT_TIMESTAMP, finished TEXT);
 """
