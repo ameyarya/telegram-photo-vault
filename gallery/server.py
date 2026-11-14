@@ -22,7 +22,7 @@ from telethon.errors import FileReferenceExpiredError
 
 import tg
 from build_index import make_thumb, thumb_path
-from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, DRIVE, HOSTNAME, OLD_HOSTNAMES, TELEGRAM, load_env, local_path
+from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, BACKUP, DRIVE, HOSTNAME, OLD_HOSTNAMES, TELEGRAM, load_env, local_path
 from db import connect
 from search import VISIBLE, parse_query, selection
 
@@ -100,7 +100,7 @@ def status(request: Request):
     con = connect()
     r = con.execute("""SELECT count(*) total, sum(msg_id IS NOT NULL) uploaded, sum(thumb=1) thumbs,
                        sum(date_src='file') undated FROM media""").fetchone()
-    return {**dict(r), "drive": DRIVE.is_dir(), "telegram": state["client"] is not None, "features": features(con),
+    return {**dict(r), "drive": DRIVE.is_dir(), "telegram": state["client"] is not None, "backup_on": BACKUP, "features": features(con),
             "telegram_error": state["tg_error"], "last_sync": state["last_sync"],
             "user": getattr(request.state, "user", None)}
 

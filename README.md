@@ -1,293 +1,113 @@
-# telegram-photo-vault
+# Photo Vault
 
-**A self-hosted Google Photos clone, with Telegram as free, unlimited storage.**
+**A private, self-hosted Google Photos for your Mac.** Point it at a folder or drive of photos and videos and browse
+them in your browser: a timeline with a date scrubber, albums, search, favorites, Live Photos, a trash and more.
+Optionally add a free off-site backup to a private Telegram channel, search by what's *in* the photos, group faces,
+and share with family on your home Wi-Fi.
 
-Back up a drive full of photos and videos to a **private Telegram channel** for free, then browse it in a local
-gallery modelled on Google Photos: a timeline with a date scrubber, albums, search, smart search, people,
-favorites, Live Photos, similar shots and a trash. Photos stream from Telegram, so it works even with the drive unplugged.
-Everything runs on your Mac; nothing is sent anywhere except your own Telegram channel.
+Everything runs on your Mac. Nothing leaves it unless you turn on Telegram backup (to your own private channel) or the
+Claude sorting page (which says so before you press anything).
 
-*Unofficial: not affiliated with Google or Telegram. It uses the Telegram API with your own api_id
-(see [Telegram's rules](#telegrams-rules-checked-2026-10-19)).*
+*Unofficial: not affiliated with Google or Telegram. Built for one person's 700 GB / 70,000-photo drive; it has a large
+test suite, and it is still a personal project, so read [the caveats](docs/telegram-backup.md#caveats) before trusting it
+with the only copy of anything.*
 
-Built on macOS for one person's ~700 GB / 70,000-file photo drive. It works, it has tests, and it is
-still a personal project: read the [caveats](#caveats) before trusting it with anything.
+## Quick start (about 5 minutes)
 
-## What works
+You need a Mac with [Homebrew](https://brew.sh) and a folder of photos. Nothing else: no Telegram, no account, no sudo.
 
-| | Status |
+```sh
+git clone https://github.com/ameyarya/telegram-photo-vault
+cd telegram-photo-vault
+./setup.sh
+```
+
+`./setup.sh` installs what's missing (Python, ffmpeg, exiftool), asks where your photos are, builds the gallery and
+starts it. When it finishes it prints an address, `http://localhost:8000`. That's it: you're looking at your photos.
+
+> **How your folder maps to the gallery:** each folder inside the one you choose becomes an album (`Pictures/Holiday`
+> → "Holiday"). Photos loose in the top of that folder aren't shown: move them into a subfolder.
+> Your files are never changed.
+
+Something not working? Run **`./vault doctor`**. It checks everything and says exactly how to fix what's missing.
+
+## Everyday commands
+
+| | |
 |---|---|
-| **Uploader** (`backup/upload.sh`) — resumable batches via [tdl](https://github.com/iyear/tdl), retries, stall watchdog, each file captioned with its path | ✅ used for the real backup; tested |
-| **Large videos** (`backup/split_large.sh`) — videos over Telegram's 2 GB limit become playable ~1.8 GB parts, no re-encoding | ✅ used on real 2–17 GB videos |
-| **Duplicate skipping** (`backup/find_duplicates.py`) — copies confirmed byte-for-byte (SHA-256), never by name alone | ✅ tested |
-| **Timestamp manifest** (`backup/save_timestamps.sh`) — saves created/modified dates Telegram doesn't keep | ✅ tested |
-| **Upload verification** (`backup/verify_uploads.py`) — downloads samples back and compares SHA-256 with the originals | ✅ |
-| **Gallery** (`gallery/`) — albums from your folders, real capture dates, streams from Telegram, HTTPS at `https://photos.local`, this Mac only | ✅ tested, incl. headless-browser tests |
-| ↳ **Date scrubber**, oldest/newest-first, **filters** (the page opens on All; photos, videos, RAW, screenshots, favorites, with location, not backed up, no camera date), a **Screenshots** button that hides or shows them on this device | ✅ |
-| ↳ **Search** by date ("Feb 2024", "2023-08-26"), camera, lens, file or folder name | ✅ |
-| ↳ **Smart search** ("wedding cake", "beach at sunset") and **People** (faces grouped, name them, merge several, review "same person?" suggestions, choose their photo; your answers survive re-analysis) — on-device OpenCLIP + OpenCV models | ✅ optional (`requirements-ml.txt`) |
-| ↳ **Similar shots** — near-identical bursts grouped, best shot picked (favorite, else sharpest); "keep best, trash the rest" | ✅ optional |
-| ↳ **Fix dates** — edit or shift the date of one photo or a selection; suggested dates from file names (including timestamps like `FB_IMG_1471116064495.jpg`) and from matching originals (checked visually); stored in the gallery only, files untouched, undoable | ✅ tested |
-| ↳ **Live Photos** — the photo and its motion clip show as one item; a LIVE button plays the motion | ✅ |
-| ↳ **Trash** — trashed items are hidden and moved to `<drive>/.photo-vault-trash`; put back any time. "Empty trash" deletes them from the drive only — the Telegram copy is never touched. Works with the drive unplugged: the file changes wait and happen when it's plugged in, and a photo trashed while still on the Mac never goes to the drive (also Delete in the photo viewer) | ✅ tested |
-| ↳ Viewer with **zoom & pan**, camera details (lens, exposure, ISO, GPS), **favorites**, **your own albums**, multi-select | ✅ |
-| ↳ **On this day** (this date in earlier years, each year opening as a grid of its photos; the clock button in the toolbar above the photos switches it on or off for everyone using the gallery), **slideshow**, **select all** (Ctrl/⌘ A), shift-click a range, hold a photo to select on phones | ✅ |
-| ↳ **Photo categories** (optional: Food, Selfies, Travel and more as filters; the **Sorting** page (with a sphere of your photos that fly into their category cards) has "Try it", "Sort all" and Stop buttons; Claude Code sorts 30-photo contact sheets of your thumbnails. The previews are sent to Anthropic through the `claude` command, so nothing runs unless you press a button. Idea from [claude-photo-sorter](https://github.com/kairothq/claude-photo-sorter)) | ✅ |
-| ↳ **Basic photo editor** (crop, rotate, brightness, contrast, saturation; saves a new photo, the original is never changed), **choose an album's cover** | ✅ |
-| ↳ **Restore** any album, search or selection from Telegram into a folder, checked against the drive, original dates put back | ✅ |
-| ↳ **Backup dashboard** — % backed up, by folder and year, problems, upload log, analysis and restore progress | ✅ |
-| ↳ **Family on their phones** — share on the home Wi-Fi with per-person accounts (view-only or full access), revocable sign-ins, a phone setup page; nobody needs Telegram | ✅ tested |
-| ↳ **Download** a selection — one file, or a streamed .zip (Live Photo clips included), from the drive or Telegram | ✅ tested |
-| ↳ **Upload from phone** — family back up their phone from the gallery's Upload page (home Wi-Fi), into their own folder on the drive; resumable, never overwrites | ✅ tested |
-| **Real-time backup** (`backup/watcher.py`): new photos from phones, iCloud or the drive reach Telegram and the gallery within minutes, even with the drive unplugged (they wait in an inbox on the Mac, then move onto the drive) | ✅ tested |
-| **Bot uploader** (`backup/bot_upload.py`) — a Telegram bot uploads alongside your account for extra speed | 🧪 **experimental**: uploads verified byte-identical, but the speed gain from several bots is unproven |
+| `./vault open` | open the gallery in your browser |
+| `./vault index` | pick up photos you've added to the folder |
+| `./vault doctor` | check that everything is in place, with the fix for anything that isn't |
+| `./vault service on` / `off` | keep the gallery running in the background and start it at login |
+| `./vault start` | run it in this window instead (Ctrl-C stops it) |
+| `./vault update` | get the latest version |
+| `./vault help` | the full list |
 
-Not built: encryption before upload, Windows/Linux support, access from outside your home network.
+## Make it better, step by step
 
-## Caveats
+Each of these is optional and independent. Do them in any order, whenever you like.
 
-- **This uses Telegram in a way it wasn't designed for.** Telegram has no published storage limit for
-  channels, but it can change its rules, slow your account, or ban accounts that abuse the service.
-  Keep your drive as the primary copy; treat this as a free second copy.
-- **Not end-to-end encrypted.** Channels are encrypted in transit and at rest, but Telegram holds the keys.
-  Don't upload anything you wouldn't want Telegram to be able to read.
-- **Protect your account:** turn on Two-Step Verification, set "Delete my account if away" to the longest
-  option, never share the channel's invite link. Anyone with your login sees every file.
-- **Speed varies.** Uploads ran at 10–12 MB/s at best and dropped to 1–2 MB/s for hours at a time
-  (Telegram-side, not the connection). Plan on days for hundreds of GB.
-- **Files over 2 GB** need splitting (4 GB with Telegram Premium). Empty files are skipped.
-- Telegram keeps each file's bytes exactly (EXIF, GPS, video metadata survive) but **not** the file system's
-  created/modified dates — that's what the timestamp manifest is for.
-- macOS only: it uses `caffeinate`, `nettop`, `sips`, `launchd` and BSD tools.
-- **Renaming or moving folders on the drive** used to look like brand-new files to Telegram. Now, before uploading, each
-  new file is checked against what's already backed up (same name and size): if the old copy is gone and the date
-  matches, it was renamed/moved, and the backup records and the gallery (favorites, faces, albums) follow it, with
-  nothing uploaded; if the old copy is still there with identical bytes, it's a copy and is skipped. If a scan still
-  finds more than `UPLOAD_HOLD` (default 1000) new files on the drive at once, they wait for an **Upload them** on
-  the Backup page (you get a notification); phone and iCloud photos keep uploading meanwhile.
+| Want | Run | Time |
+|---|---|---|
+| A padlock address, `https://photos.local`, instead of `localhost:8000` | `./vault https` (asks for your Mac password once) | 1 min |
+| Search by what's in the photos ("beach at sunset"), people, similar shots, all on your Mac | `./vault smart` (downloads ~650 MB) | 10 min + about 1 h per 70k photos |
+| A free off-site copy of everything in a private Telegram channel | `./vault telegram` → [docs/telegram-backup.md](docs/telegram-backup.md) | 10 min + upload time |
+| Family browsing on their phones over your Wi-Fi, each with their own login | [docs/phones-and-family.md](docs/phones-and-family.md) | 5 min |
+| Automatic phone backup (Android, iPhone, iCloud Photos) | [docs/phones-and-family.md](docs/phones-and-family.md) | 10 min |
+| Photos sorted into Food, Selfies, Travel, … by Claude | the **Sorting** page → [docs/smart-features.md](docs/smart-features.md) | 5 min |
 
-## Setup
+## What you get
 
-Requirements: macOS, [Homebrew](https://brew.sh), Python 3.11+, and a Telegram account.
+Everything is listed in [docs/features.md](docs/features.md). The highlights:
 
-```sh
-brew install ffmpeg exiftool mkcert
-# tdl: download the macOS build from https://github.com/iyear/tdl/releases and put it on your PATH
-git clone https://github.com/ameyarya/telegram-photo-vault && cd telegram-photo-vault
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp config.example.env config.env
-```
+- **Timeline** with a date scrubber, oldest/newest first, filters (photos, videos, screenshots, RAW, favorites, with location…)
+  and a button to hide screenshots.
+- **Search** by date, camera, lens or folder; with smart search, by what's in the picture.
+- **Viewer** with zoom, camera details, favorites, your own albums, slideshow, and a basic editor (the original is never changed).
+- **People, similar shots, On this day, Live Photos, Fix dates, Trash** (nothing is deleted until you empty it).
+- **Sorting**: let Claude file photos under categories, with a sphere of your photos flying into their folders.
+- **Backup dashboard, restore, family accounts, upload from phones**: when Telegram backup is on.
 
-### 1. Telegram
+## If something goes wrong
 
-1. In the Telegram app create a **private channel** (e.g. "Photo Backup").
-2. Log tdl in — in Terminal, not through another tool (it's interactive): `tdl login -T qr`, then scan the
-   QR code from Telegram → Settings → Devices → Link Desktop Device.
-3. Find the channel's id with `tdl chat ls` and put it in `config.env` as `TG_CHANNEL_ID`.
-4. Set `DRIVE` (where the drive is mounted) and `FOLDERS` (which top-level folders, in upload order).
+| Symptom | Fix |
+|---|---|
+| `./setup.sh` says Homebrew is missing | install it from [brew.sh](https://brew.sh), then run `./setup.sh` again |
+| The page is empty | `./vault doctor`. Usually the photos are loose in the top of the folder (put them in a subfolder), or you added photos and need `./vault index` |
+| "This gallery is only available on the Mac it runs on" | you're opening it from another device. Share it on purpose: [docs/phones-and-family.md](docs/phones-and-family.md) |
+| `localhost:8000` doesn't load | `./vault service on`, or `./vault start` in a Terminal window you leave open |
+| The browser warns about the certificate on `https://photos.local` | run `./vault https` again and restart the browser |
+| It stopped working after a macOS update | `./vault service on` (reinstalls the background service), then `./vault doctor` |
+| Videos have no thumbnail | `brew install ffmpeg`, then `./vault index` |
+| Want to start over | `./vault service off`, delete `config.env` and the `state/` folder, run `./setup.sh` |
 
-### 2. Back up
-
-```sh
-zsh backup/split_large.sh                       # only if you have videos over 2 GB
-zsh backup/upload.sh --list-only                # build the file list
-.venv/bin/python backup/find_duplicates.py      # optional: skip exact duplicates
-zsh backup/save_timestamps.sh                   # optional: save file dates (then upload state/timestamps.tsv)
-caffeinate -is zsh backup/upload.sh             # upload; re-run any time, finished files are skipped
-```
-
-Progress is in `state/` (`done.log`, `upload.log`). Unplug the drive or stop it whenever you like and
-run it again later. Add `--rescan` after adding new photos.
-
-### 3. Gallery
-
-1. Get an API id and hash at [my.telegram.org](https://my.telegram.org) → API development tools, and put
-   them in `config.env` (`TG_API_ID`, `TG_API_HASH`).
-2. Log the gallery in (Terminal): `cd gallery && ../.venv/bin/python tg.py login`
-3. Index the drive (thumbnails are also made on demand): `../.venv/bin/python build_index.py`
-4. Make `https://photos.local` work and keep the gallery running in the background:
-   ```sh
-   sudo zsh setup_hostname.sh     # adds photos.local to /etc/hosts (backs it up first)
-   zsh setup_https.sh             # mkcert: a certificate trusted only on this Mac (asks for your password)
-   zsh install_service.sh         # starts at login; `zsh install_service.sh --remove` to undo
-   ```
-
-Only this Mac can open the gallery unless you share it (below); every other device is refused. It never changes your Telegram channel. On the drive
-it only moves files you trash into `.photo-vault-trash` (and back), and deletes them only when you press "Empty trash";
-everything else it writes is local (favorites, your albums, restored copies).
-Photos come from the drive when it's plugged in, otherwise from Telegram; anything not uploaded yet shows a
-crossed-out cloud.
-
-### Optional: family on their phones (home Wi-Fi)
-
-Open the gallery on the Mac → **Sharing**: add an account for each person (view-only, or full access), then switch on
-**Share on home Wi-Fi**. On the phone, open `http://photos.local/setup` once: it walks through trusting this Mac's
-certificate (so passwords and photos are encrypted on the Wi-Fi), then sign in at `https://photos.local`.
-
-- Only devices on your home network that sign in get in; everything else is refused. Switch it off any time.
-- Accounts are managed only on the Mac. "Sign out" a lost phone, or change a password to sign out all their devices.
-- View-only accounts can browse, favorite, add to albums and name people; trash, restore and merging are full access only.
-- Passwords are stored as scrypt hashes; wrong passwords are rate-limited. Works while the Mac is awake and on the same Wi-Fi.
-
-**From anywhere, privately (Tailscale):** install [Tailscale](https://tailscale.com) on the Mac and on each device, then run
-`tailscale serve --bg 8444` on the Mac. The gallery listens on `127.0.0.1:8444` for that proxy only; everyone arriving
-that way has to sign in (the Mac's own no-login access never applies to them) and failed sign-ins are counted per device.
-Nothing is opened to the public internet. The address is `https://<mac-name>.<tailnet>.ts.net`.
-- Trusting the certificate means the phone trusts this Mac's mkcert authority; remove it in the phone's settings to undo.
-
-### Optional: smart search, people, similar shots
-
-Runs entirely on your Mac (uses the Apple GPU when available); nothing is sent anywhere.
-
-```sh
-.venv/bin/pip install -r requirements-ml.txt
-cd gallery && ../.venv/bin/python ml.py download    # ~650 MB, once: OpenCLIP ViT-B/32 + OpenCV YuNet/SFace
-../.venv/bin/python ml.py run                        # analyse every photo (resumable; ~1 h per 70k photos)
-```
-
-Later runs only process new photos; the Backup page has an "Analyse new photos" button.
-
-### Optional: real-time backup
-
-```sh
-zsh backup/install_autobackup.sh            # on  (zsh backup/install_autobackup.sh --remove  to turn off)
-```
-
-A small service (`backup/watcher.py`) runs all the time and checks every minute. New photos are uploaded to Telegram,
-added to the gallery and analysed within minutes, and you get a notification. The photos can come from:
-- the **inbox** on the Mac (`<state>/inbox/<folder>/`, set with `INBOX_DIR`), where phones (Syncthing), the gallery's
-  upload page and the iCloud export put them;
-- the **drive**, rescanned when it's plugged in and hourly after that, once copying has stopped (e.g. an Image Capture
-  import).
-
-**The drive doesn't need to be plugged in.** Inbox files are backed up and shown in the gallery straight away, and move
-onto the drive under the same path once it's plugged in (only after they're in Telegram). If the Mac gets low on space
-while the drive stays unplugged, you get a notification. `backup/autobackup.py` still works for a one-off run by hand.
-Leave `FOLDERS` empty in `config.env` to include new top-level folders automatically.
-
-**It uploads with your bot(s), so set up the bot uploader below first.** macOS doesn't let background jobs read an
-external drive with `zsh`, `find` or `tdl` ("Operation not permitted"), so the background backup lists the drive and
-uploads in Python (`backup/auto_upload.py`), which macOS asks you to allow once. Running `upload.sh` yourself in
-Terminal still uses tdl as before.
-
-The gallery service and auto-backup are started with Python directly (not shell scripts), so they also work when this
-folder is inside `~/Documents`, which macOS keeps background shell scripts out of. Their logs are in
-`~/Library/Logs/PhotoVault`.
-
-### Optional: back up an Android phone automatically (Syncthing)
-
-The gallery's **Upload from phone** page works on any phone, but the page has to stay open. For automatic background
-backup of an Android phone, use [Syncthing](https://syncthing.net) (free, open source):
-
-1. Mac: `brew install syncthing && brew services start syncthing`, then open http://127.0.0.1:8384. In Settings,
-   turn off global discovery and relaying if both devices are always on the same Wi-Fi.
-2. Phone: install **Syncthing-Fork** from the Play Store, add the Mac (Actions → Show ID on the Mac shows a QR code), and
-   add a folder for `DCIM/Camera` as **Send Only**, shared with the Mac.
-3. Mac: accept the phone and its folder, with the path set to a folder in the inbox (e.g. `<state>/inbox/her-phone`, so
-   it syncs even with the drive unplugged; the watcher moves backed-up files onto the drive), and
-   Folder type **Receive Only**. Under Advanced, turn on **Ignore Delete**, so deleting photos on the phone never deletes
-   them from the drive. Never press "Revert Local Changes" on it, because that deletes files the phone doesn't have.
-   Syncthing needs the hidden `.stfolder` inside that folder; the watcher puts it back if it ever goes missing.
-
-**iPhone:** [Möbius Sync](https://www.mobiussync.com) is a Syncthing app for iOS. Share its photo library folder as
-Send Only, and on the Mac put it in `<state>/phone-sync/<folder>` (e.g. `phone-sync/iphone`), not in the inbox: iPhone
-photo numbers wrap around, so `backup/phone_import.py` moves each new photo into `inbox/<folder>` under a name that was
-never used there, and sets aside photos that are already backed up (e.g. by iCloud Photos). iOS only lets the app sync
-while it's open or briefly in the background, so open it now and then on home Wi-Fi.
-
-Auto-backup then picks the photos up like anything else copied onto the drive.
-
-### Optional: back up an iPhone with a Shortcut (free, no app)
-
-iOS doesn't let an app sync the photo library in the background, but a Shortcuts automation can send new photos to
-the gallery over the home Wi-Fi (`gallery/shortcut.py`). Each run sends what was created since the last finished run,
-so nothing is missed while the Mac is asleep or away; a photo sent twice is kept once.
-
-1. On the Mac, make a token for the drive folder (it's shown once; making a new one replaces it):
-   `curl -s -X POST https://<hostname>/api/shortcut/token -H 'Content-Type: application/json' -d '{"folder": "iphone"}'`
-2. In the Shortcuts app, a shortcut that: gets the contents of `https://<hostname>/api/shortcut/since` (header
-   `Authorization: Bearer <token>`), turns it into a date, finds photos whose creation date is after it, sends each
-   with "Get Contents of URL" (POST, Form, a File field named `file`) to `/api/shortcut/upload`, then POSTs to
-   `/api/shortcut/done`. All three with the same header.
-3. Automations that run it, set to Run Immediately: when the Camera app is closed, when joining the home Wi-Fi, when
-   the phone starts charging, and at a few times of day.
-
-Photos arrive in `<state>/phone-sync/<folder>` and `backup/phone_import.py` moves them into the inbox under a name never
-used in that folder (iPhone numbers wrap around). Live Photos arrive as the still photo only.
-
-### Optional: bot uploader (experimental)
-
-Telegram limits upload speed per account; a bot is a separate account. Create one with
-[@BotFather](https://t.me/BotFather), add it to your channel as an admin that can post messages, put its
-token in `config.env` as `TG_BOT_TOKEN`, then run it next to `upload.sh`:
-
-```sh
-.venv/bin/python backup/bot_upload.py speedtest      # 512 MB of random data, deleted afterwards
-.venv/bin/python backup/bot_upload.py run            # works backwards from the end of the list
-```
-
-In our test a bot added ~3 MB/s on top of the account. More bots (`TG_BOT_TOKEN_2`, `run 8 2`, …) can
-run at once without uploading the same file twice; whether each one adds speed is untested.
+Your photos are only ever read, apart from the Trash (files you trash move to `.photo-vault-trash` on the drive, and are
+deleted only when you press Empty trash). Everything else the gallery writes (favorites, albums, thumbnails) is in `state/`.
 
 ## How it works
 
-- Every upload's **caption is the file's path on the drive**. That's the whole index: the gallery reads
-  the channel, matches captions to files, and knows where everything is.
-- `state/done.log` lists finished files, so uploads resume after anything. `state/skip.txt` lists exact
-  duplicates (their identical twin is uploaded instead).
-- The gallery keeps its index, thumbnails and a cache on your Mac; full-size photos and videos stream
-  from Telegram with range requests, so videos seek properly.
+- **The gallery** (`gallery/`) is a small web server (FastAPI) with a SQLite index and a single-page front end. It reads
+  your folders, takes real capture dates from EXIF, makes thumbnails, and serves it all on this Mac only. Other devices are
+  refused unless you switch on sharing.
+- **Telegram backup** (`backup/`, optional) uploads each file to a private channel with its path as the caption. That caption
+  is the whole index: the gallery can rebuild everything from the channel, and streams photos from it when the drive is unplugged.
+- **Settings** live in `config.env` (git-ignored; `config.example.env` documents every option). Logs and progress are in `state/`
+  and `~/Library/Logs/PhotoVault`.
 
 ## Tests
 
 ```sh
-.venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m playwright install chromium
-.venv/bin/python -m pytest
+./vault test              # first time: .venv/bin/pip install -r requirements-dev.txt && .venv/bin/python -m playwright install chromium
 ```
 
-The backup tests use a fake drive and a fake `tdl`; the gallery tests build sample photos and videos, a fake
-Telegram channel (for streaming and restore) and small stand-in ML models, and drive a headless browser.
-Nothing touches your drive or Telegram.
+The tests build sample photos, a fake Telegram channel and stand-in ML models, and drive a headless browser. Nothing touches
+your photos, your drive or Telegram.
+
+## Docs
+
+[Everything it does](docs/features.md) · [Telegram backup](docs/telegram-backup.md) · [Phones and family](docs/phones-and-family.md) ·
+[Smart search and sorting](docs/smart-features.md)
 
 ## License
 
 MIT
-
-
-### Optional: back up an iPhone automatically through iCloud Photos
-
-If your iPhone uses iCloud Photos, the Mac can pick up new photos from iCloud each night, with nothing to do on the phone:
-
-1. Mac: open **Photos** → Settings → iCloud → turn on **iCloud Photos**, with **Optimize Mac Storage**. Missing originals
-   are downloaded when they're exported. The library must be on the Mac's own disk, because iCloud Photos doesn't work
-   on exFAT drives.
-2. `.venv/bin/pip install -r requirements-icloud.txt` (osxphotos).
-3. Give the Python that runs auto-backup **Full Disk Access** (System Settings → Privacy & Security), because macOS
-   protects the Photos library. Allow it to access Photos if asked.
-4. In `config.env`: `ICLOUD_EXPORT_FOLDER="iphone"`, plus `ICLOUD_EXPORT_SINCE="<date of the newest photo already on
-   the drive>"`, so photos you already copied aren't exported again.
-
-Whenever iCloud brings new photos to the Mac, the watcher runs `backup/icloud_export.py`: new photos (full quality, Live Photo videos included,
-edited copies and photos shared by others skipped) go into that folder in the inbox, dated when they were taken, then on to
-Telegram. A name already in the folder gets " (2)", because iPhone numbers wrap around. Nothing is ever overwritten,
-and deleting a photo in Photos never deletes it from the drive. Try it with `.venv/bin/python backup/icloud_export.py
---dry-run`.
-
-## Telegram's rules (checked 2026-10-19)
-
-From Telegram's [Terms of Service](https://telegram.org/tos), [API Terms](https://core.telegram.org/api/terms)
-and [FAQ](https://telegram.org/faq):
-
-- **Storage:** free accounts get unlimited cloud storage, with files up to 2 GB each (4 GB with Premium). Bigger files are
-  uploaded in parts (`backup/split_large.sh`).
-- **No guarantee:** Telegram doesn't promise to keep your data, and it won't compensate for losses. A ban for breaking
-  the rules can cut off access. **Keep the drive as your main copy, and Telegram as the off-site one.**
-- **Inactive accounts are deleted, by default after 18 months offline (Settings → Privacy → "If away for"), with all
-  their media.** Set it to the longest option, keep using the account, and add a second person as an admin of the
-  backup channel.
-- **API use:** use your own api_id (this app never ships one). Say clearly that the app uses the Telegram API, and
-  don't put "Telegram" in an app's name unless it starts with "Unofficial".
-- **No AI training on Telegram data:** the optional smart search and face analysis run ready-made models on the photos
-  on your drive. They don't train anything, and they don't read data from Telegram.
-- **Content:** only back up your own, legal content. Illegal content gets accounts banned.
-- **Pace:** the uploaders respect Telegram's flood-wait replies (they slow down when told to), so they don't spam.

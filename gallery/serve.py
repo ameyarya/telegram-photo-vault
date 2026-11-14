@@ -1,5 +1,8 @@
 """Run the gallery on https://photos.local (port 443) and redirect http:// (port 80) to it.
 
+Until certificates exist (setup_https.sh makes them) it runs in plain "local mode" instead: http://localhost:8000, this
+Mac only, no sudo and no setup. That is what a fresh install uses.
+
 Certificates come from mkcert (see setup_https.sh). Other devices are refused unless sharing on the home Wi-Fi is
 switched on (see auth.py). While it is, photos.local is announced on the network (Bonjour) so phones find this
 Mac by name, and http:// also serves the phone setup page and certificate (a phone can't use https:// before that).
@@ -20,6 +23,11 @@ HTTP_PORT = int(os.environ.get("GALLERY_HTTP_PORT", 80))
 CERT = os.environ.get("GALLERY_CERT", str(BASE / "certs" / f"{HOST}.pem"))
 KEY = os.environ.get("GALLERY_KEY", str(BASE / "certs" / f"{HOST}-key.pem"))
 LOCAL = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+LOCAL_PORT = int(os.environ.get("GALLERY_PORT", 8000))   # local mode (no certificates yet)
+
+
+def https_ready():
+    return os.path.exists(CERT) and os.path.exists(KEY)
 
 
 async def redirect(scope, receive, send):
@@ -78,6 +86,10 @@ async def announce():
 
 async def main():
     os.chdir(BASE)  # launchd can't start us inside ~/Documents, so it doesn't set the working folder
+    if not https_ready():
+        print(f"Local mode: http://localhost:{LOCAL_PORT}  (run ./vault https to get https://{HOST})", flush=True)
+        await uvicorn.Server(uvicorn.Config("server:app", host="127.0.0.1", port=LOCAL_PORT, log_level="info")).serve()
+        return
     # macOS lets normal users bind ports below 1024 only on the wildcard address
     https = uvicorn.Server(uvicorn.Config("server:app", host="0.0.0.0", port=HTTPS_PORT,
                                           ssl_certfile=CERT, ssl_keyfile=KEY, log_level="info"))

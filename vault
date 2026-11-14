@@ -1,0 +1,46 @@
+#!/bin/zsh
+# The one command for everyday use.   ./vault help
+cd "${0:A:h}" || exit 1
+PY=.venv/bin/python
+[[ -x $PY ]] || { echo "Not set up yet. Run: ./setup.sh"; exit 1; }
+cmd=${1:-help}; shift 2>/dev/null
+
+case $cmd in
+  setup)    exec $PY gallery/setup.py "$@" ;;
+  start)    cd gallery && exec ../$PY serve.py ;;                      # stays open; Ctrl-C stops it
+  service)  case ${1:-on} in
+              on)  zsh gallery/install_service.sh ;;
+              off) zsh gallery/install_service.sh --remove ;;
+              *)   echo "Usage: ./vault service on|off" ;;
+            esac ;;
+  restart)  launchctl kickstart -k "gui/$UID/local.photo-vault" && echo "Restarted" ;;
+  open)     open "$(cd gallery && ../$PY doctor.py --url)" ;;
+  index)    cd gallery && exec ../$PY build_index.py "$@" ;;           # after adding photos
+  doctor)   cd gallery && exec ../$PY doctor.py ;;
+  https)    echo "Making https://photos.local work (asks for your Mac password):"
+            sudo zsh gallery/setup_hostname.sh && zsh gallery/setup_https.sh ;;
+  telegram) exec $PY gallery/setup.py --only-telegram ;;
+  smart)    echo "Smart search, people and similar shots (downloads about 650 MB, runs on this Mac):"
+            .venv/bin/pip install -r requirements-ml.txt && cd gallery && ../$PY ml.py download && ../$PY ml.py run ;;
+  logs)     tail -n 80 -f "$HOME/Library/Logs/PhotoVault/server.log" ;;
+  update)   git pull --ff-only && .venv/bin/pip install --quiet -r requirements.txt \
+              && (launchctl kickstart -k "gui/$UID/local.photo-vault" 2>/dev/null; echo "Updated") ;;
+  test)     exec $PY -m pytest "$@" ;;
+  *)        cat <<'EOT'
+Photo Vault
+
+  ./setup.sh           first-time setup (guided; safe to run again)
+  ./vault open         open the gallery in your browser
+  ./vault doctor       check everything and say how to fix what's missing
+  ./vault index        pick up photos you added
+  ./vault start        run the gallery in this window (Ctrl-C to stop)
+  ./vault service on   keep it running in the background, starting at login  (off to undo)
+  ./vault restart      restart the background service
+  ./vault https        a padlock address, https://photos.local
+  ./vault telegram     free off-site backup to a private Telegram channel
+  ./vault smart        smart search, people, similar shots (optional, ~650 MB)
+  ./vault logs         watch the log
+  ./vault update       get the latest version
+EOT
+  ;;
+esac

@@ -628,6 +628,7 @@ let viewerIdx = -1, infoOpen = false;
 let newestFirst = true;   // timeline order: newest first on every visit; the sort button flips it until a reload
 const DEFAULT_CHIP = "";  // pages with chips open on All
 let hideShots = (() => { try { return localStorage.getItem("hideShots") === "1"; } catch { return false; } })();   // the Screenshots button, per device
+const backupOn = () => status?.backup_on !== false;     // false until Telegram backup is set up (./vault telegram)
 let catList = [];          // categories with photos (categories.py), offered in the filter menu
 const loadCats = () => api("/api/categories").then(r => { catList = r.categories; }).catch(() => {});
 let filterChip = null;    // active filter chip on the current page (null: not picked yet, the page's default)
@@ -980,7 +981,7 @@ function openFeed(o) {
   feed = {o, params, base: 0, items: [], total: null, loading: false, loadingPrev: false, months: null};
   // the filters fold into one button ("Photos ▾") that opens the list, instead of rows of pills
   const filters = [["", "All"], ["photos", "Photos"], ["videos", "Videos"], ["favorites", "Favorites"], ["live", "Live photos"],
-    ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ["notbackedup", "Not backed up"], ["undated", "No camera date"],
+    ["raw", "RAW"], ["screenshots", "Screenshots"], ["located", "With location"], ...(backupOn() ? [["notbackedup", "Not backed up"]] : []), ["undated", "No camera date"],
     ...catList.map(c => ["cat:" + c.key, c.label])]
     .filter(([k]) => !(params.filter || "").split(",").includes(k) || !k);
   const current = (filters.find(([k]) => k === filterChip) || filters[0])[1];
@@ -1156,7 +1157,7 @@ function tileHtml(it, w, h, i) {
   if (it.kind === "video") inner += `<span class="dur">${dur(it.duration)}${ico("play")}</span>`;
   if (it.fav) inner += `<span class="fav">${ico("star")}</span>`;
   if (it.live_id) inner += `<span class="live" title="Live Photo">${ico("live")}LIVE</span>`;
-  if (!it.cloud) inner += `<span class="off" title="Not backed up to Telegram yet">${ico("cloud-off")}</span>`;
+  if (!it.cloud && backupOn()) inner += `<span class="off" title="Not backed up to Telegram yet">${ico("cloud-off")}</span>`;
   return `<div class="tile ${picked.has(it.id) ? "picked" : ""}" data-i="${i}" data-id="${it.id}" style="width:${w}px;height:${h}px">${inner}</div>`;
 }
 function thumbFailed(img) {
@@ -2103,6 +2104,14 @@ function mlNote(st) {
 let backupTimer = null;
 async function renderBackup() {
   feed = null;
+  if (!backupOn()) {
+    $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div>
+      <div class="panel"><h3>${ico("cloud-off")} Telegram backup is off</h3>
+        <div class="muted">The gallery is showing the photos in your folder. To also keep a free second copy in a private Telegram channel
+          (so you're covered if the drive dies), set it up once in Terminal: <code>./vault telegram</code>. It takes about ten minutes,
+          and the README has the details.</div></div>`;
+    return;
+  }
   $("#page").innerHTML = `<div class="page-head no-back"><h1>Backup</h1></div><div class="page-sub" id="pgSub"></div>
     <div class="panel restore-panel" id="uploadPanel"><h3>${ico("upload")} Upload from this phone</h3>
       <div class="muted">Back up photos and videos from the phone you're on into its folder, then to Telegram. You'll see which are
@@ -2529,8 +2538,8 @@ async function renderInfo(it) {
       <span>${[mp(it.width, it.height), size(it.size), it.kind === "video" ? dur(it.duration) : ""].filter(Boolean).join(" · ")}</span></div></div>
     <div id="infoMore"></div>
     <div class="info-row">${ico("folder")}<div><b><a data-href="#/album/${encodeURIComponent(it.album)}">${esc(albumTitle(it.album))}</a></b><span>${esc(it.album)}</span></div></div>
-    <div class="info-row">${ico(it.cloud ? "cloud" : "cloud-off")}<div><b>${it.cloud ? "Backed up to Telegram" : "Not backed up yet"}</b>
-      <span>${it.cloud ? "Viewable even with the drive unplugged" : "Only on the drive for now"}</span></div></div>`;
+    ${backupOn() ? `<div class="info-row">${ico(it.cloud ? "cloud" : "cloud-off")}<div><b>${it.cloud ? "Backed up to Telegram" : "Not backed up yet"}</b>
+      <span>${it.cloud ? "Viewable even with the drive unplugged" : "Only on the drive for now"}</span></div></div>` : ""}`;
   $("#vInfo").innerHTML = base;
   $("#vInfoClose").onclick = () => toggleInfo(false);
   $("#vEditDate").onclick = async () => {
@@ -2657,6 +2666,9 @@ function renderSide() {
     `<a class="sub-link" href="#/album/${encodeURIComponent(t)}" data-route="folder" data-folder="${esc(t)}">${ico("folder")}${esc(folderName(t))}</a>`).join("");
   if (!status) return;
   const pct = status.total ? Math.round(100 * status.uploaded / status.total) : 0;
+  if (!backupOn()) { $("#stat").innerHTML = `<div title="Photos are shown from your folder. Run ./vault telegram to add a free off-site backup.">${ico("cloud-off")} Telegram backup off</div>
+    <div><span class="status-dot ${status.drive ? "on" : ""}"></span>Photos ${status.drive ? "folder found" : "folder missing"}</div>
+    <div>${nf(status.total)} photos & videos indexed</div>`; drawAccount(); return; }
   $("#stat").innerHTML = `
     <div title="${nf(status.uploaded)} of ${nf(status.total)} photos & videos in Telegram">${ico("cloud")} Backed up ${backedPct(status.uploaded, status.total)}%</div>
     <div class="bar"><i style="width:${pct}%"></i></div>

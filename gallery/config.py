@@ -48,6 +48,7 @@ HOSTNAME = os.environ.get("GALLERY_HOSTNAME", "photos.local")
 OLD_HOSTNAMES = [h.strip() for h in os.environ.get("GALLERY_OLD_HOSTNAMES", "photo-vault.local").split(",") if h.strip()]
 SESSION = str(STATE / "gallery")  # Telethon session file (gallery.session)
 TELEGRAM = os.environ.get("GALLERY_TELEGRAM", "1") != "0"
+BACKUP = os.environ.get("GALLERY_BACKUP", "1") != "0"   # 0 = no backup at all: the gallery hides every backup indicator (setup.py sets it)
 # exact duplicates the uploader skips: "dup_path<TAB>kept_path" (written by backup/find_duplicates.py)
 DUPLICATES = Path(os.environ.get("GALLERY_DUPLICATES") or STATE / "duplicates.tsv")
 
