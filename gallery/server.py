@@ -17,7 +17,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from telethon.errors import FileReferenceExpiredError
 
 import tg
@@ -92,7 +92,13 @@ async def gatekeeper(request: Request, call_next):
 # --- index ---
 @app.get("/")
 def index():
-    return FileResponse(BASE / "static" / "index.html", headers={"Cache-Control": "no-cache"})
+    con = connect()
+    try:
+        row = con.execute("SELECT value FROM meta WHERE key = 'instance'").fetchone()
+    finally:
+        con.close()
+    html = (BASE / "static" / "index.html").read_text().replace("__V__", row[0] if row else "")
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/status")
@@ -228,7 +234,7 @@ def mark_thumb(media_id, status):
 
 
 @app.get("/thumb/{media_id}")
-async def thumb(media_id: int):
+async def thumb(media_id: int, v: str = ""):
     """Serve the thumbnail, making it on the spot (from the drive) if the indexer hasn't yet."""
     p = thumb_path(media_id)
     if not p.exists():
@@ -241,7 +247,8 @@ async def thumb(media_id: int):
                 await asyncio.to_thread(mark_thumb, media_id, status)
         if not p.exists():
             raise HTTPException(404, "no thumbnail")
-    return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    # thumbnails are named by photo id, so only a URL that names its index (?v=) may be kept for good
+    return FileResponse(p, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000, immutable" if v else "no-cache"})
 
 
 # --- originals: drive first, Telegram otherwise ---

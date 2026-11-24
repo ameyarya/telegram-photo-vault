@@ -84,3 +84,16 @@ def test_favorites_and_albums_are_put_back_after_a_rebuild(tmp_path):
     assert [r[0] for r in new.execute("SELECT media_id FROM favorites")] == [7]
     assert new.execute("SELECT cover_id FROM user_albums WHERE name='Trip'").fetchone()[0] == 7
     assert new.execute("SELECT count(*) FROM user_album_items").fetchone()[0] == 2
+
+
+def test_thumbnails_are_cached_for_good_only_with_their_index_id(mlworld):
+    """Thumbnails are named by photo id; a rebuilt index reuses ids, so a year-long cache must be tied to the index."""
+    import httpx
+    base = mlworld["url"]
+    page = httpx.get(base + "/", verify=False).text
+    v = page.split('data-v="')[1].split('"')[0]
+    assert v and v != "__V__"
+    plain = httpx.get(base + "/thumb/1", verify=False)
+    assert plain.headers["cache-control"] == "no-cache"
+    tied = httpx.get(base + f"/thumb/1?v={v}", verify=False)
+    assert "immutable" in tied.headers["cache-control"]

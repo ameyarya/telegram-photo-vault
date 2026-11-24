@@ -121,8 +121,8 @@ def save(force=False, log=print):
     for p in places():
         try:
             p.mkdir(parents=True, exist_ok=True)
-            if (p / name).exists() and not force:
-                continue
+            if (p / name).exists() and not force and photos_in(p / name) >= photos_in(config.DB_PATH):
+                continue                                     # today's copy is already as full as the index
             tmp = p / (name + ".part")
             tmp.unlink(missing_ok=True)
             _copy(config.DB_PATH, tmp)

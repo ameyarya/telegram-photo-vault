@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-v="__V__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -618,6 +618,8 @@ body.signed-out>:not(.login,svg){display:none!important}
 </div>
 
 <script>
+const V = document.documentElement.dataset.v || "";   // which index the thumbnails belong to (they cache for a year)
+
 const $ = s => document.querySelector(s);
 const ico = (id, cls = "") => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -736,7 +738,7 @@ function renderAlbums() {
 
 function cardHtml(href, title, sub, cover, kind = "") {
   return `<div class="card ${kind}" data-href="${esc(href)}">
-    <div class="cover">${cover ? `<img loading="lazy" src="/thumb/${cover}" alt="" onerror="this.remove()">` : ""}</div>
+    <div class="cover">${cover ? `<img loading="lazy" src="/thumb/${cover}?v=${V}" alt="" onerror="this.remove()">` : ""}</div>
     <b>${esc(title)}</b><span>${esc(sub)}</span></div>`;
 }
 function bindCards(root = $("#page")) {
@@ -811,7 +813,7 @@ function openUserAlbum(id) {
   };
 }
 
-const faceImg = p => p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}" alt="">` : `<span class="ph"></span>`;
+const faceImg = p => p.cover_face ? `<img loading="lazy" src="/face/${p.cover_face}?v=${V}" alt="">` : `<span class="ph"></span>`;
 async function openPerson(id) {
   const [people, maybe] = await Promise.all([api("/api/people"), api(`/api/people/suggestions?person=${id}`).catch(() => ({total: 0, pairs: []}))]);
   const p = people.find(x => x.id === id);
@@ -839,7 +841,7 @@ async function openPerson(id) {
   };
   $("#pMerge").onclick = async () => {
     const others = people.filter(x => x.id !== id);
-    const into = await pickDialog("Same person as…", others.map(o => ({id: o.id, label: o.name || "Unnamed", sub: plural(o.n, "photo"), img: o.cover_face ? `/face/${o.cover_face}` : null})));
+    const into = await pickDialog("Same person as…", others.map(o => ({id: o.id, label: o.name || "Unnamed", sub: plural(o.n, "photo"), img: o.cover_face ? `/face/${o.cover_face}?v=${V}` : null})));
     if (!into) return;
     await post(`/api/people/${id}/merge`, {into}); location.hash = "#/person/" + into;
   };
@@ -848,7 +850,7 @@ async function openPerson(id) {
 
 async function changePersonPhoto(p) {
   const r = await api(`/api/people/${p.id}/faces?limit=90`);
-  const btn = f => `<button data-face="${f}" class="${f === p.cover_face ? "on" : ""}" aria-label="Use this photo"><img loading="lazy" src="/face/${f}" alt=""></button>`;
+  const btn = f => `<button data-face="${f}" class="${f === p.cover_face ? "on" : ""}" aria-label="Use this photo"><img loading="lazy" src="/face/${f}?v=${V}" alt=""></button>`;
   const d = dialog(`<h2>Choose ${esc(p.name ? p.name + "'s" : "their")} photo</h2><div class="face-pick">${r.faces.map(btn).join("")}</div>
     <div class="actions"><button class="txt-btn" data-more ${r.faces.length < r.total ? "" : "hidden"}>Show more</button><button class="txt-btn" data-x>Cancel</button></div>`);
   let shown = r.faces.length;
@@ -880,13 +882,13 @@ async function renderPersonReview(id) {
     const r = await api(`/api/people/suggestions?person=${id}`);
     queue = r.pairs.filter(x => !skipped.has(x.b.id));
     left = r.total - skipped.size;
-    if (queue[0]) queue.slice(0, 3).forEach(x => [x.b.cover_face, ...x.b.faces].forEach(f => { if (f) new Image().src = `/face/${f}`; }));
+    if (queue[0]) queue.slice(0, 3).forEach(x => [x.b.cover_face, ...x.b.faces].forEach(f => { if (f) new Image().src = `/face/${f}?v=${V}`; }));
   };
   const side = (p, link) => {
     const faces = [p.cover_face, ...p.faces].filter(Boolean).slice(0, 4);
     return `<div class="rv-who"><b>${esc(p.name || "Unnamed")}</b>
       <span class="sub">${link ? `<a href="#/person/${p.id}">${plural(p.n, "photo")}</a>` : plural(p.n, "photo")}</span>
-      <div class="rv-faces">${faces.map(f => `<img src="/face/${f}" alt="">`).join("") || `<span class="ph"></span>`}</div></div>`;
+      <div class="rv-faces">${faces.map(f => `<img src="/face/${f}?v=${V}" alt="">`).join("") || `<span class="ph"></span>`}</div></div>`;
   };
   const draw = () => {
     const x = queue[0];
@@ -1151,7 +1153,7 @@ function renderSections(all = true) {
 
 function tileHtml(it, w, h, i) {
   let inner = it.thumb !== -1
-    ? `<img loading="lazy" decoding="async" src="/thumb/${it.id}" alt="" onload="this.classList.add('ok')" onerror="thumbFailed(this)">`
+    ? `<img loading="lazy" decoding="async" src="/thumb/${it.id}?v=${V}" alt="" onload="this.classList.add('ok')" onerror="thumbFailed(this)">`
     : `<span class="fname">${esc(it.name)}</span>`;
   inner += `<span class="sel" title="Select">${ico("check")}</span>`;
   if (it.kind === "video") inner += `<span class="dur">${dur(it.duration)}${ico("play")}</span>`;
@@ -1218,7 +1220,7 @@ async function loadMemories() {
   let r; try { r = await api("/api/memories"); } catch { return; }
   const box = $("#memories"); if (!box || !r.years.length) return;
   box.innerHTML = `<div class="mem-head"><h2 class="sec">On this day</h2><button class="icon-btn" id="memClose" aria-label="Hide until tomorrow" title="Hide until tomorrow">${ico("close")}</button></div>
-    <div class="mem-row">${r.years.map((y, i) => `<button class="mem-card" data-y="${i}"><img src="/thumb/${y.items[0].id}" alt="" loading="lazy">
+    <div class="mem-row">${r.years.map((y, i) => `<button class="mem-card" data-y="${i}"><img src="/thumb/${y.items[0].id}?v=${V}" alt="" loading="lazy">
       <span>${y.ago === 1 ? "1 year ago" : y.ago + " years ago"}<small>${plural(y.items.length, "item")}</small></span></button>`).join("")}</div>`;
   box.onclick = e => {
     if (e.target.closest("#memClose")) { try { localStorage.setItem("memoriesClosed", today); } catch {} box.innerHTML = ""; return; }
@@ -1373,7 +1375,7 @@ function pickDialog(title, options, extra = "") {
 }
 async function addToAlbum(ids) {
   const choice = await pickDialog("Add to album", [{id: "new", label: "New album…", sub: ""},
-    ...userAlbums.map(a => ({id: a.id, label: a.name, sub: plural(a.n, "item"), img: a.cover ? `/thumb/${a.cover}` : null}))]);
+    ...userAlbums.map(a => ({id: a.id, label: a.name, sub: plural(a.n, "item"), img: a.cover ? `/thumb/${a.cover}?v=${V}` : null}))]);
   if (!choice) return false;
   let id = choice;
   if (choice === "new") {
@@ -1511,7 +1513,7 @@ async function drawSubjects() {
   const box = $("#subjectsBox"); if (!box || me.role !== "owner") return;
   const subs = await api("/api/subjects").catch(() => []);
   box.innerHTML = `<h2 class="sec">Pets & things</h2>` + (subs.length ? `<div class="people">` + subs.map(x => `<div class="person subject" data-q="${esc(x.name)}">
-      <img class="face" loading="lazy" src="/thumb/${x.cover}" alt=""><b>${esc(x.name)}</b>
+      <img class="face" loading="lazy" src="/thumb/${x.cover}?v=${V}" alt=""><b>${esc(x.name)}</b>
       <span>from ${plural(x.examples, "photo")} · <a href="#" data-del="${x.id}">remove</a></span></div>`).join("") + `</div>` : "") +
     `<div class="muted subjects-help">${ico("tag")} To teach a pet or thing by name (e.g. your dog), select a few clear photos of it anywhere and press ${ico("tag")} in the selection bar. Then search for it by name, e.g. “rex on a beach”.</div>`;
   box.onclick = async e => {
@@ -1577,7 +1579,7 @@ async function renderPeopleReview() {
   $("#pgBack").onclick = () => location.hash = "#/people";
   const draw = async () => {
     const r = await api("/api/people/suggestions"), pairs = r.pairs;
-    const who = p => `<a class="who" href="#/person/${p.id}">${faceImg(p)}${p.faces.map(f => `<img class="more" loading="lazy" src="/face/${f}" alt="">`).join("")}
+    const who = p => `<a class="who" href="#/person/${p.id}">${faceImg(p)}${p.faces.map(f => `<img class="more" loading="lazy" src="/face/${f}?v=${V}" alt="">`).join("")}
       <span><b>${esc(p.name || "Unnamed")}</b><span>${plural(p.n, "photo")}</span></span></a>`;
     $("#pgSub2").textContent = pairs.length ? `${nf(r.total)} to go, most likely first.` : "";
     $("#reviewBox").innerHTML = pairs.length ? `<div class="review">${pairs.map(x => `<div class="pair" data-a="${x.a.id}" data-b="${x.b.id}">
@@ -1615,7 +1617,7 @@ async function renderCategories() {
     const golden = Math.PI * (3 - Math.sqrt(5)), T = r.ids.length;
     r.ids.forEach((id, i) => {
       const y = T > 1 ? 1 - 2 * i / (T - 1) : 0, rr = Math.sqrt(1 - y * y), th = golden * i;
-      const img = Object.assign(new Image(), {src: `/thumb/${id}`, alt: "", draggable: false});
+      const img = Object.assign(new Image(), {src: `/thumb/${id}?v=${V}`, alt: "", draggable: false});
       sphere.append(img);
       tiles.push({el: img, x: Math.cos(th) * rr, y, z: Math.sin(th) * rr, alive: true, sx: 0, sy: 0, s: 1});
     });
@@ -1650,13 +1652,13 @@ async function renderCategories() {
     // a photo leaves its tile, which comes back a moment later; the ball never drops below 40% so it never looks empty
     if (t && live.length > tiles.length * 0.4) { t.alive = false; t.el.style.opacity = 0; setTimeout(() => { t.alive = true; }, 600 + Math.random() * 1800); }
     const from = t ? {x: sr.left + t.sx - 15, y: sr.top + t.sy - 15, s: t.s} : {x: sr.left + sr.width / 2 - 15, y: sr.top + sr.height / 2 - 15, s: 1};
-    const img = Object.assign(new Image(), {src: `/thumb/${it.id}`, alt: ""});
+    const img = Object.assign(new Image(), {src: `/thumb/${it.id}?v=${V}`, alt: ""});
     fly.append(img); inflight++;
     const end = {transform: `translate(${to.left}px,${to.top}px) scale(${to.width / 30})`, opacity: 1};
     img.animate([{transform: `translate(${from.x}px,${from.y}px) scale(${from.s})`, opacity: 1},
                  {transform: `translate(${(from.x + to.left) / 2 + (Math.random() - .5) * 60}px,${Math.min(from.y, to.top) - 30}px) scale(1)`, opacity: 1}, end],
                 {duration: 650 + Math.random() * 400, easing: "cubic-bezier(.55,0,.25,1)"}).onfinish = () => {
-      img.remove(); inflight--; slot.style.backgroundImage = `url(/thumb/${it.id})`; slot.classList.add("on");
+      img.remove(); inflight--; slot.style.backgroundImage = `url(/thumb/${it.id}?v=${V})`; slot.classList.add("on");
       c.count++; c.el.querySelector(".cnt").textContent = nf(c.count); c.el.classList.remove("empty"); c.el.classList.add("hit");
       setTimeout(() => c.el.classList.remove("hit"), 300);
     };
@@ -1681,7 +1683,7 @@ async function renderCategories() {
       cards = {};
       $("#catCards").innerHTML = st.categories.map(c => `<a class="cat-card ${c.count ? "" : "empty"}" href="#/photos" data-k="${c.key}">
           <div class="top"><b>${esc(c.label)}</b><span class="cnt">${nf(c.count)}</span></div>
-          <div class="slots">${[0, 1, 2, 3, 4, 5].map(i => `<i class="slot ${c.latest[i] ? "on" : ""}" ${c.latest[i] ? `style="background-image:url(/thumb/${c.latest[i]})"` : ""}></i>`).join("")}</div></a>`).join("");
+          <div class="slots">${[0, 1, 2, 3, 4, 5].map(i => `<i class="slot ${c.latest[i] ? "on" : ""}" ${c.latest[i] ? `style="background-image:url(/thumb/${c.latest[i]}?v=${V})"` : ""}></i>`).join("")}</div></a>`).join("");
       $("#catCards").querySelectorAll(".cat-card").forEach(el => {
         cards[el.dataset.k] = {el, n: 0, count: st.categories.find(c => c.key === el.dataset.k).count};
         el.addEventListener("click", () => { filterChip = "cat:" + el.dataset.k; lastPath = "/photos"; });
@@ -1905,7 +1907,7 @@ async function renderDates() {
   }
   $("#fxAll").hidden = false;
   $("#fixBox").innerHTML = `<div class="fixes">${r.items.map((it, i) => `<div class="fix" data-id="${it.id}" data-i="${i}">
-      <img src="/thumb/${it.id}" alt="" loading="lazy">${it.twin ? `<img src="/thumb/${it.twin}" alt="" loading="lazy" title="The photo it was matched with">` : ""}
+      <img src="/thumb/${it.id}?v=${V}" alt="" loading="lazy">${it.twin ? `<img src="/thumb/${it.twin}?v=${V}" alt="" loading="lazy" title="The photo it was matched with">` : ""}
       <div class="what"><b>${esc(it.name)}</b><br>${fmtWhen(it.taken_at)} <span class="arrow">→</span> <b>${fmtWhen(it.suggested)}</b><br>${esc(it.why)}</div>
       <button class="fill-btn owner-only" data-use>Use</button></div>`).join("")}</div>`;
   $("#fixBox").onclick = async e => {
@@ -2191,7 +2193,7 @@ let viewList = null;   // the list the viewer steps through (the feed, or a fixe
 let sharePrefetch = null, shareCached = null;      // {id, file}: only the latest one (videos can be big)
 async function shareFile(it) {
   if (shareCached?.id === it.id) return shareCached.file;
-  const r = await fetch(`/share/${it.id}`);
+  const r = await fetch(`/share/${it.id}?v=${V}`);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Couldn't get this file");
   const blob = await r.blob();
   let name = it.name.replace(/ \(part \d+\)$/, "");
@@ -2206,7 +2208,7 @@ const canShareFiles = () => !!(navigator.share && navigator.canShare) &&
 async function shareCurrent() {
   const it = curList()[viewerIdx]; if (!it) return;
   if (!canShareFiles()) {                       // no share sheet in this browser: copy or download instead
-    $("#shareMenu").querySelector('[data-sh="dl"]').href = `/original/${it.id}?download=1`;
+    $("#shareMenu").querySelector('[data-sh="dl"]').href = `/original/${it.id}?download=1&v=${V}`;
     $("#shareMenu").querySelector('[data-sh="copy"]').hidden = it.kind === "video";
     $("#shareMenu").hidden = !$("#shareMenu").hidden;
     return;
@@ -2294,7 +2296,7 @@ function setZoom(s, cx, cy) {
   applyZoom();
   const it = curList()[viewerIdx];   // zoomed in: swap in the full-resolution original when the browser can show it
   if (it && s > 1.5 && !img.dataset.full && /^(jpe?g|png|webp|gif)$/.test(it.ext) && it.size < 60e6) {
-    img.dataset.full = 1; const big = new Image(); big.onload = () => { if (curList()[viewerIdx] === it) img.src = big.src; }; big.src = `/original/${it.id}`;
+    img.dataset.full = 1; const big = new Image(); big.onload = () => { if (curList()[viewerIdx] === it) img.src = big.src; }; big.src = `/original/${it.id}?v=${V}`;
   }
 }
 
@@ -2305,7 +2307,7 @@ function showItem() {
   zoom.s = 1; zoom.x = zoom.y = 0; $("#vZoom").classList.remove("on");
   const box = $("#vMain");
   box.querySelectorAll(".v-media,.v-ph,.spinner,.v-msg").forEach(e => e.remove());
-  $("#vDl").href = `/original/${it.id}?download=1`;
+  $("#vDl").href = `/original/${it.id}?download=1&v=${V}`;
   $("#shareMenu").hidden = true;
   clearTimeout(sharePrefetch);       // a photo you stay on is fetched quietly, so Share opens straight away
   if (it.kind !== "video") sharePrefetch = setTimeout(() => shareFile(it).catch(() => {}), 1200);
@@ -2316,24 +2318,24 @@ function showItem() {
   if (it.kind === "video") {
     const v = document.createElement("video");
     Object.assign(v, {controls: true, autoplay: true, playsInline: true, preload: "metadata", className: "v-media"});
-    if (it.thumb !== -1) v.poster = `/thumb/${it.id}`;
-    v.src = `/original/${it.id}`;
+    if (it.thumb !== -1) v.poster = `/thumb/${it.id}?v=${V}`;
+    v.src = `/original/${it.id}?v=${V}`;
     v.onerror = () => fail(v, "This video can't be played in the browser. Use the download button to get the original.");
     box.prepend(v);
     return;
   }
-  if (it.thumb !== -1) { const ph = new Image(); ph.className = "v-ph"; ph.onerror = () => ph.remove(); ph.src = `/thumb/${it.id}`; box.prepend(ph); }
+  if (it.thumb !== -1) { const ph = new Image(); ph.className = "v-ph"; ph.onerror = () => ph.remove(); ph.src = `/thumb/${it.id}?v=${V}`; box.prepend(ph); }
   const sp = document.createElement("div"); sp.className = "spinner"; box.append(sp);
   const img = new Image(); img.className = "v-media v-zoom"; img.alt = it.name; img.draggable = false;
   img.onload = () => { sp.remove(); box.querySelector(".v-ph")?.remove(); };
   img.onerror = async () => {
     if (img.dataset.full) return;
-    const r = await fetch(`/view/${it.id}`).catch(() => null);
+    const r = await fetch(`/view/${it.id}?v=${V}`).catch(() => null);
     fail(img, (r && (await r.json().catch(() => ({}))).detail) || "Couldn't load this photo.");
   };
-  img.src = `/view/${it.id}`;
+  img.src = `/view/${it.id}?v=${V}`;
   box.prepend(img);
-  const nx = list[viewerIdx + 1]; if (nx?.kind === "image") new Image().src = `/view/${nx.id}`;
+  const nx = list[viewerIdx + 1]; if (nx?.kind === "image") new Image().src = `/view/${nx.id}?v=${V}`;
 }
 function fail(el, text) {
   el.remove(); $("#vMain").querySelector(".spinner")?.remove();
@@ -2345,12 +2347,12 @@ function playLive() {
   setZoom(1);
   const v = document.createElement("video");
   Object.assign(v, {autoplay: true, playsInline: true, className: "v-media v-live"});
-  v.poster = `/view/${it.id}`;
+  v.poster = `/view/${it.id}?v=${V}`;
   const back = () => { v.remove(); if (img) img.style.display = ""; $("#vLive").classList.remove("on"); };
   v.onended = back;
   v.onerror = () => { back(); toast("This Live Photo's motion clip can't be played in this browser. It's in the download as a separate .MOV."); };
   v.onclick = back;
-  v.src = `/original/${it.live_id}`;
+  v.src = `/original/${it.live_id}?v=${V}`;
   if (img) img.style.display = "none";
   box.querySelector(".v-ph")?.remove();
   box.prepend(v); $("#vLive").classList.add("on");
@@ -2403,7 +2405,7 @@ const edChanged = () => ed.rot || ed.b !== 1 || ed.c !== 1 || ed.s !== 1 || ed.c
 async function openEditor() {
   const it = curList()[viewerIdx]; if (!it || it.kind === "video") return;
   slideshow(false);
-  const img = new Image(); img.src = `/share/${it.id}`;
+  const img = new Image(); img.src = `/share/${it.id}?v=${V}`;
   $("#editor").hidden = false; $("#edSave").disabled = true;
   $("#edFrame").hidden = true; $("#edStage").insertAdjacentHTML("beforeend", `<div class="spinner"></div>`);
   try { await img.decode(); }
