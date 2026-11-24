@@ -1,5 +1,10 @@
+import secrets
+import shutil
 import sqlite3
-from config import DB_PATH, DUPLICATES
+import time
+from pathlib import Path
+
+from config import CACHE, DATA, DB_PATH, DUPLICATES, THUMBS
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS media (
@@ -62,7 +67,8 @@ CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY, kind TEXT, status TEXT,
 # photo details read from EXIF (camera, settings, location); exif2 = 1 once read
 EXTRA_COLUMNS = {"shot": "INTEGER", "live_id": "INTEGER", "live_of": "INTEGER",  # Live Photo: still -> its motion clip, clip -> its still
                  "orient": "INTEGER", "make": "TEXT", "model": "TEXT", "lens": "TEXT", "iso": "INTEGER",
-                 "fnumber": "REAL", "exposure": "REAL", "focal": "REAL", "lat": "REAL", "lon": "REAL", "exif2": "INTEGER"}
+                 "fnumber": "REAL", "exposure": "REAL", "focal": "REAL", "lat": "REAL", "lon": "REAL", "exif2": "INTEGER",
+                 "camera_at": "TEXT"}   # when the camera says it was taken (taken_at may be the file's date modified instead)
 
 
 _ready = set()
@@ -97,8 +103,34 @@ def connect(timeout=30):
             if col not in cols:
                 con.execute(f"ALTER TABLE media ADD COLUMN {col} {typ}")
         con.commit()
+        guard_caches(con)
         _ready.add(str(DB_PATH))
     return con
+
+
+def guard_caches(con):
+    """Thumbnails and previews are named by photo id. If the index was ever rebuilt (ids start over), the old files
+    would show the wrong photo, so each index carries an id and the cache folder remembers which index it belongs to;
+    on a mismatch the old cache goes to the Trash and is made again."""
+    row = con.execute("SELECT value FROM meta WHERE key = 'instance'").fetchone()
+    mark = DATA / ".cache-instance"
+    seen = mark.read_text().strip() if mark.exists() else None
+    if row is None:
+        mine = secrets.token_hex(8)
+        con.execute("INSERT INTO meta(key, value) VALUES ('instance', ?)", (mine,))
+        con.commit()
+    else:
+        mine = row[0]
+    if seen not in (None, mine):                       # another index's files: never show them
+        trash = Path.home() / ".Trash" / f"photo-vault-old-cache-{time.strftime('%Y%m%d-%H%M%S')}"
+        for d in (THUMBS, *(CACHE / n for n in ("orig", "preview", "share", "faces"))):
+            if d.exists():
+                trash.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(d), str(trash / (d.parent.name + "-" + d.name)))
+        con.execute("UPDATE media SET thumb = 0")
+        con.commit()
+    DATA.mkdir(parents=True, exist_ok=True)
+    mark.write_text(mine)
 
 
 def link_uploads(con):

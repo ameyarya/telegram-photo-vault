@@ -13,7 +13,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-from config import DRIVE, IMAGE_EXT, INBOX, THUMBS, VIDEO_EXT, folders, local_path, roots
+from config import DATE_FROM_MODIFIED, DRIVE, IMAGE_EXT, INBOX, THUMBS, VIDEO_EXT, folders, local_path, roots
 from db import connect
 
 SKIP_EXT = {"aae", "xml", "srt", "thm"}
@@ -184,7 +184,7 @@ def pair_live_photos(con):
     Live Photo motion: hide it from the timeline and let the photo play it. Names alone aren't enough: iPhone
     numbers repeat (IMG_9999 wraps around, and every phone has an IMG_0001), which paired random videos."""
     real = ("""SELECT m.id, m.album, m.name, m.ext, m.duration, m.kind,
-                      CASE WHEN m.date_src = 'user' THEN f.orig_taken_at ELSE m.taken_at END AS t,
+                      CASE WHEN m.date_src = 'user' THEN f.orig_taken_at ELSE COALESCE(m.camera_at, m.taken_at) END AS t,
                       CASE WHEN m.date_src = 'user' THEN f.orig_src ELSE m.date_src END AS src
                FROM media m LEFT JOIN date_fixes f ON f.media_id = m.id WHERE m.kind = ?""")  # your date edits don't count
     stills = {}
@@ -207,10 +207,22 @@ def pair_live_photos(con):
     return len(pairs)
 
 
+def redate(con):
+    """DATE_FROM=modified for photos indexed earlier: their date becomes the file's date modified (never one you set); the camera's date is kept for pairing Live Photos."""
+    con.execute("UPDATE media SET camera_at = taken_at WHERE camera_at IS NULL AND date_src != 'user'")
+    rows = [(datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%dT%H:%M:%S"), r["id"])
+            for r in con.execute("SELECT id, mtime FROM media WHERE date_src != 'user'")]
+    con.executemany("UPDATE media SET taken_at = ? WHERE id = ?", rows)
+    con.commit()
+    return len(rows)
+
+
 def main():
     if not roots():
         sys.exit(f"Drive not mounted at {DRIVE}, and nothing in the inbox ({INBOX})")
     con = connect(timeout=600)  # wait out the gallery writing rather than crash
+    if DATE_FROM_MODIFIED and "--redate" in sys.argv:
+        print(f"{redate(con)} dates set from the files' date modified", flush=True)
     known = {r["path"]: (r["size"], r["mtime"]) for r in con.execute("SELECT path, size, mtime FROM media")}
 
     todo = [(rel, st) for rel, st in walk() if known.get(rel) != (st.st_size, st.st_mtime)]
@@ -226,19 +238,22 @@ def main():
             date = next((e[k] for k in ("DateTimeOriginal", "CreationDate", "CreateDate", "MediaCreateDate") if valid_date(e.get(k))), None)
             src = "exif" if date else "file"
             if not date:  # same fallback as the timestamp manifest: the file's own date
-                ts = min(st.st_mtime, getattr(st, "st_birthtime", st.st_mtime))
+                ts = st.st_mtime if DATE_FROM_MODIFIED else min(st.st_mtime, getattr(st, "st_birthtime", st.st_mtime))
                 date = datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%S")
+            camera = date[:19]       # when it was taken; Live Photo pairing needs this even when the shown date is "modified"
+            if DATE_FROM_MODIFIED:
+                date = datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
             album, name = album_and_name(rel)
             con.execute(
-                f"""INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime, width, height, duration,
+                f"""INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, camera_at, size, mtime, width, height, duration,
                                       orient, thumb, exif2, {", ".join(DETAIL_COLS)})
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,{",".join("?" * len(DETAIL_COLS))})
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,1,{",".join("?" * len(DETAIL_COLS))})
                    ON CONFLICT(path) DO UPDATE SET album=excluded.album, name=excluded.name,
                      taken_at=CASE WHEN date_src = 'user' THEN taken_at ELSE excluded.taken_at END,
-                     date_src=CASE WHEN date_src = 'user' THEN 'user' ELSE excluded.date_src END, size=excluded.size, mtime=excluded.mtime, width=excluded.width,
+                     date_src=CASE WHEN date_src = 'user' THEN 'user' ELSE excluded.date_src END, camera_at=excluded.camera_at, size=excluded.size, mtime=excluded.mtime, width=excluded.width,
                      height=excluded.height, duration=excluded.duration, orient=excluded.orient, thumb=0, exif2=1,
                      {", ".join(f"{c}=excluded.{c}" for c in DETAIL_COLS)}""",
-                (rel, album, name, kind, ext, date[:19], src, st.st_size, st.st_mtime,
+                (rel, album, name, kind, ext, date[:19], src, camera, st.st_size, st.st_mtime,
                  e.get("ImageWidth"), e.get("ImageHeight"), e.get("Duration"), sideways(e)) + details(e))
         con.commit()
         print(f"indexed {min(i + 500, len(todo))}/{len(todo)}", flush=True)
@@ -261,6 +276,8 @@ def main():
         print(f"{gone} items removed: their files are gone from the drive and were never backed up", flush=True)
     n = pair_live_photos(con)
     print(f"{n} Live Photos paired with their motion clips", flush=True)
+    import snapshots
+    snapshots.restore_user_data(con, log=lambda m: print(m, flush=True))
 
     if "--no-thumbs" in sys.argv:
         return

@@ -643,7 +643,7 @@ def test_live_pairs_need_the_same_moment_not_just_the_same_name():
     con = sqlite3.connect(":memory:")
     con.row_factory = sqlite3.Row
     con.executescript("""CREATE TABLE media (id INTEGER PRIMARY KEY, album TEXT, name TEXT, ext TEXT, kind TEXT,
-                           duration REAL, taken_at TEXT, date_src TEXT, live_id INTEGER, live_of INTEGER);
+                           duration REAL, taken_at TEXT, camera_at TEXT, date_src TEXT, live_id INTEGER, live_of INTEGER);
                          CREATE TABLE date_fixes (media_id INTEGER PRIMARY KEY, orig_taken_at TEXT, orig_src TEXT);""")
     rows = [  # id, name, kind, duration, taken_at, date_src
         (1, "IMG_1.HEIC", "image", None, "2024-02-10T10:00:00", "exif"), (2, "IMG_1.MOV", "video", 2, "2024-02-10T10:00:01", "exif"),

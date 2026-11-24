@@ -44,6 +44,8 @@ INBOX = Path(os.environ.get("INBOX_DIR") or STATE / "inbox").expanduser()
 # shows them from Telegram). E.g. an old account's photos you don't want on the drive. Separate with "|".
 CLOUD_ONLY = {f.strip().strip("/") for f in os.environ.get("CLOUD_ONLY_FOLDERS", "").split("|") if f.strip()}
 # The gallery's address on this Mac and the home network; older addresses keep working by forwarding to it.
+# DATE_FROM=modified: a photo's date is the file's "date modified" on the drive (Finder), not the date inside the photo
+DATE_FROM_MODIFIED = os.environ.get("DATE_FROM", "camera").strip().lower() == "modified"
 HOSTNAME = os.environ.get("GALLERY_HOSTNAME", "photos.local")
 OLD_HOSTNAMES = [h.strip() for h in os.environ.get("GALLERY_OLD_HOSTNAMES", "photo-vault.local").split(",") if h.strip()]
 SESSION = str(STATE / "gallery")  # Telethon session file (gallery.session)
