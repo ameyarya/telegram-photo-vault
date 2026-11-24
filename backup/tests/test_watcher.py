@@ -186,6 +186,7 @@ def test_index_is_copied_daily_and_restored_if_it_is_lost(w):
     db = data / "index.db"
     c = sqlite3.connect(db)
     c.execute("CREATE TABLE media (id INTEGER PRIMARY KEY, path TEXT)")
+    c.execute("CREATE TABLE tg_msgs (id INTEGER PRIMARY KEY)")
     c.executemany("INSERT INTO media (path) VALUES (?)", [("a.jpg",), ("b.jpg",)])
     c.commit()
     c.close()

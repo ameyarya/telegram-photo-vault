@@ -33,6 +33,9 @@ def photos_in(path):
     try:
         c = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         try:
+            have = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if not {"media", "tg_msgs"} <= have:                     # not a full index (e.g. left over from a test)
+                return 0
             return c.execute("SELECT count(*) FROM media").fetchone()[0]
         finally:
             c.close()
