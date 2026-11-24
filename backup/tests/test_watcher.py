@@ -176,3 +176,25 @@ def test_a_missing_syncthing_marker_is_put_back(w):
     other.mkdir()
     w["once"]()
     assert not (other / ".stfolder").exists()            # only phone folders that Syncthing set up
+
+
+def test_index_is_copied_daily_and_restored_if_it_is_lost(w):
+    import sqlite3
+    data = w["tmp"] / "data"
+    data.mkdir()
+    keep = w["tmp"] / "copies"
+    db = data / "index.db"
+    c = sqlite3.connect(db)
+    c.execute("CREATE TABLE media (id INTEGER PRIMARY KEY, path TEXT)")
+    c.executemany("INSERT INTO media (path) VALUES (?)", [("a.jpg",), ("b.jpg",)])
+    c.commit()
+    c.close()
+    log = w["once"](DB_BACKUP_DIRS=str(keep))
+    assert "saved a copy of the index (2 photos)" in log
+    assert len(list(keep.glob("index-*.db"))) == 1
+    db.unlink()                                              # tidying up the Mac ...
+    for x in data.glob("index.db-*"):
+        x.unlink()
+    log = w["once"](DB_BACKUP_DIRS=str(keep))
+    assert "restored it from" in log
+    assert sqlite3.connect(db).execute("SELECT count(*) FROM media").fetchone()[0] == 2

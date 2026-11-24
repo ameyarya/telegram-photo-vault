@@ -28,6 +28,7 @@ sys.path.insert(0, str(HERE.parent / "gallery"))
 import config  # noqa: E402  (reads config.env)
 import inbox  # noqa: E402
 import phone_import  # noqa: E402
+import snapshots  # noqa: E402
 import trash  # noqa: E402
 
 PY = sys.executable
@@ -186,6 +187,12 @@ class Watcher:
                 else:
                     self.retry_at = time.time() + 900               # try again in 15 minutes
                     log("iCloud Photos export failed (see icloud-export.log); trying again in 15 min")
+        try:                                                         # the index can't be lost for good: daily copies
+            if snapshots.restore(log):
+                notify("The photo index was empty; I put yesterday's copy back")
+            snapshots.save(log=log)
+        except Exception as e:
+            log(f"index copy failed: {e.__class__.__name__}: {e}")
         imported = phone_import.run(log)
         if imported:
             log(f"{imported} new photos from an iPhone's sync")
