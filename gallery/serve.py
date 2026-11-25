@@ -70,7 +70,7 @@ async def announce():
     import auth
     procs, ip = [], None
     while True:
-        want = await asyncio.to_thread(auth.sharing_on) and await asyncio.to_thread(auth.lan_address)
+        want = await asyncio.to_thread(auth.announce_wanted) and await asyncio.to_thread(auth.lan_address)
         if want != ip:
             for p in procs:
                 p.terminate()

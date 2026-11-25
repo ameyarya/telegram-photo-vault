@@ -152,3 +152,14 @@ def test_a_telegram_only_photo_gets_its_thumbnail_when_first_looked_at(cloud):
     r = httpx.get(cloud["url"] + f"/thumb/{mid}", timeout=30)
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg" and r.content[:2] == b"\xff\xd8"
     assert db.execute("SELECT thumb FROM media WHERE id = ?", (mid,)).fetchone()[0] == 1
+
+
+def test_photos_local_is_announced_for_an_iphone_shortcut_even_without_sharing(tmp_path):
+    import sys
+    sys.path.insert(0, str(ROOT))
+    import auth
+    con = sqlite3.connect(":memory:")
+    con.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)")
+    assert not auth.announce_wanted(con)
+    con.execute("""INSERT INTO settings VALUES ('shortcut_tokens', '{"abc": "iphone"}')""")
+    assert auth.announce_wanted(con)

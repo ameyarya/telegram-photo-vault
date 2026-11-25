@@ -10,6 +10,7 @@ Passwords are stored as scrypt hashes; sessions are random tokens (only their SH
 import hashlib
 import hmac
 import ipaddress
+import json
 import os
 import secrets
 import time
@@ -59,6 +60,15 @@ def sharing_on(con=None):
     con = con or connect()
     r = con.execute("SELECT value FROM settings WHERE key = 'share_lan'").fetchone()
     return bool(r and r[0] == "1")
+
+
+def announce_wanted(con=None):
+    """Tell the home network about photos.local when sharing is on, or when an iPhone backup shortcut has a token."""
+    con = con or connect()
+    if sharing_on(con):
+        return True
+    r = con.execute("SELECT value FROM settings WHERE key = 'shortcut_tokens'").fetchone()
+    return bool(r and json.loads(r[0]))
 
 
 # ---------------------------------------------------------------- passwords and sessions
