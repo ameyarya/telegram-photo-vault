@@ -9,6 +9,7 @@ while a copy has photos in it, the newest copy is put back automatically.
     python snapshots.py restore    # put the newest copy back (only if the index is empty)
 """
 import json
+import subprocess
 import os
 import sqlite3
 import sys
@@ -116,6 +117,11 @@ def restore_user_data(con, log=print):
     return n
 
 
+def _lock(f, on=True):
+    """Mark a copy as locked in Finder (chflags uchg), so dragging it to the Trash asks first. Best effort."""
+    subprocess.run(["chflags", "uchg" if on else "nouchg", str(f)], capture_output=True)
+
+
 def save(force=False, log=print):
     """Copy the index into each place (at most one per day each). Never saves an empty index."""
     if not config.DB_PATH.exists() or photos_in(config.DB_PATH) == 0:
@@ -130,7 +136,9 @@ def save(force=False, log=print):
             tmp = p / (name + ".part")
             tmp.unlink(missing_ok=True)
             _copy(config.DB_PATH, tmp)
+            _lock(p / name, False)
             os.replace(tmp, p / name)
+            _lock(p / name)
             con = sqlite3.connect(config.DB_PATH)
             try:
                 (p / f"user-data-{name[6:14]}.json").write_text(json.dumps(export_user_data(con)))
@@ -140,6 +148,7 @@ def save(force=False, log=print):
                 con.close()
             for pat in ("index-*.db", "user-data-*.json"):
                 for old in sorted(p.glob(pat))[:-KEEP]:
+                    _lock(old, False)
                     old.unlink()
             n += 1
         except (OSError, sqlite3.Error) as e:
