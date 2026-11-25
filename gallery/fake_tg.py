@@ -7,6 +7,7 @@ tested without a real account.
 import json
 import os
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,8 +21,9 @@ class FakeTelegram:
 
     def _msg(self, m):
         path = self.folder / m["file"]
-        doc = SimpleNamespace(path=path, size=path.stat().st_size)
+        doc = SimpleNamespace(path=path, size=path.stat().st_size, attributes=[])
         return SimpleNamespace(id=m["id"], message=m["caption"], document=doc,
+                               date=datetime.fromtimestamp(path.stat().st_mtime, timezone.utc),
                                file=SimpleNamespace(name=os.path.basename(m["caption"]), size=doc.size))
 
     async def connect(self):
@@ -53,12 +55,18 @@ class FakeTelegram:
         for m in msgs:
             yield m
 
-    async def iter_download(self, document, offset=0, request_size=512 * 1024, **_):
+    async def iter_download(self, document, offset=0, request_size=512 * 1024, limit=None, **_):
         with open(document.path, "rb") as f:
             f.seek(offset)
+            n = 0
             while chunk := f.read(request_size):
                 yield chunk
+                n += 1
+                if limit and n >= limit:
+                    return
 
-    async def download_media(self, msg, file):
+    async def download_media(self, msg, file, thumb=None):
+        if thumb is not None:                      # Telegram's own small preview: the stand-in has none
+            return None
         shutil.copyfile(msg.document.path, file)
         return file

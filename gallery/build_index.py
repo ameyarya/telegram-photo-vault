@@ -211,7 +211,7 @@ def redate(con):
     """DATE_FROM=modified for photos indexed earlier: their date becomes the file's date modified (never one you set); the camera's date is kept for pairing Live Photos."""
     con.execute("UPDATE media SET camera_at = taken_at WHERE camera_at IS NULL AND date_src != 'user'")
     rows = [(datetime.fromtimestamp(r["mtime"]).strftime("%Y-%m-%dT%H:%M:%S"), r["id"])
-            for r in con.execute("SELECT id, mtime FROM media WHERE date_src != 'user'")]
+            for r in con.execute("SELECT id, mtime FROM media WHERE date_src != 'user' AND mtime > 0")]
     con.executemany("UPDATE media SET taken_at = ? WHERE id = ?", rows)
     con.commit()
     return len(rows)
@@ -281,7 +281,7 @@ def main():
 
     if "--no-thumbs" in sys.argv:
         return
-    rows = [dict(r) for r in con.execute("SELECT id, path, kind FROM media WHERE thumb = 0")]
+    rows = [dict(r) for r in con.execute("SELECT id, path, kind FROM media WHERE thumb = 0 AND mtime > 0")]
     print(f"{len(rows)} thumbnails to make", flush=True)
     done, pending = 0, []
     with ThreadPoolExecutor(max_workers=6) as pool:

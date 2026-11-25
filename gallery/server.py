@@ -11,6 +11,7 @@ import sqlite3
 import os
 import re
 import subprocess
+import tempfile
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -20,6 +21,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from telethon.errors import FileReferenceExpiredError
 
+import cloud_seed
+import config
 import tg
 from build_index import make_thumb, thumb_path
 from config import BASE, BROWSER_IMAGE_EXT, CACHE, CACHE_MAX_BYTES, BACKUP, DRIVE, HOSTNAME, OLD_HOSTNAMES, TELEGRAM, load_env, local_path
@@ -44,10 +47,21 @@ async def sync_loop():
         await asyncio.sleep(300)
 
 
+async def seed_loop():
+    """Telegram-only folders (CLOUD_ONLY) that the drive can't show: bring them into the gallery, gently, in the background."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            await cloud_seed.run(state["client"], state["cfg"])
+        except Exception as e:
+            cloud_seed.log(f"stopped: {e.__class__.__name__}: {e}")
+        await asyncio.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(app):
     client, cfg = tg.client_from_env() if TELEGRAM else (None, state["cfg"])
-    task = None
+    task = seed = None
     try:  # trash changes made while the drive was unplugged happen now
         await asyncio.to_thread(trash.sync_drive)
     except Exception:
@@ -57,6 +71,7 @@ async def lifespan(app):
         if await client.is_user_authorized():
             state["client"] = client
             task = asyncio.create_task(sync_loop())
+            seed = asyncio.create_task(seed_loop()) if config.CLOUD_ONLY else None
         else:
             state["tg_error"] = "Telegram session not logged in. Run: ../.venv/bin/python tg.py login"
     elif TELEGRAM:
@@ -66,6 +81,8 @@ async def lifespan(app):
     yield
     if task:
         task.cancel()
+        if seed:
+            seed.cancel()
     if client:
         await client.disconnect()
 
@@ -233,18 +250,55 @@ def mark_thumb(media_id, status):
         pass
 
 
+async def telegram_thumb(row):
+    """A thumbnail for a file that exists only in Telegram: read the file (a photo whole; a video's first 24 MB) and
+    make it as for any other. Returns the status to store (1 made, -1 can't be)."""
+    limit = 24 * 1024 * 1024
+    msg = await tg_message(row)
+    ext = row["path"].rsplit(".", 1)[-1].lower()
+    with tempfile.TemporaryDirectory() as d:
+        src = os.path.join(d, "src." + ext)
+        got = 0
+        with open(src, "wb") as f:
+            async for chunk in state["client"].iter_download(msg.document, request_size=REQ):
+                f.write(chunk)
+                got += len(chunk)
+                if got >= limit:
+                    break
+        out = thumb_path(row["id"])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if row["kind"] == "image":
+            cmd = ["sips", "-s", "format", "jpeg", "-s", "formatOptions", "70", "-Z", "400", src, "--out", str(out)]
+        else:
+            cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-ss", "1", "-i", src, "-frames:v", "1",
+                   "-vf", "scale=400:400:force_original_aspect_ratio=decrease", "-q:v", "5", str(out)]
+        ok = (await asyncio.to_thread(subprocess.run, cmd, capture_output=True)).returncode == 0 and out.exists()
+        if not ok and row["kind"] == "video":
+            cmd[cmd.index("-ss") + 1] = "0"
+            ok = (await asyncio.to_thread(subprocess.run, cmd, capture_output=True)).returncode == 0 and out.exists()
+    return 1 if ok else -1
+
+
 @app.get("/thumb/{media_id}")
 async def thumb(media_id: int, v: str = ""):
     """Serve the thumbnail, making it on the spot (from the drive) if the indexer hasn't yet."""
     p = thumb_path(media_id)
     if not p.exists():
         row = await asyncio.to_thread(get_row, media_id)
-        if row["thumb"] == -1 or local_file(row) is None:
+        if row["thumb"] == -1:
             raise HTTPException(404, "no thumbnail")
-        async with thumb_slots:
-            if not p.exists():
-                _, status = await asyncio.to_thread(make_thumb, {"id": media_id, "path": row["path"], "kind": row["kind"]})
-                await asyncio.to_thread(mark_thumb, media_id, status)
+        if local_file(row) is None:                      # only in Telegram: make it from there, once, when first looked at
+            if row["msg_id"] is None or state["client"] is None:
+                raise HTTPException(404, "no thumbnail")
+            async with thumb_slots:
+                if not p.exists():
+                    status = await telegram_thumb(row)
+                    await asyncio.to_thread(mark_thumb, media_id, status)
+        else:
+            async with thumb_slots:
+                if not p.exists():
+                    _, status = await asyncio.to_thread(make_thumb, {"id": media_id, "path": row["path"], "kind": row["kind"]})
+                    await asyncio.to_thread(mark_thumb, media_id, status)
         if not p.exists():
             raise HTTPException(404, "no thumbnail")
     # thumbnails are named by photo id, so only a URL that names its index (?v=) may be kept for good

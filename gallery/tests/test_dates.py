@@ -97,3 +97,52 @@ def test_thumbnails_are_cached_for_good_only_with_their_index_id(mlworld):
     assert plain.headers["cache-control"] == "no-cache"
     tied = httpx.get(base + f"/thumb/1?v={v}", verify=False)
     assert "immutable" in tied.headers["cache-control"]
+
+
+def test_telegram_only_photos_come_back_after_a_rebuild(tmp_path):
+    """CLOUD_ONLY folders live only in Telegram; a rebuilt index must bring them back from there."""
+    store = tmp_path / "tg"
+    photo(store / "f1.jpg", 64, 48, date="2019:08:09 10:11:12")
+    photo(store / "f2.jpg", 64, 48)
+    (store / "messages.json").write_text('[{"id": 5, "caption": "Cloud/a.jpg", "file": "f1.jpg"},'
+                                         ' {"id": 6, "caption": "Cloud/b.jpg", "file": "f2.jpg"},'
+                                         ' {"id": 7, "caption": "Other/c.jpg", "file": "f1.jpg"}]')
+    (tmp_path / "drive").mkdir()
+    (tmp_path / "data").mkdir()
+    env = {**os.environ, "GALLERY_DRIVE": str(tmp_path / "drive"), "GALLERY_DATA": str(tmp_path / "data"),
+           "STATE_DIR": str(tmp_path / "state"), "GALLERY_FAKE_TG": str(store), "CLOUD_ONLY_FOLDERS": "Cloud",
+           "CLOUD_SEED_PACE": "0", "FOLDERS": "", "DATE_FROM": "modified"}
+    (tmp_path / "state").mkdir()
+    con = sqlite3.connect(tmp_path / "data/index.db")
+    con.executescript("CREATE TABLE tg_msgs (path TEXT PRIMARY KEY, msg_id INTEGER NOT NULL);")
+    con.executemany("INSERT INTO tg_msgs VALUES (?, ?)", [("Cloud/a.jpg", 5), ("Cloud/b.jpg", 6), ("Other/c.jpg", 7)])
+    con.commit()
+    con.close()
+    code = "import asyncio, cloud_seed, tg\nc, cfg = tg.client_from_env()\nprint(asyncio.run(cloud_seed.run(c, cfg)))"
+    for _ in range(2):                                                          # the second run has nothing left to do
+        r = subprocess.run([PY, "-c", code], cwd=ROOT, env=env, capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == "0"
+    rows = sqlite3.connect(tmp_path / "data/index.db").execute(
+        "SELECT path, taken_at, date_src, msg_id, thumb FROM media ORDER BY path").fetchall()
+    assert [x[0] for x in rows] == ["Cloud/a.jpg", "Cloud/b.jpg"]               # only the CLOUD_ONLY folder
+    assert rows[0][1:] == ("2019-08-09T10:11:12", "exif", 5, 1)                 # the camera's date, with a thumbnail
+    assert rows[1][2:4] == ("file", 6)                                          # no camera date: the upload day
+    subprocess.run([PY, "build_index.py", "--no-thumbs", "--redate"], cwd=ROOT, env=env, check=True, capture_output=True)
+    after = sqlite3.connect(tmp_path / "data/index.db").execute("SELECT taken_at FROM media WHERE path='Cloud/a.jpg'").fetchone()
+    assert after[0] == "2019-08-09T10:11:12"                                    # a rebuild keeps their dates
+
+
+def test_a_telegram_only_photo_gets_its_thumbnail_when_first_looked_at(cloud):
+    """Seeded Telegram-only photos have no file anywhere on the Mac: the gallery reads it from Telegram on demand."""
+    import httpx
+    msg = next(m for m in cloud["messages"] if m["caption"].lower().endswith(".jpg"))
+    db = sqlite3.connect(cloud["env"]["GALLERY_DATA"] + "/index.db")
+    db.execute("""INSERT INTO media(path, album, name, kind, ext, taken_at, date_src, size, mtime, thumb, msg_id)
+                  VALUES ('CloudOnly/x.jpg', 'CloudOnly', 'x.jpg', 'image', 'jpg', '2015-05-05T05:05:05', 'exif', 1, 0, 0, ?)""",
+               (msg["id"],))
+    db.commit()
+    mid = db.execute("SELECT id FROM media WHERE path = 'CloudOnly/x.jpg'").fetchone()[0]
+    r = httpx.get(cloud["url"] + f"/thumb/{mid}", timeout=30)
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg" and r.content[:2] == b"\xff\xd8"
+    assert db.execute("SELECT thumb FROM media WHERE id = ?", (mid,)).fetchone()[0] == 1
