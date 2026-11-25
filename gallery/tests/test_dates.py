@@ -65,8 +65,11 @@ def test_favorites_and_albums_are_put_back_after_a_rebuild(tmp_path):
         CREATE TABLE date_fixes (media_id INTEGER PRIMARY KEY, orig_taken_at TEXT, orig_src TEXT, fixed_at TEXT);
         CREATE TABLE folder_names (path TEXT PRIMARY KEY, name TEXT);
         CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, role TEXT, pw TEXT);
         INSERT INTO media VALUES (1,'x/a.jpg','2020-01-01T00:00:00','exif'), (2,'x/b.jpg','2021-01-01T00:00:00','exif');
         INSERT INTO favorites(media_id) VALUES (2);
+        INSERT INTO users(name, role, pw) VALUES ('mum', 'member', 'scrypt$aa$bb');
+        INSERT INTO settings VALUES ('share_lan', '1');
         INSERT INTO user_albums(id, name, cover_id) VALUES (1, 'Trip', 2);
         INSERT INTO user_album_items(album_id, media_id) VALUES (1, 1), (1, 2);""")
     data = snapshots.export_user_data(con)
@@ -79,8 +82,11 @@ def test_favorites_and_albums_are_put_back_after_a_rebuild(tmp_path):
         CREATE TABLE date_fixes (media_id INTEGER PRIMARY KEY, orig_taken_at TEXT, orig_src TEXT, fixed_at TEXT);
         CREATE TABLE folder_names (path TEXT PRIMARY KEY, name TEXT);
         CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, role TEXT, pw TEXT);
         INSERT INTO media VALUES (7,'x/b.jpg','2021-01-01T00:00:00','exif'), (9,'x/a.jpg','2020-01-01T00:00:00','exif');""")
-    assert snapshots.import_user_data(new, data) == 3
+    assert snapshots.import_user_data(new, data) == 4
+    assert new.execute("SELECT name, pw FROM users").fetchall() == [('mum', 'scrypt$aa$bb')]   # accounts and sharing come back
+    assert new.execute("SELECT value FROM settings WHERE key='share_lan'").fetchone()[0] == '1'
     assert [r[0] for r in new.execute("SELECT media_id FROM favorites")] == [7]
     assert new.execute("SELECT cover_id FROM user_albums WHERE name='Trip'").fetchone()[0] == 7
     assert new.execute("SELECT count(*) FROM user_album_items").fetchone()[0] == 2

@@ -67,6 +67,7 @@ def export_user_data(con):
                            JOIN media m ON m.id = f.media_id"""),
         "folder_names": q("SELECT path, name FROM folder_names"),
         "settings": q("SELECT key, value FROM settings"),
+        "users": q("SELECT name, role, pw FROM users"),          # sharing accounts (password hashes, never the passwords)
     }
 
 
@@ -93,6 +94,9 @@ def import_user_data(con, data):
             n += con.execute("UPDATE media SET taken_at = ?, date_src = 'user' WHERE id = ?", (taken, ids[p])).rowcount
     for p, name in data.get("folder_names", []):
         n += con.execute("INSERT OR IGNORE INTO folder_names(path, name) VALUES (?,?)", (p, name)).rowcount
+    if not con.execute("SELECT 1 FROM users").fetchone():
+        for name, role, pw in data.get("users", []):
+            n += con.execute("INSERT INTO users(name, role, pw) VALUES (?,?,?)", (name, role, pw)).rowcount
     for k, v in data.get("settings", []):
         con.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?,?)", (k, v))
     con.commit()
@@ -101,7 +105,7 @@ def import_user_data(con, data):
 
 def restore_user_data(con, log=print):
     """After a rebuild: if nothing of yours is in the index but a saved copy has some, put it back."""
-    if any(con.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone() for t in ("favorites", "user_albums", "trash", "folder_names")):
+    if any(con.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone() for t in ("favorites", "user_albums", "trash", "folder_names", "users")):
         return 0
     best = max((f for p in places() for f in p.glob("user-data-*.json")), key=lambda f: f.name, default=None)
     if best is None:
